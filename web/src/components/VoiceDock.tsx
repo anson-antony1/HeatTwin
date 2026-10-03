@@ -475,7 +475,7 @@ function Result({
         <span className="review__label">{sim.labels[0]}</span>
       </div>
 
-      <div className={`result__big ${over ? 'is-over' : 'is-clear'}`}>
+      <div className={`result__big ${over ? 'is-over' : 'is-none-over'}`}>
         <span className="display-lg">
           <NumberTicker value={over} />
         </span>
@@ -520,7 +520,7 @@ function Result({
             <span className="result__name">{name(a.id)}</span>
             <span className="num result__peak">{fmtCore(a.peak_core_c_p95, limit)}°</span>
             <span className="faint num result__cross">
-              {a.first_cross_min != null ? `crosses at ${Math.round(a.first_cross_min)}′` : 'stays under'}
+              {a.first_cross_min != null ? `crosses at ${Math.round(a.first_cross_min)}′` : 'below the line (estimate)'}
             </span>
           </motion.li>
         ))}

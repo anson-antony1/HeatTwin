@@ -424,8 +424,9 @@
   color: var(--alert);
 }
 
-.result__big.is-clear .display-lg {
-  color: var(--steady);
+/* Neutral, not a reassuring green: "0 over" is an estimate against a planning line, not a clearance. */
+.result__big.is-none-over .display-lg {
+  color: var(--ink);
 }
 
 .result__big-text {
