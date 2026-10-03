@@ -23,7 +23,8 @@ from typing import Any, Literal, Optional
 from pydantic import BaseModel, Field, ValidationError
 
 API = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-DEFAULT_MODEL = "gemini-3.8-flash"
+DEFAULT_MODEL = "gemini-3.1-flash-lite"   # cheapest that matched gemini-3.8-flash exactly on our text + voice tests (2026-10-03)
+MAX_OUTPUT_TOKENS = 2048                 # caps cost per call; a 10-drill plan needs ~600-1100
 TIMEOUT_S = 45.0
 MAX_AUDIO_BYTES = 15 * 1024 * 1024        # Gemini inline-data limit is ~20 MB per request (base64 grows ~4/3)
 AUDIO_MIME = {"audio/wav", "audio/x-wav", "audio/mp3", "audio/mpeg", "audio/aiff", "audio/aac", "audio/ogg", "audio/flac"}
@@ -130,7 +131,9 @@ For each drill, in the order the coach said them:
 - priority: 1 if the coach says it must happen or can't be cut, 3 if they say it's optional or can be cut, else 2.
 - movable: false if the coach ties it to a time or order ("first", "always end with"), else true. A warmup at the start
   is movable=false.
-Put in "assumptions" every value you set that the coach did not state explicitly (one short sentence each).
+Put in "assumptions" only what a coach would want to double-check (one short sentence each, at most 4): gear carried
+over or inferred, how you read the start time, durations you inferred. Do not list intensity, priority or movable values
+that follow from the rules above.
 "transcript": verbatim words of the coach. "start_time_local": start time if stated, 24 h HH:MM, else null."""
 
 
@@ -163,7 +166,7 @@ def _call_gemini(parts: list[dict[str, Any]]) -> str:
         "systemInstruction": {"parts": [{"text": INSTRUCTIONS}]},
         "contents": [{"role": "user", "parts": parts}],
         "generationConfig": {"responseMimeType": "application/json", "responseSchema": RESPONSE_SCHEMA,
-                             "temperature": 0.1},
+                             "temperature": 0.1, "maxOutputTokens": MAX_OUTPUT_TOKENS},
     }
     try:
         r = requests.post(API.format(model=model_name()), json=body, timeout=TIMEOUT_S,
