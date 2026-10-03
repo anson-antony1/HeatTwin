@@ -690,7 +690,8 @@ def diff(P: Problem, st: State, with_times: bool = False) -> list[dict[str, str]
     for s in st:
         if s.src is None:
             prev = st[st.index(s) - 1].name if st.index(s) > 0 else "start"
-            d = f"Added a {s.duration}-min shaded water break after '{prev}'"
+            art = "an" if str(s.duration).startswith("8") or s.duration in (11, 18) else "a"
+            d = f"Added {art} {s.duration}-min shaded water break after '{prev}'"
             if with_times:
                 d += f" at {hhmm(starts[s.id])}"
             ch.append({"kind": "insert_break", "move": "insert_break", "drill_id": s.id, "detail": d})
@@ -832,11 +833,16 @@ def simplify(P: Problem, best: Eval, deadline: float) -> Eval:
 def optimize(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weather: Sequence[Mapping[str, Any]],
              budget_s: float | None = None, seed: int = 0, n_ensemble: int = 30, step_min: float = 1.0,
              max_iterations: int | None = None, extra_labels: Sequence[str] = (), settings=None,
-             demo: bool = False, preset: str = "max_load") -> dict[str, Any]:
+             demo: bool = False, preset: str = "max_load", _cap: int | None = None) -> dict[str, Any]:
     """CONTRACTS.md ``OptimizeResult`` (dict), plus additive fields ``infeasible_reasons``, ``labels``, ``settings``.
 
     ``demo=True``: fixed seed, ensemble size and SA iteration cap from constants.demo_mode; the time budget becomes a
     safety stop, so the same inputs always give the same plan.
+
+    ``preset="fewest_changes"`` (minimum compliant edit, CONTRACTS v1.4): search with the preset's change cap; if no
+    plan within it meets every rule with everyone under the line, raise the cap one step at a time (up to the max_load
+    plan's change count) and return the first plan that does, with ``fewest_changes.min_compliant_changes`` = that cap.
+    Only if none qualifies is the max_load plan returned (``fell_back``). ``_cap`` = one capped search, no stepping.
     """
     beam_cfg: dict[str, Any] = {}
     demo_cfg: dict[str, Any] = {}
@@ -851,8 +857,8 @@ def optimize(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weath
     presets = consts.get("optimizer_presets")
     if preset not in presets or preset in ("status", "note"):
         raise ValueError(f"unknown preset {preset!r}")
-    max_changes = presets[preset]["max_changes"]
-    if max_changes is not None:
+    max_changes = presets[preset]["max_changes"] if _cap is None else _cap
+    if max_changes is not None and _cap is None:
         extra_labels = [*extra_labels, f"preset fewest_changes: at most {max_changes} changes"]
     t_start = time.perf_counter()
     budget = float(budget_s if budget_s is not None else _opt("default_budget_s"))
@@ -883,12 +889,27 @@ def optimize(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weath
         stopped = "time_budget"
 
     fallback_note = None
-    if max_changes is not None and not best.feasible:
-        alt = optimize(plan, roster, weather, budget_s=budget_s, seed=seed, n_ensemble=n_ensemble, step_min=step_min,
-                       max_iterations=max_iterations, extra_labels=extra_labels, settings=settings, demo=demo,
-                       preset="max_load")
-        if alt["feasible"]:
-            alt["labels"].append(f"fewest_changes: no plan within {max_changes} changes met every constraint — "
+    if max_changes is not None and _cap is None and not best.feasible:
+        kw = dict(budget_s=budget_s, seed=seed, n_ensemble=n_ensemble, step_min=step_min, max_iterations=max_iterations,
+                  extra_labels=extra_labels, settings=settings, demo=demo)
+        alt = optimize(plan, roster, weather, preset="max_load", **kw)
+        searched = [max_changes]
+        if alt["feasible"]:  # minimum compliant edit: raise the cap step by step up to the max_load plan's count
+            for cap in range(max_changes + 1, len(alt["changes"]) + 1):
+                searched.append(cap)
+                r = optimize(plan, roster, weather, preset=preset, _cap=cap, **kw)
+                if r["feasible"]:
+                    r["fewest_changes"] = {"cap": max_changes, "min_compliant_changes": cap, "searched_caps": searched,
+                                           "fell_back": False}
+                    r["labels"].append(f"fewest_changes: needs at least {cap} changes — no plan within {cap - 1} "
+                                       "changes met every rule with every athlete under the line (caps "
+                                       f"{max_changes}–{cap} searched one at a time)")
+                    r["search"]["preset"] = "fewest_changes"
+                    r["search"]["max_changes"] = cap
+                    return r
+            alt["fewest_changes"] = {"cap": max_changes, "min_compliant_changes": None, "searched_caps": searched,
+                                     "fell_back": True}
+            alt["labels"].append(f"fewest_changes: no capped plan up to {len(alt['changes'])} changes qualified — "
                                  f"showing the max_load plan ({len(alt['changes'])} changes)")
             alt["search"]["preset"] = "fewest_changes→max_load"
             alt["search"]["max_changes"] = max_changes
@@ -905,7 +926,7 @@ def optimize(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weath
                                         extra_labels=labels, settings=P.S)
     load0 = original["training_load_met_min"]
     reasons = _infeasible_reasons(P, best)
-    return {
+    out = {
         "original": original,
         "optimized": optimized,
         "plan": new_plan,
@@ -937,6 +958,10 @@ def optimize(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weath
                   + ([] if best.feasible else ["no plan met every constraint — least-bad plan shown"])
                   + ([fallback_note] if fallback_note else []),
     }
+    if max_changes is not None and _cap is None and best.feasible:  # compliant within the requested cap
+        out["fewest_changes"] = {"cap": max_changes, "min_compliant_changes": len(changes_out),
+                                 "searched_caps": [max_changes], "fell_back": False}
+    return out
 
 
 # ─────────────────────────────────────────────────────────────────────────────

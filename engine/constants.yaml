@@ -723,6 +723,8 @@ voice:
   status: DESIGN
   note: "Voice Q&A (engine/voice.py): Gemini returns only {transcript, intent, slots}; this caps tokens per routing call. Not physiology."
   max_output_tokens: 512
+  connect_timeout_s: 3      # Gemini / ElevenLabs connect timeout: a dead network fails fast and the app falls back
+  read_timeout_s: 15        # routing a question or speaking one sentence; longer means fall back (local router / browser voice)
 
 demo_node:
   status: DESIGN

@@ -23,6 +23,9 @@ from engine import consts, guard, llm_plan, voice_tools
 INTENTS = ("plan_summary", "optimize", "what_if", "athlete_status", "field_conditions", "unknown")
 CHANGES = ("gear", "duration", "shade", "intensity", "remove", "add_break", "move")
 LABEL = "intent parsed by AI — numbers come from the engine"
+CLEARANCE = re.compile(r"\b(safe|fine|ok|okay|cleared?|good to go|all right|alright)\b", re.I)
+BOUNDARY = ("HeatTwin can't clear an athlete to keep practicing — that call belongs to your athletic trainer. "
+            "The estimate:")
 UNKNOWN_SAY = ("I can answer about the whole plan, one athlete, the field conditions, or a what-if change to one drill. "
                "Estimate, planning only.")
 
@@ -70,6 +73,11 @@ class Parsed(BaseModel):
     preset: Optional[Literal["max_load", "fewest_changes"]] = None
 
 
+def _timeout() -> tuple[float, float]:
+    """(connect, read) seconds: a dead network fails fast, so the app falls back instead of hanging."""
+    return float(consts.get("voice.connect_timeout_s")), float(consts.get("voice.read_timeout_s"))
+
+
 def _context(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]]) -> str:
     drills = "; ".join(f"{d['id']} = {d.get('name', '')}" for d in plan["drills"])
     names = "; ".join(f"{a['id']} = {voice_tools._plain(a.get('name'))}" for a in roster)
@@ -86,7 +94,7 @@ def _call(parts: list[dict[str, Any]]) -> Parsed:
     last: Exception | None = None
     for _ in range(2):  # one retry on malformed output
         try:
-            r = requests.post(llm_plan.API.format(model=llm_plan.model_name()), json=body, timeout=llm_plan.TIMEOUT_S,
+            r = requests.post(llm_plan.API.format(model=llm_plan.model_name()), json=body, timeout=_timeout(),
                               headers={"x-goog-api-key": llm_plan._key(), "Content-Type": "application/json"})
         except requests.RequestException as e:
             raise llm_plan.LLMError(f"Gemini unreachable: {type(e).__name__}") from e
@@ -184,12 +192,18 @@ def change_from_slots(slots: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def ask_back(missing: Sequence[str]) -> str:
-    plain = {"drill_id": "drill", "athlete_id": "athlete", "duration_min": "minutes", "move_to": "new position"}
-    what = ", ".join(plain.get(m.split(":")[0], m.split(":")[0]) for m in missing)
-    return f"I need the {what} to answer that — which one do you mean? Estimate, planning only."
+    plain = {"drill_id": "which drill", "athlete_id": "which athlete", "change": "what change",
+             "duration_min": "how many minutes", "move_to": "which position", "gear": "which gear",
+             "intensity": "which intensity"}
+    parts = [plain.get(m.split(":")[0], m.split(":")[0]) for m in missing]
+    what = parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " and " + parts[-1]
+    return f"Tell me {what}, and I'll answer. Estimate, planning only."
 
 
-def finish(intent: str, say: str, data: Mapping[str, Any], labels: Sequence[str]) -> dict[str, Any]:
+def finish(intent: str, say: str, data: Mapping[str, Any], labels: Sequence[str],
+           question: Optional[str] = None) -> dict[str, Any]:
+    if question and CLEARANCE.search(question):  # asked whether someone is safe/OK: state the boundary first
+        say = f"{BOUNDARY} {say}"
     g = guard.check(say, source=f"voice.answer.{intent}")
     say = g["redacted_text"]
     return {"intent": intent, "say": say, "numbers": numbers_in(say), "data": dict(data),
@@ -215,7 +229,7 @@ def tts(text: str) -> bytes:
         body["model_id"] = os.environ["ELEVENLABS_MODEL"]
     try:
         r = requests.post(f"https://api.elevenlabs.io/v1/text-to-speech/{voice}", json=body,
-                          headers={"xi-api-key": key, "accept": "audio/mpeg"}, timeout=llm_plan.TIMEOUT_S)
+                          headers={"xi-api-key": key, "accept": "audio/mpeg"}, timeout=_timeout())
     except requests.RequestException as e:
         raise TTSUnavailable(f"ElevenLabs unreachable: {type(e).__name__}") from e
     if r.status_code != 200:

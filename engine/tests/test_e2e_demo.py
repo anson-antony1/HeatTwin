@@ -92,8 +92,9 @@ def test_q6_q7_optimize_matches_demo(q, preset):
     o = DEMO["optimize"][preset]
     assert f"keeps {o['load_kept_pct']}% of the training load with {o['changes']} changes" in a["say"]
     assert o["top_changes_text"] in a["say"]
-    for n in o["notes"]:
-        assert n in a["say"]
+    for n in o["notes"]:  # engine labels become sentences in `say` ("fewest_changes: x" → "X.")
+        x = n.removeprefix("fewest_changes: ").rstrip(".")
+        assert (x[0].upper() + x[1:]) in a["say"]
 
 
 def test_q8_safe_question_gets_numbers_not_reassurance():
@@ -121,7 +122,7 @@ def test_action4_what_if_add_break_uses_fhsaa_break_length():
     w = c.post("/what_if?demo=1", json={"change": {"add_break_after": "d3"}, "plan": PLAN}).json()
     brk = min(z["break_min"] for z in consts.get("fhsaa_wbgt_zones.zones") if z.get("break_min"))
     assert w["after"]["practice_min"] == w["before"]["practice_min"] + brk
-    assert "synthetic plan (fixture)" not in w["labels"]  # the plan was sent, so it is not labelled as the fixture
+    assert "synthetic plan (fixture)" in w["labels"]  # the fixture plan sent back is still labelled synthetic
     assert "synthetic roster" in w["labels"]
 
 

@@ -85,9 +85,13 @@ def resolve_drill(query: str, plan: Mapping[str, Any]) -> Optional[str]:
 def plan_summary(res: Mapping[str, Any]) -> dict[str, Any]:
     """Whole-plan summary + an engine-written sentence (voice intent ``plan_summary``)."""
     s = _summary(res)
-    first = sorted((a for a in res["athletes"] if a["first_cross_min"] is not None), key=lambda a: a["first_cross_min"])
-    lead = (f" First estimated over: {_plain(first[0].get('name'))} from minute {first[0]['first_cross_min']:g}."
-            if first else "")
+    crosses = [a for a in res["athletes"] if a["first_cross_min"] is not None]
+    lead = ""
+    if crosses:
+        m = min(a["first_cross_min"] for a in crosses)
+        names = [_plain(a.get("name")) for a in crosses if a["first_cross_min"] == m]   # every athlete tied first
+        who = names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
+        lead = f" First estimated over: {who} from minute {m:g}."
     say = (f"{s['over_limit']} of {s['athletes']} athletes are estimated over the {s['limit_c']} °C planning line "
            f"at the 95th percentile; the highest estimate is {s['max_p95_c']} °C.{lead} "
            f"{s['fhsaa_violations']} FHSAA issues in the plan. Estimate, planning only.")
@@ -97,7 +101,9 @@ def plan_summary(res: Mapping[str, Any]) -> dict[str, Any]:
 def optimize_summary(opt: Mapping[str, Any]) -> dict[str, Any]:
     """Optimizer result + an engine-written sentence (voice intent ``optimize``)."""
     after = _summary(opt["optimized"])
-    notes = [x for x in opt.get("labels", []) if x.startswith("fewest_changes:")]
+    notes = [x.removeprefix("fewest_changes: ").rstrip(".") + "." for x in opt.get("labels", [])
+             if x.startswith("fewest_changes:")]
+    notes = [n[0].upper() + n[1:] for n in notes]
     say = " ".join([*notes, opt.get("top_changes_text", ""),
                     f"The rewritten plan keeps {opt['load_kept_pct']}% of the training load with {len(opt['changes'])} "
                     f"changes; {after['over_limit']} of {after['athletes']} athletes are estimated over the "
@@ -112,7 +118,9 @@ def apply_change(plan: Mapping[str, Any], change: Mapping[str, Any]) -> dict[str
     p = copy.deepcopy(dict(plan))
     drills = p["drills"]
     if "add_break_after" in change:
-        i = next(k for k, d in enumerate(drills) if d["id"] == change["add_break_after"])
+        i = next((k for k, d in enumerate(drills) if d["id"] == change["add_break_after"]), None)
+        if i is None:
+            raise KeyError(f"no drill {change.get('add_break_after')!r} in the plan")
         minutes = change.get("minutes")
         drills.insert(i + 1, {"id": "wb_whatif", "name": "Water break (shade, what-if)",
                               "duration_min": int(minutes if minutes is not None else fhsaa_break_min()),
@@ -164,9 +172,15 @@ def athlete_status(res: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], 
            "peak_p50_c": round(max(a["core_c_p50"]), 2), "peak_p95_c": round(a["peak_core_c_p95"], 2),
            "status": a["status"], "first_cross_min": a["first_cross_min"], "limit_c": res["limit_core_c"],
            "labels": _labels(res)}
-    when = f"from minute {a['first_cross_min']:g}" if a["first_cross_min"] is not None else "at no point"
-    say = (f"{_plain(a.get('name'))}: estimated peak {out['peak_p50_c']} °C typical and {out['peak_p95_c']} °C at the 95th "
-           f"percentile; above the {res['limit_core_c']} °C planning line {when}. Estimate, planning only.")
+    head = (f"{_plain(a.get('name'))}: estimated peak {out['peak_p50_c']} °C typical and {out['peak_p95_c']} °C at the "
+            f"95th percentile; ")
+    if a["first_cross_min"] is not None:
+        say = head + (f"above the {res['limit_core_c']} °C planning line from minute {a['first_cross_min']:g}. "
+                      "Estimate, planning only.")
+    else:  # no reassurance: a forecast below the line is not a clearance
+        say = head + (f"the 95th-percentile estimate stays below the {res['limit_core_c']} °C planning line for the whole "
+                      "plan. That is an estimate, not a clearance — review with your athletic trainer. "
+                      "Estimate, planning only.")
     out["say"] = guard.check(say, source="voice.athlete_status")["redacted_text"]
     return out
 

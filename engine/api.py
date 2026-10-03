@@ -133,6 +133,10 @@ def _inputs(req: SimulateRequest, demo_mode: bool = False, node_scenario: bool =
     labels: list[str] = []
     if req.plan is not None:
         plan = _dump(req.plan)
+        fx = fixtures.plan()
+        if plan.get("id") == fx["id"] and fixtures.plan_is_synthetic():   # the web sends the fixture plan back
+            same = [(d["id"], d["duration_min"]) for d in plan["drills"]] == [(d["id"], d["duration_min"]) for d in fx["drills"]]
+            labels.append("synthetic plan (fixture)" if same else "edited from the synthetic fixture plan")
     else:
         plan = fixtures.plan()
         labels.append("synthetic plan (fixture)")
@@ -350,6 +354,7 @@ class VoiceIntentRequest(SimulateRequest):
 
 
 class VoiceAnswerRequest(SimulateRequest):
+    question: Optional[str] = Field(default=None, max_length=2000, description="v1.4: the coach's words")
     intent: Literal["plan_summary", "optimize", "what_if", "athlete_status", "field_conditions", "unknown"]
     slots: dict[str, Any] = Field(default_factory=dict)
 
@@ -457,7 +462,7 @@ def voice_answer(req: VoiceAnswerRequest, demo_mode: bool = Query(False, alias="
                                                     preset=preset))
     elif req.intent == "athlete_status":
         if not s.get("athlete_id"):
-            return voice.finish("athlete_status", voice.ask_back(["athlete"]), {}, [twonode.ESTIMATE_LABEL])
+            return voice.finish("athlete_status", voice.ask_back(["athlete_id"]), {}, [twonode.ESTIMATE_LABEL])
         out = _athlete_status(base, s["athlete_id"], demo_mode)
     elif req.intent == "field_conditions":
         out = _field_conditions(base, demo_mode)
@@ -474,7 +479,7 @@ def voice_answer(req: VoiceAnswerRequest, demo_mode: bool = Query(False, alias="
     else:
         return voice.finish("unknown", voice.UNKNOWN_SAY, {}, [twonode.ESTIMATE_LABEL])
     data = {k: v for k, v in out.items() if k not in ("say", "labels")}
-    return voice.finish(req.intent, out["say"], data, out.get("labels", [twonode.ESTIMATE_LABEL]))
+    return voice.finish(req.intent, out["say"], data, out.get("labels", [twonode.ESTIMATE_LABEL]), req.question)
 
 
 @app.post("/voice/tts")

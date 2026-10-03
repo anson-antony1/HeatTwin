@@ -833,7 +833,7 @@
   },
   "demo": {
     "computed_by": "validation/demo_numbers.py via the engine API with ?demo=1",
-    "computed_at": "2026-10-03T22:46:58+00:00",
+    "computed_at": "2026-10-03T23:49:25+00:00",
     "synthetic": true,
     "inputs": {
       "plan_id": "plan-demo-1",
@@ -976,28 +976,42 @@
           "fhsaa_violations": 0,
           "practice_min": 128.0
         },
-        "top_changes_text": "Biggest heat reductions: 1) Ran 'Team period' in 2 platoons (8 athletes \u00d7 12 min, 8 athletes \u00d7 13 min); the resting platoon waits in the shaded cooling area (team peak estimate 1.0 \u00b0C lower); 2) Added a 8-min shaded water break after 'Inside run (part 2 of 2)' at 16:08 (team peak estimate 0.3 \u00b0C lower); 3) Moved 'Inside run (part 1 of 2)' to 15:40 (was 16:04) (team peak estimate 0.2 \u00b0C lower). Estimate \u2014 planning only.",
+        "top_changes_text": "Biggest heat reductions: 1) Ran 'Team period' in 2 platoons (8 athletes \u00d7 12 min, 8 athletes \u00d7 13 min); the resting platoon waits in the shaded cooling area (team peak estimate 1.0 \u00b0C lower); 2) Added an 8-min shaded water break after 'Inside run (part 2 of 2)' at 16:08 (team peak estimate 0.3 \u00b0C lower); 3) Moved 'Inside run (part 1 of 2)' to 15:40 (was 16:04) (team peak estimate 0.2 \u00b0C lower). Estimate \u2014 planning only.",
         "notes": []
       },
       "fewest_changes": {
         "feasible": true,
-        "load_kept_pct": 70.7,
-        "changes": 21,
+        "load_kept_pct": 72.9,
+        "changes": 12,
         "after": {
           "athletes": 16,
           "over_limit": 0,
-          "near_limit": 7,
-          "max_p95_c": 38.99,
-          "team_mean_p95_c": 38.71,
+          "near_limit": 8,
+          "max_p95_c": 38.98,
+          "team_mean_p95_c": 38.72,
           "first_cross_min": null,
           "limit_c": 39.0,
           "fhsaa_violations": 0,
-          "practice_min": 128.0
+          "practice_min": 133.0
         },
-        "top_changes_text": "Biggest heat reductions: 1) Ran 'Team period' in 2 platoons (8 athletes \u00d7 12 min, 8 athletes \u00d7 13 min); the resting platoon waits in the shaded cooling area (team peak estimate 1.0 \u00b0C lower); 2) Added a 8-min shaded water break after 'Inside run (part 2 of 2)' at 16:08 (team peak estimate 0.3 \u00b0C lower); 3) Moved 'Inside run (part 1 of 2)' to 15:40 (was 16:04) (team peak estimate 0.2 \u00b0C lower). Estimate \u2014 planning only.",
+        "top_changes_text": "Biggest heat reductions: 1) Ran 'Team period' in 2 platoons (8 athletes \u00d7 12 min, 8 athletes \u00d7 13 min); the resting platoon waits in the shaded cooling area (team peak estimate 0.7 \u00b0C lower); 2) Moved 'Team period (platoon A)' to 15:44 (was 16:19) (team peak estimate 0.4 \u00b0C lower); 3) Ran 'Inside run' with rotating groups (part 1: 4 athletes \u00d7 7 min, part 2: 8 athletes \u00d7 8 min); athletes not in a part rest in the shaded cooling area; sitting out the whole drill: Tyler (fictional), Caleb (fictional), Logan (fictional), Kai (fictional) (team peak estimate 0.4 \u00b0C lower). Estimate \u2014 planning only.",
         "notes": [
-          "fewest_changes: no plan within 6 changes met every constraint \u2014 showing the max_load plan (21 changes)"
-        ]
+          "fewest_changes: needs at least 12 changes \u2014 no plan within 11 changes met every rule with every athlete under the line (caps 6\u201312 searched one at a time)"
+        ],
+        "fewest_changes": {
+          "cap": 6,
+          "min_compliant_changes": 12,
+          "searched_caps": [
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12
+          ],
+          "fell_back": false
+        }
       }
     },
     "replay": {

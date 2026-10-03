@@ -144,3 +144,21 @@ def test_top_changes_ranked_by_heat_reduction():
     assert all(t["heat_reduction_c"] > 0 for t in top)
     assert [t["heat_reduction_c"] for t in top] == sorted((t["heat_reduction_c"] for t in top), reverse=True)
     assert res["top_changes_text"].endswith("Estimate — planning only.")
+
+
+def test_fewest_changes_steps_the_cap_to_the_minimum_compliant_edit(monkeypatch):
+    """Decision 4: when the preset cap is too small, raise it one step at a time and return the first compliant plan
+    (needs at least N changes) instead of falling back to max_load."""
+    plan, roster, weather = _load("needs_break")
+    presets = dict(consts.get("optimizer_presets"))
+    presets["fewest_changes"] = {"max_changes": 0}       # 0 changes can't fix a plan that needs a break
+    real_get = consts.get
+    monkeypatch.setattr(consts, "get", lambda k, *a: presets if k == "optimizer_presets" else real_get(k, *a))
+    res = optimize(plan, roster, weather, preset="fewest_changes", **FAST)
+    fc = res["fewest_changes"]
+    assert fc["cap"] == 0 and fc["searched_caps"][0] == 0
+    if not fc["fell_back"]:
+        n = fc["min_compliant_changes"]
+        assert res["feasible"] and len(res["changes"]) <= n and fc["searched_caps"] == list(range(0, n + 1))
+        assert any(f"needs at least {n} changes" in x for x in res["labels"])
+        assert not any("showing the max_load plan" in x for x in res["labels"])

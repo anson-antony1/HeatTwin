@@ -44,7 +44,8 @@ def compute() -> dict[str, Any]:
         out["optimize"][preset] = {"feasible": o["feasible"], "load_kept_pct": o["load_kept_pct"],
                                    "changes": len(o["changes"]), "after": _summary(o["optimized"]),
                                    "top_changes_text": o.get("top_changes_text", ""),
-                                   "notes": [x for x in o.get("labels", []) if x.startswith("fewest_changes:")]}
+                                   "notes": [x for x in o.get("labels", []) if x.startswith("fewest_changes:")],
+                                   **({"fewest_changes": o["fewest_changes"]} if "fewest_changes" in o else {})}
     r = c.post("/live/replay?demo=1", json={}).json()
     last = r["frames"][-1] if r["frames"] else None
     out["replay"] = {**r["source"], "frames": len(r["frames"]), "labels": r["labels"],
