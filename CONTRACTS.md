@@ -1,7 +1,8 @@
 # CONTRACTS.md — frozen data shapes (v1.1)
 
 Freeze at M0. Additive changes only after that.
-**v1.1 (additive, Oct 3):** fields marked `// v1.1` are new and optional; every v1 field keeps its meaning. Units are in field names. Times are ISO 8601 with offset; durations are in minutes.
+**v1.1 (additive, Oct 3):** fields marked `// v1.1` are new and optional; every v1 field keeps its meaning.
+**v1.2 (additive, Oct 3 night):** `// v1.2` — Drill.drill_type, OptimizeResult.top_changes/top_changes_text, voice-tool endpoints. Units are in field names. Times are ISO 8601 with offset; durations are in minutes.
 
 ## Athlete
 ```ts
@@ -52,6 +53,7 @@ type Drill = {
   movable: boolean;           // can the optimizer reorder it?
   participants?: string[];    // athlete ids; default = all
   gear_by_athlete?: Record<string, GearLevel>; // v1.1: per-athlete gear in this drill (overrides `gear` for those ids)
+  drill_type?: "warmup" | "individual" | "team" | "special_teams" | "conditioning" | "cooldown" | "break"; // v1.2 (else inferred from name/intensity)
 };
 
 type PracticePlan = {
@@ -146,6 +148,8 @@ type OptimizeResult = {
             sa_best_iteration?: number; stopped_by?: "iterations" | "time_budget"; seed?: number;
             budget_s?: number; demo?: boolean; weighted_load_kept_pct?: number };
   infeasible_reasons?: string[];        // v1.1: why feasible=false (least-bad plan still returned in `plan`)
+  top_changes?: { kind: string; move?: string; drill_id: string; detail: string; heat_reduction_c: number }[]; // v1.2: top 3 by heat reduction (leave-one-out, team-mean peak p95)
+  top_changes_text?: string;            // v1.2: guarded sentence for the UI / voice agent
   settings?: AtSettings;                // v1.1
   labels?: string[];                    // v1.1: "estimate — planning only", settings, demo mode, least-bad notice
 };
@@ -176,4 +180,7 @@ type CollapseLog = {
 | POST | `/node` | node reading → `{ok}` |
 | GET | `/node/latest` | → last reading + assimilated `WeatherHour` |
 | GET | `/sources` | → constants.yaml as JSON with status |
+| POST | `/what_if` | v1.2 `{change: {drill_id, gear?\|duration_min?\|shade?\|intensity?\|move_to?\|remove?} \| {add_break_after, minutes}, plan?, roster?, settings?}` → `{before, after, delta_team_mean_p95_c, say, labels}` (summaries: athletes, over_limit, near_limit, max_p95_c, team_mean_p95_c, first_cross_min, limit_c, fhsaa_violations, practice_min) |
+| GET | `/athlete_status?athlete_id=` | v1.2 id or name → `{id, name, position, acclimatization_day, gear_limit, peak_p50_c, peak_p95_c, status, first_cross_min, limit_c, say, labels}` |
+| GET | `/field_conditions` | v1.2 → `{hours: [{time, wbgt_f, fhsaa_zone, air_temp_c, rh_pct, source}], sources, say, labels}` |
 | POST | `/guard` | `{text}` → `{ok, redacted_text, hits[]}` |

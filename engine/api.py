@@ -289,6 +289,44 @@ def hr(reading: HrReading) -> dict[str, Any]:
     return out
 
 
+class WhatIfRequest(SimulateRequest):
+    change: dict[str, Any]
+
+
+@app.post("/what_if")
+def what_if(req: WhatIfRequest) -> dict[str, Any]:
+    """v1.2 voice tool: one plan edit → before/after team summary (numbers only + a guarded sentence)."""
+    from engine import voice_tools
+    plan, roster, weather, labels = _inputs(req)
+    try:
+        return voice_tools.what_if(roster, plan, weather, req.change, settings=_settings(req), seed=req.seed)
+    except KeyError as e:
+        raise HTTPException(404, str(e)) from e
+
+
+@app.get("/athlete_status")
+def athlete_status(athlete_id: str, demo: bool = Query(True)) -> dict[str, Any]:
+    """v1.2 voice tool: one athlete's estimate on the current (fixture) plan."""
+    from engine import voice_tools
+    req = SimulateRequest()
+    plan, roster, weather, labels = _inputs(req)
+    res = twonode.simulate_roster(roster, plan, weather, extra_labels=labels, settings=_settings(req))
+    try:
+        return voice_tools.athlete_status(res, roster, athlete_id)
+    except KeyError as e:
+        raise HTTPException(404, str(e)) from e
+
+
+@app.get("/field_conditions")
+def field_conditions() -> dict[str, Any]:
+    """v1.2 voice tool: hourly WBGT / FHSAA zone over the practice window."""
+    from engine import voice_tools
+    req = SimulateRequest()
+    plan, roster, weather, labels = _inputs(req)
+    res = twonode.simulate_roster(roster[:1], plan, weather, n_ensemble=5, extra_labels=labels)
+    return voice_tools.field_conditions(res)
+
+
 @app.post("/guard")
 def guard_text(req: GuardRequest) -> dict[str, Any]:
     from engine import guard
