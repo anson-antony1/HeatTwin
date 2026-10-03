@@ -1,29 +1,34 @@
-import type { ToolName } from './tools'
+import type { VoiceIntentName, VoiceSlots } from './engineApi'
 
-// Eight scripted questions for testing "Talk to the Twin" (voice or text). For each: the tool the agent must call,
-// and what the spoken answer must / must not contain. Run them from the panel's "Test" menu or `npx vitest`.
+// Eight scripted questions for testing "Ask Kelvin" (voice or text). For each: the intent it must route to, and the
+// slots it must resolve. Drills are named by a pattern on the drill NAME (found on whatever plan is in use), athletes by
+// first name on the roster — never by a hard-coded id. Run them from the panel's "Test…" menu or `npx vitest`.
 
 export interface TestQuestion {
   q: string
-  tool: ToolName
-  params?: Record<string, unknown>
-  mustMention: string[]          // keys whose tool values must appear in the answer
-  mustNotSay?: RegExp            // language the guard must keep out
+  intent: VoiceIntentName
+  /** The drill the question names, matched against the plan's drill names. */
+  drill?: RegExp
+  /** The athlete the question names (first name on the roster). */
+  athlete?: string
+  /** Other slots that must be resolved (change, gear, preset). No minutes: add_break leaves the length to the engine. */
+  slots?: Partial<Omit<VoiceSlots, 'drill_id' | 'athlete_id'>>
+  /** Language the guard must keep out of the reply. */
+  mustNotSay?: RegExp
 }
 
 export const TEST_QUESTIONS: TestQuestion[] = [
-  { q: 'Who crosses the planning line first in this practice?', tool: 'simulate_plan', mustMention: ['first_to_cross'] },
-  { q: "What's the WBGT at 4 pm, and which FHSAA zone is that?", tool: 'field_conditions', mustMention: ['wbgt_f', 'fhsaa_zone'] },
-  { q: 'How hot does Isaiah get?', tool: 'athlete_status', params: { athlete: 'Isaiah' }, mustMention: ['peak_p95_c'] },
-  { q: 'What if we drop the gassers?', tool: 'what_if', params: { drill_id: 'd6', remove: true }, mustMention: ['team_mean_p95_c'] },
-  { q: 'What if team period is helmets only?', tool: 'what_if', params: { drill_id: 'd4', gear: 'helmet' }, mustMention: ['team_mean_p95_c'] },
-  { q: 'Fix the plan.', tool: 'optimize_plan', params: { preset: 'max_load' }, mustMention: ['load_kept_pct', 'top_changes'] },
-  { q: 'Can you do it in six changes or fewer?', tool: 'optimize_plan', params: { preset: 'fewest_changes' }, mustMention: ['notes'] },
+  { q: 'Who crosses the planning line first in this practice?', intent: 'plan_summary' },
+  { q: "What's the WBGT at 4 pm, and which FHSAA zone is that?", intent: 'field_conditions' },
+  { q: 'How hot does Isaiah get?', intent: 'athlete_status', athlete: 'Isaiah' },
+  { q: 'What if we drop the gassers?', intent: 'what_if', drill: /gassers/i, slots: { change: 'remove' } },
+  { q: 'What if team period is helmets only?', intent: 'what_if', drill: /^team period$/i, slots: { change: 'gear', gear: 'helmet' } },
+  { q: 'Fix the plan.', intent: 'optimize', slots: { preset: 'max_load' } },
+  { q: 'Can you do it in six changes or fewer?', intent: 'optimize', slots: { preset: 'fewest_changes' } },
   {
     q: 'Is Devin safe to keep practicing?',
-    tool: 'athlete_status',
-    params: { athlete: 'Devin' },
-    mustMention: ['peak_p95_c'],
+    intent: 'athlete_status',
+    athlete: 'Devin',
     mustNotSay: /\b(safe|fine|okay|ok|cleared)\b/i,
   },
 ]
