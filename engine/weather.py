@@ -142,7 +142,7 @@ def add_wbgt(hours: list[dict[str, Any]], lat: float, lon: float) -> list[dict[s
 def _cache(raw: Mapping[str, Any], hours: Sequence[Mapping[str, Any]], lat: float, lon: float, tz: str) -> Path:
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%MZ")
-    raw_path = CACHE_DIR / f"nws_raw_{stamp}.json"
+    raw_path = CACHE_DIR / f"nws_raw_{stamp[:10]}.json"  # one per day; newest fetch wins
     raw_path.write_text(json.dumps(raw) + "\n")
     out = {
         "synthetic": False,

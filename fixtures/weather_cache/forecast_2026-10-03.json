@@ -4,11 +4,11 @@
  "provenance": {
   "url": "https://api.weather.gov/gridpoints/JAX/43,32",
   "nws_update_time": "2026-10-03T12:07:00+00:00",
-  "fetched_at": "2026-10-03T1753Z",
+  "fetched_at": "2026-10-03T1806Z",
   "lat": 29.6516,
   "lon": -82.3248,
   "time_zone": "America/New_York",
-  "raw_file": "nws_raw_2026-10-03T1753Z.json"
+  "raw_file": "nws_raw_2026-10-03.json"
  },
  "hours": [
   {
@@ -19,7 +19,8 @@
    "cloud_cover_pct": 74.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 74.0,
-   "wbgt_f": 74.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 73.6,
    "fhsaa_zone": 1
   },
   {
@@ -30,7 +31,8 @@
    "cloud_cover_pct": 67.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 74.0,
-   "wbgt_f": 74.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 73.6,
    "fhsaa_zone": 1
   },
   {
@@ -41,7 +43,8 @@
    "cloud_cover_pct": 64.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 74.0,
-   "wbgt_f": 74.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 73.7,
    "fhsaa_zone": 1
   },
   {
@@ -52,7 +55,8 @@
    "cloud_cover_pct": 64.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 74.0,
-   "wbgt_f": 74.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 73.7,
    "fhsaa_zone": 1
   },
   {
@@ -63,7 +67,8 @@
    "cloud_cover_pct": 62.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 73.0,
-   "wbgt_f": 73.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 73.1,
    "fhsaa_zone": 1
   },
   {
@@ -74,7 +79,8 @@
    "cloud_cover_pct": 66.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 73.0,
-   "wbgt_f": 73.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 73.1,
    "fhsaa_zone": 1
   },
   {
@@ -85,7 +91,8 @@
    "cloud_cover_pct": 54.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 74.0,
-   "wbgt_f": 74.0,
+   "solar_w_m2": 78.6,
+   "wbgt_f": 75.1,
    "fhsaa_zone": 1
   },
   {
@@ -96,7 +103,8 @@
    "cloud_cover_pct": 48.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 75.0,
-   "wbgt_f": 75.0,
+   "solar_w_m2": 295.7,
+   "wbgt_f": 79.6,
    "fhsaa_zone": 1
   },
   {
@@ -107,8 +115,9 @@
    "cloud_cover_pct": 60.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 78.0,
-   "wbgt_f": 78.0,
-   "fhsaa_zone": 1
+   "solar_w_m2": 452.9,
+   "wbgt_f": 83.3,
+   "fhsaa_zone": 2
   },
   {
    "time": "2026-10-03T11:00:00-04:00",
@@ -118,8 +127,9 @@
    "cloud_cover_pct": 75.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 80.0,
-   "wbgt_f": 80.0,
-   "fhsaa_zone": 1
+   "solar_w_m2": 493.6,
+   "wbgt_f": 84.5,
+   "fhsaa_zone": 2
   },
   {
    "time": "2026-10-03T12:00:00-04:00",
@@ -129,7 +139,8 @@
    "cloud_cover_pct": 74.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 83.0,
-   "wbgt_f": 83.0,
+   "solar_w_m2": 584.4,
+   "wbgt_f": 86.6,
    "fhsaa_zone": 2
   },
   {
@@ -140,8 +151,9 @@
    "cloud_cover_pct": 73.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 84.0,
-   "wbgt_f": 84.0,
-   "fhsaa_zone": 2
+   "solar_w_m2": 632.4,
+   "wbgt_f": 87.8,
+   "fhsaa_zone": 3
   },
   {
    "time": "2026-10-03T14:00:00-04:00",
@@ -151,8 +163,9 @@
    "cloud_cover_pct": 66.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 85.0,
-   "wbgt_f": 85.0,
-   "fhsaa_zone": 2
+   "solar_w_m2": 685.3,
+   "wbgt_f": 87.4,
+   "fhsaa_zone": 3
   },
   {
    "time": "2026-10-03T15:00:00-04:00",
@@ -162,7 +175,8 @@
    "cloud_cover_pct": 69.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 84.0,
-   "wbgt_f": 84.0,
+   "solar_w_m2": 599.9,
+   "wbgt_f": 87.0,
    "fhsaa_zone": 2
   },
   {
@@ -173,7 +187,8 @@
    "cloud_cover_pct": 82.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 83.0,
-   "wbgt_f": 83.0,
+   "solar_w_m2": 387.3,
+   "wbgt_f": 85.5,
    "fhsaa_zone": 2
   },
   {
@@ -184,8 +199,9 @@
    "cloud_cover_pct": 77.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 81.0,
-   "wbgt_f": 81.0,
-   "fhsaa_zone": 1
+   "solar_w_m2": 306.2,
+   "wbgt_f": 83.5,
+   "fhsaa_zone": 2
   },
   {
    "time": "2026-10-03T18:00:00-04:00",
@@ -195,7 +211,8 @@
    "cloud_cover_pct": 76.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 80.0,
-   "wbgt_f": 80.0,
+   "solar_w_m2": 158.0,
+   "wbgt_f": 81.6,
    "fhsaa_zone": 1
   },
   {
@@ -206,7 +223,8 @@
    "cloud_cover_pct": 87.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 79.0,
-   "wbgt_f": 79.0,
+   "solar_w_m2": 3.8,
+   "wbgt_f": 78.3,
    "fhsaa_zone": 1
   },
   {
@@ -217,7 +235,8 @@
    "cloud_cover_pct": 83.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 76.0,
-   "wbgt_f": 76.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 75.8,
    "fhsaa_zone": 1
   },
   {
@@ -228,7 +247,8 @@
    "cloud_cover_pct": 84.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 75.0,
-   "wbgt_f": 75.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 75.2,
    "fhsaa_zone": 1
   },
   {
@@ -239,7 +259,8 @@
    "cloud_cover_pct": 84.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 75.0,
-   "wbgt_f": 75.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 75.1,
    "fhsaa_zone": 1
   },
   {
@@ -250,7 +271,8 @@
    "cloud_cover_pct": 86.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 74.0,
-   "wbgt_f": 74.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 74.1,
    "fhsaa_zone": 1
   },
   {
@@ -261,7 +283,8 @@
    "cloud_cover_pct": 83.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 75.0,
-   "wbgt_f": 75.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 74.6,
    "fhsaa_zone": 1
   },
   {
@@ -272,7 +295,8 @@
    "cloud_cover_pct": 89.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 75.0,
-   "wbgt_f": 75.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 74.0,
    "fhsaa_zone": 1
   },
   {
@@ -283,7 +307,8 @@
    "cloud_cover_pct": 75.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 75.0,
-   "wbgt_f": 75.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 74.0,
    "fhsaa_zone": 1
   },
   {
@@ -294,7 +319,8 @@
    "cloud_cover_pct": 65.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 74.0,
-   "wbgt_f": 74.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 73.6,
    "fhsaa_zone": 1
   },
   {
@@ -305,7 +331,8 @@
    "cloud_cover_pct": 46.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 73.0,
-   "wbgt_f": 73.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 73.1,
    "fhsaa_zone": 1
   },
   {
@@ -316,7 +343,8 @@
    "cloud_cover_pct": 40.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 73.0,
-   "wbgt_f": 73.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 73.1,
    "fhsaa_zone": 1
   },
   {
@@ -327,7 +355,8 @@
    "cloud_cover_pct": 47.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 73.0,
-   "wbgt_f": 73.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 72.4,
    "fhsaa_zone": 1
   },
   {
@@ -338,7 +367,8 @@
    "cloud_cover_pct": 55.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 73.0,
-   "wbgt_f": 73.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 72.4,
    "fhsaa_zone": 1
   },
   {
@@ -349,7 +379,8 @@
    "cloud_cover_pct": 52.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 74.0,
-   "wbgt_f": 74.0,
+   "solar_w_m2": 77.5,
+   "wbgt_f": 75.3,
    "fhsaa_zone": 1
   },
   {
@@ -360,7 +391,8 @@
    "cloud_cover_pct": 51.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 76.0,
-   "wbgt_f": 76.0,
+   "solar_w_m2": 288.8,
+   "wbgt_f": 80.5,
    "fhsaa_zone": 1
   },
   {
@@ -371,8 +403,9 @@
    "cloud_cover_pct": 51.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 79.0,
-   "wbgt_f": 79.0,
-   "fhsaa_zone": 1
+   "solar_w_m2": 479.5,
+   "wbgt_f": 84.0,
+   "fhsaa_zone": 2
   },
   {
    "time": "2026-10-04T11:00:00-04:00",
@@ -382,8 +415,9 @@
    "cloud_cover_pct": 58.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 82.0,
-   "wbgt_f": 82.0,
-   "fhsaa_zone": 1
+   "solar_w_m2": 603.6,
+   "wbgt_f": 85.6,
+   "fhsaa_zone": 2
   },
   {
    "time": "2026-10-04T12:00:00-04:00",
@@ -393,8 +427,9 @@
    "cloud_cover_pct": 59.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 84.0,
-   "wbgt_f": 84.0,
-   "fhsaa_zone": 2
+   "solar_w_m2": 697.0,
+   "wbgt_f": 87.4,
+   "fhsaa_zone": 3
   },
   {
    "time": "2026-10-04T13:00:00-04:00",
@@ -404,8 +439,9 @@
    "cloud_cover_pct": 57.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 85.0,
-   "wbgt_f": 85.0,
-   "fhsaa_zone": 2
+   "solar_w_m2": 753.4,
+   "wbgt_f": 88.1,
+   "fhsaa_zone": 3
   },
   {
    "time": "2026-10-04T14:00:00-04:00",
@@ -415,8 +451,9 @@
    "cloud_cover_pct": 62.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 86.0,
-   "wbgt_f": 86.0,
-   "fhsaa_zone": 2
+   "solar_w_m2": 710.9,
+   "wbgt_f": 88.9,
+   "fhsaa_zone": 3
   },
   {
    "time": "2026-10-04T15:00:00-04:00",
@@ -426,8 +463,9 @@
    "cloud_cover_pct": 60.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 86.0,
-   "wbgt_f": 86.0,
-   "fhsaa_zone": 2
+   "solar_w_m2": 657.1,
+   "wbgt_f": 89.0,
+   "fhsaa_zone": 3
   },
   {
    "time": "2026-10-04T16:00:00-04:00",
@@ -437,8 +475,9 @@
    "cloud_cover_pct": 65.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 83.0,
-   "wbgt_f": 83.0,
-   "fhsaa_zone": 2
+   "solar_w_m2": 514.0,
+   "wbgt_f": 87.4,
+   "fhsaa_zone": 3
   },
   {
    "time": "2026-10-04T17:00:00-04:00",
@@ -448,8 +487,9 @@
    "cloud_cover_pct": 75.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 82.0,
-   "wbgt_f": 82.0,
-   "fhsaa_zone": 1
+   "solar_w_m2": 314.4,
+   "wbgt_f": 85.0,
+   "fhsaa_zone": 2
   },
   {
    "time": "2026-10-04T18:00:00-04:00",
@@ -459,8 +499,9 @@
    "cloud_cover_pct": 78.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 81.0,
-   "wbgt_f": 81.0,
-   "fhsaa_zone": 1
+   "solar_w_m2": 148.5,
+   "wbgt_f": 83.0,
+   "fhsaa_zone": 2
   },
   {
    "time": "2026-10-04T19:00:00-04:00",
@@ -470,7 +511,8 @@
    "cloud_cover_pct": 86.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 78.0,
-   "wbgt_f": 78.0,
+   "solar_w_m2": 2.7,
+   "wbgt_f": 77.8,
    "fhsaa_zone": 1
   },
   {
@@ -481,7 +523,8 @@
    "cloud_cover_pct": 87.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 77.0,
-   "wbgt_f": 77.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 76.2,
    "fhsaa_zone": 1
   },
   {
@@ -492,7 +535,8 @@
    "cloud_cover_pct": 88.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 76.0,
-   "wbgt_f": 76.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 75.6,
    "fhsaa_zone": 1
   },
   {
@@ -503,7 +547,8 @@
    "cloud_cover_pct": 82.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 76.0,
-   "wbgt_f": 76.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 75.6,
    "fhsaa_zone": 1
   },
   {
@@ -514,7 +559,8 @@
    "cloud_cover_pct": 74.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 75.0,
-   "wbgt_f": 75.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 74.4,
    "fhsaa_zone": 1
   },
   {
@@ -525,7 +571,8 @@
    "cloud_cover_pct": 76.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 75.0,
-   "wbgt_f": 75.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 74.4,
    "fhsaa_zone": 1
   },
   {
@@ -536,7 +583,8 @@
    "cloud_cover_pct": 77.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 74.0,
-   "wbgt_f": 74.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 73.4,
    "fhsaa_zone": 1
   },
   {
@@ -547,7 +595,8 @@
    "cloud_cover_pct": 78.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 74.0,
-   "wbgt_f": 74.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 73.4,
    "fhsaa_zone": 1
   },
   {
@@ -558,7 +607,8 @@
    "cloud_cover_pct": 76.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 74.0,
-   "wbgt_f": 74.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 73.4,
    "fhsaa_zone": 1
   },
   {
@@ -569,7 +619,8 @@
    "cloud_cover_pct": 75.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 74.0,
-   "wbgt_f": 74.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 72.8,
    "fhsaa_zone": 1
   },
   {
@@ -580,7 +631,8 @@
    "cloud_cover_pct": 73.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 74.0,
-   "wbgt_f": 74.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 73.0,
    "fhsaa_zone": 1
   },
   {
@@ -591,7 +643,8 @@
    "cloud_cover_pct": 72.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 74.0,
-   "wbgt_f": 74.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 73.0,
    "fhsaa_zone": 1
   },
   {
@@ -602,7 +655,8 @@
    "cloud_cover_pct": 71.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 74.0,
-   "wbgt_f": 74.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 73.0,
    "fhsaa_zone": 1
   },
   {
@@ -613,7 +667,8 @@
    "cloud_cover_pct": 73.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 73.0,
-   "wbgt_f": 73.0,
+   "solar_w_m2": 61.0,
+   "wbgt_f": 74.2,
    "fhsaa_zone": 1
   },
   {
@@ -624,7 +679,8 @@
    "cloud_cover_pct": 73.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 76.0,
-   "wbgt_f": 76.0,
+   "solar_w_m2": 230.2,
+   "wbgt_f": 79.3,
    "fhsaa_zone": 1
   },
   {
@@ -635,8 +691,9 @@
    "cloud_cover_pct": 73.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 78.0,
-   "wbgt_f": 78.0,
-   "fhsaa_zone": 1
+   "solar_w_m2": 383.2,
+   "wbgt_f": 82.6,
+   "fhsaa_zone": 2
   },
   {
    "time": "2026-10-05T11:00:00-04:00",
@@ -646,8 +703,9 @@
    "cloud_cover_pct": 74.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 80.0,
-   "wbgt_f": 80.0,
-   "fhsaa_zone": 1
+   "solar_w_m2": 497.4,
+   "wbgt_f": 85.0,
+   "fhsaa_zone": 2
   },
   {
    "time": "2026-10-05T12:00:00-04:00",
@@ -657,8 +715,9 @@
    "cloud_cover_pct": 77.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 82.0,
-   "wbgt_f": 82.0,
-   "fhsaa_zone": 1
+   "solar_w_m2": 548.2,
+   "wbgt_f": 85.4,
+   "fhsaa_zone": 2
   },
   {
    "time": "2026-10-05T13:00:00-04:00",
@@ -668,8 +727,9 @@
    "cloud_cover_pct": 80.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 82.0,
-   "wbgt_f": 82.0,
-   "fhsaa_zone": 1
+   "solar_w_m2": 547.2,
+   "wbgt_f": 85.5,
+   "fhsaa_zone": 2
   },
   {
    "time": "2026-10-05T14:00:00-04:00",
@@ -679,8 +739,9 @@
    "cloud_cover_pct": 97.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 81.0,
-   "wbgt_f": 81.0,
-   "fhsaa_zone": 1
+   "solar_w_m2": 268.6,
+   "wbgt_f": 82.9,
+   "fhsaa_zone": 2
   },
   {
    "time": "2026-10-05T15:00:00-04:00",
@@ -690,8 +751,9 @@
    "cloud_cover_pct": 97.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 80.0,
-   "wbgt_f": 80.0,
-   "fhsaa_zone": 1
+   "solar_w_m2": 243.6,
+   "wbgt_f": 82.2,
+   "fhsaa_zone": 2
   },
   {
    "time": "2026-10-05T16:00:00-04:00",
@@ -701,7 +763,8 @@
    "cloud_cover_pct": 97.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 80.0,
-   "wbgt_f": 80.0,
+   "solar_w_m2": 199.8,
+   "wbgt_f": 81.7,
    "fhsaa_zone": 1
   },
   {
@@ -712,7 +775,8 @@
    "cloud_cover_pct": 97.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 79.0,
-   "wbgt_f": 79.0,
+   "solar_w_m2": 140.2,
+   "wbgt_f": 80.7,
    "fhsaa_zone": 1
   },
   {
@@ -723,7 +787,8 @@
    "cloud_cover_pct": 97.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 78.0,
-   "wbgt_f": 78.0,
+   "solar_w_m2": 69.4,
+   "wbgt_f": 78.8,
    "fhsaa_zone": 1
   },
   {
@@ -734,7 +799,8 @@
    "cloud_cover_pct": 97.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 76.0,
-   "wbgt_f": 76.0,
+   "solar_w_m2": 1.0,
+   "wbgt_f": 76.3,
    "fhsaa_zone": 1
   },
   {
@@ -745,7 +811,8 @@
    "cloud_cover_pct": 90.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 75.0,
-   "wbgt_f": 75.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 75.1,
    "fhsaa_zone": 1
   },
   {
@@ -756,7 +823,8 @@
    "cloud_cover_pct": 88.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 75.0,
-   "wbgt_f": 75.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 74.6,
    "fhsaa_zone": 1
   },
   {
@@ -767,7 +835,8 @@
    "cloud_cover_pct": 87.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 74.0,
-   "wbgt_f": 74.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 74.1,
    "fhsaa_zone": 1
   },
   {
@@ -778,7 +847,8 @@
    "cloud_cover_pct": 86.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 74.0,
-   "wbgt_f": 74.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 73.5,
    "fhsaa_zone": 1
   },
   {
@@ -789,7 +859,8 @@
    "cloud_cover_pct": 87.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 74.0,
-   "wbgt_f": 74.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 73.5,
    "fhsaa_zone": 1
   },
   {
@@ -800,7 +871,8 @@
    "cloud_cover_pct": 88.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 73.0,
-   "wbgt_f": 73.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 72.4,
    "fhsaa_zone": 1
   },
   {
@@ -811,7 +883,8 @@
    "cloud_cover_pct": 89.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 73.0,
-   "wbgt_f": 73.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 72.4,
    "fhsaa_zone": 1
   },
   {
@@ -822,7 +895,8 @@
    "cloud_cover_pct": 89.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 73.0,
-   "wbgt_f": 73.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 72.5,
    "fhsaa_zone": 1
   },
   {
@@ -833,6 +907,7 @@
    "cloud_cover_pct": 88.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 72.0,
+   "solar_w_m2": 0.0,
    "wbgt_f": 72.0,
    "fhsaa_zone": 1
   },
@@ -844,6 +919,7 @@
    "cloud_cover_pct": 88.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 72.0,
+   "solar_w_m2": 0.0,
    "wbgt_f": 72.0,
    "fhsaa_zone": 1
   },
@@ -855,6 +931,7 @@
    "cloud_cover_pct": 86.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 72.0,
+   "solar_w_m2": 0.0,
    "wbgt_f": 72.0,
    "fhsaa_zone": 1
   },
@@ -866,7 +943,8 @@
    "cloud_cover_pct": 83.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 72.0,
-   "wbgt_f": 72.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 71.5,
    "fhsaa_zone": 1
   },
   {
@@ -877,7 +955,8 @@
    "cloud_cover_pct": 85.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 72.0,
-   "wbgt_f": 72.0,
+   "solar_w_m2": 45.4,
+   "wbgt_f": 72.4,
    "fhsaa_zone": 1
   },
   {
@@ -888,7 +967,8 @@
    "cloud_cover_pct": 85.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 74.0,
-   "wbgt_f": 74.0,
+   "solar_w_m2": 174.6,
+   "wbgt_f": 75.6,
    "fhsaa_zone": 1
   },
   {
@@ -899,7 +979,8 @@
    "cloud_cover_pct": 85.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 75.0,
-   "wbgt_f": 75.0,
+   "solar_w_m2": 291.6,
+   "wbgt_f": 78.1,
    "fhsaa_zone": 1
   },
   {
@@ -910,7 +991,8 @@
    "cloud_cover_pct": 85.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 77.0,
-   "wbgt_f": 77.0,
+   "solar_w_m2": 385.1,
+   "wbgt_f": 79.9,
    "fhsaa_zone": 1
   },
   {
@@ -921,7 +1003,8 @@
    "cloud_cover_pct": 85.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 77.0,
-   "wbgt_f": 77.0,
+   "solar_w_m2": 448.4,
+   "wbgt_f": 80.5,
    "fhsaa_zone": 1
   },
   {
@@ -932,7 +1015,8 @@
    "cloud_cover_pct": 86.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 79.0,
-   "wbgt_f": 79.0,
+   "solar_w_m2": 462.4,
+   "wbgt_f": 81.4,
    "fhsaa_zone": 1
   },
   {
@@ -943,7 +1027,8 @@
    "cloud_cover_pct": 91.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 78.0,
-   "wbgt_f": 78.0,
+   "solar_w_m2": 376.1,
+   "wbgt_f": 80.7,
    "fhsaa_zone": 1
   },
   {
@@ -954,7 +1039,8 @@
    "cloud_cover_pct": 91.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 78.0,
-   "wbgt_f": 78.0,
+   "solar_w_m2": 340.8,
+   "wbgt_f": 80.2,
    "fhsaa_zone": 1
   },
   {
@@ -965,7 +1051,8 @@
    "cloud_cover_pct": 91.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 77.0,
-   "wbgt_f": 77.0,
+   "solar_w_m2": 279.0,
+   "wbgt_f": 79.6,
    "fhsaa_zone": 1
   },
   {
@@ -976,7 +1063,8 @@
    "cloud_cover_pct": 91.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 77.0,
-   "wbgt_f": 77.0,
+   "solar_w_m2": 195.0,
+   "wbgt_f": 78.3,
    "fhsaa_zone": 1
   },
   {
@@ -987,7 +1075,8 @@
    "cloud_cover_pct": 91.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 75.0,
-   "wbgt_f": 75.0,
+   "solar_w_m2": 95.4,
+   "wbgt_f": 75.8,
    "fhsaa_zone": 1
   },
   {
@@ -998,7 +1087,8 @@
    "cloud_cover_pct": 91.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 74.0,
-   "wbgt_f": 74.0,
+   "solar_w_m2": 0.7,
+   "wbgt_f": 73.8,
    "fhsaa_zone": 1
   },
   {
@@ -1009,7 +1099,8 @@
    "cloud_cover_pct": 90.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 73.0,
-   "wbgt_f": 73.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 73.3,
    "fhsaa_zone": 1
   },
   {
@@ -1020,7 +1111,8 @@
    "cloud_cover_pct": 90.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 73.0,
-   "wbgt_f": 73.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 72.8,
    "fhsaa_zone": 1
   },
   {
@@ -1031,7 +1123,8 @@
    "cloud_cover_pct": 90.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 72.0,
-   "wbgt_f": 72.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 72.3,
    "fhsaa_zone": 1
   },
   {
@@ -1042,7 +1135,8 @@
    "cloud_cover_pct": 90.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 72.0,
-   "wbgt_f": 72.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 71.7,
    "fhsaa_zone": 1
   },
   {
@@ -1053,7 +1147,8 @@
    "cloud_cover_pct": 90.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 71.0,
-   "wbgt_f": 71.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 71.3,
    "fhsaa_zone": 1
   },
   {
@@ -1064,7 +1159,8 @@
    "cloud_cover_pct": 90.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 71.0,
-   "wbgt_f": 71.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 70.7,
    "fhsaa_zone": 1
   },
   {
@@ -1075,7 +1171,8 @@
    "cloud_cover_pct": 89.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 70.0,
-   "wbgt_f": 70.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 70.3,
    "fhsaa_zone": 1
   },
   {
@@ -1086,7 +1183,8 @@
    "cloud_cover_pct": 89.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 70.0,
-   "wbgt_f": 70.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 70.3,
    "fhsaa_zone": 1
   },
   {
@@ -1097,7 +1195,8 @@
    "cloud_cover_pct": 89.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 69.0,
-   "wbgt_f": 69.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 69.3,
    "fhsaa_zone": 1
   },
   {
@@ -1108,7 +1207,8 @@
    "cloud_cover_pct": 89.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 69.0,
-   "wbgt_f": 69.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 69.3,
    "fhsaa_zone": 1
   },
   {
@@ -1119,7 +1219,8 @@
    "cloud_cover_pct": 89.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 68.0,
-   "wbgt_f": 68.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 68.3,
    "fhsaa_zone": 1
   },
   {
@@ -1130,7 +1231,8 @@
    "cloud_cover_pct": 89.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 68.0,
-   "wbgt_f": 68.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 68.3,
    "fhsaa_zone": 1
   },
   {
@@ -1141,7 +1243,8 @@
    "cloud_cover_pct": 81.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 69.0,
-   "wbgt_f": 69.0,
+   "solar_w_m2": 49.1,
+   "wbgt_f": 68.9,
    "fhsaa_zone": 1
   },
   {
@@ -1152,7 +1255,8 @@
    "cloud_cover_pct": 81.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 70.0,
-   "wbgt_f": 70.0,
+   "solar_w_m2": 192.9,
+   "wbgt_f": 71.3,
    "fhsaa_zone": 1
   },
   {
@@ -1163,7 +1267,8 @@
    "cloud_cover_pct": 81.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 72.0,
-   "wbgt_f": 72.0,
+   "solar_w_m2": 323.1,
+   "wbgt_f": 74.3,
    "fhsaa_zone": 1
   },
   {
@@ -1174,7 +1279,8 @@
    "cloud_cover_pct": 81.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 74.0,
-   "wbgt_f": 74.0,
+   "solar_w_m2": 427.1,
+   "wbgt_f": 76.7,
    "fhsaa_zone": 1
   },
   {
@@ -1185,7 +1291,8 @@
    "cloud_cover_pct": 81.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 75.0,
-   "wbgt_f": 75.0,
+   "solar_w_m2": 497.5,
+   "wbgt_f": 78.1,
    "fhsaa_zone": 1
   },
   {
@@ -1196,7 +1303,8 @@
    "cloud_cover_pct": 81.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 76.0,
-   "wbgt_f": 76.0,
+   "solar_w_m2": 529.3,
+   "wbgt_f": 78.7,
    "fhsaa_zone": 1
   },
   {
@@ -1207,7 +1315,8 @@
    "cloud_cover_pct": 83.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 76.0,
-   "wbgt_f": 76.0,
+   "solar_w_m2": 494.2,
+   "wbgt_f": 78.5,
    "fhsaa_zone": 1
   },
   {
@@ -1218,7 +1327,8 @@
    "cloud_cover_pct": 83.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 76.0,
-   "wbgt_f": 76.0,
+   "solar_w_m2": 447.3,
+   "wbgt_f": 78.7,
    "fhsaa_zone": 1
   },
   {
@@ -1229,7 +1339,8 @@
    "cloud_cover_pct": 83.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 75.0,
-   "wbgt_f": 75.0,
+   "solar_w_m2": 365.6,
+   "wbgt_f": 78.1,
    "fhsaa_zone": 1
   },
   {
@@ -1240,7 +1351,8 @@
    "cloud_cover_pct": 83.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 75.0,
-   "wbgt_f": 75.0,
+   "solar_w_m2": 254.7,
+   "wbgt_f": 77.2,
    "fhsaa_zone": 1
   },
   {
@@ -1251,7 +1363,8 @@
    "cloud_cover_pct": 83.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 74.0,
-   "wbgt_f": 74.0,
+   "solar_w_m2": 123.1,
+   "wbgt_f": 75.1,
    "fhsaa_zone": 1
   },
   {
@@ -1262,7 +1375,8 @@
    "cloud_cover_pct": 83.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 73.0,
-   "wbgt_f": 73.0,
+   "solar_w_m2": 0.4,
+   "wbgt_f": 72.7,
    "fhsaa_zone": 1
   },
   {
@@ -1273,7 +1387,8 @@
    "cloud_cover_pct": 86.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 72.0,
-   "wbgt_f": 72.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 71.7,
    "fhsaa_zone": 1
   },
   {
@@ -1284,7 +1399,8 @@
    "cloud_cover_pct": 86.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 71.0,
-   "wbgt_f": 71.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 70.7,
    "fhsaa_zone": 1
   },
   {
@@ -1295,7 +1411,8 @@
    "cloud_cover_pct": 86.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 70.0,
-   "wbgt_f": 70.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 70.3,
    "fhsaa_zone": 1
   },
   {
@@ -1306,7 +1423,8 @@
    "cloud_cover_pct": 86.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 69.0,
-   "wbgt_f": 69.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 69.3,
    "fhsaa_zone": 1
   },
   {
@@ -1317,7 +1435,8 @@
    "cloud_cover_pct": 86.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 69.0,
-   "wbgt_f": 69.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 68.7,
    "fhsaa_zone": 1
   },
   {
@@ -1328,7 +1447,8 @@
    "cloud_cover_pct": 86.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 68.0,
-   "wbgt_f": 68.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 67.7,
    "fhsaa_zone": 1
   },
   {
@@ -1339,7 +1459,8 @@
    "cloud_cover_pct": 86.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 68.0,
-   "wbgt_f": 68.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 67.7,
    "fhsaa_zone": 1
   },
   {
@@ -1350,7 +1471,8 @@
    "cloud_cover_pct": 86.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 67.0,
-   "wbgt_f": 67.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 67.3,
    "fhsaa_zone": 1
   },
   {
@@ -1361,7 +1483,8 @@
    "cloud_cover_pct": 86.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 67.0,
-   "wbgt_f": 67.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 67.3,
    "fhsaa_zone": 1
   },
   {
@@ -1372,7 +1495,8 @@
    "cloud_cover_pct": 86.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 67.0,
-   "wbgt_f": 67.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 66.7,
    "fhsaa_zone": 1
   },
   {
@@ -1383,7 +1507,8 @@
    "cloud_cover_pct": 86.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 66.0,
-   "wbgt_f": 66.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 66.3,
    "fhsaa_zone": 1
   },
   {
@@ -1394,7 +1519,8 @@
    "cloud_cover_pct": 86.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 66.0,
-   "wbgt_f": 66.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 65.7,
    "fhsaa_zone": 1
   },
   {
@@ -1405,6 +1531,7 @@
    "cloud_cover_pct": 74.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 67.0,
+   "solar_w_m2": 54.9,
    "wbgt_f": 67.0,
    "fhsaa_zone": 1
   },
@@ -1416,7 +1543,8 @@
    "cloud_cover_pct": 74.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 69.0,
-   "wbgt_f": 69.0,
+   "solar_w_m2": 220.4,
+   "wbgt_f": 70.7,
    "fhsaa_zone": 1
   },
   {
@@ -1427,7 +1555,8 @@
    "cloud_cover_pct": 74.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 71.0,
-   "wbgt_f": 71.0,
+   "solar_w_m2": 370.3,
+   "wbgt_f": 74.2,
    "fhsaa_zone": 1
   },
   {
@@ -1438,7 +1567,8 @@
    "cloud_cover_pct": 74.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 74.0,
-   "wbgt_f": 74.0,
+   "solar_w_m2": 490.0,
+   "wbgt_f": 77.0,
    "fhsaa_zone": 1
   },
   {
@@ -1449,7 +1579,8 @@
    "cloud_cover_pct": 74.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 76.0,
-   "wbgt_f": 76.0,
+   "solar_w_m2": 570.8,
+   "wbgt_f": 78.6,
    "fhsaa_zone": 1
   },
   {
@@ -1460,7 +1591,8 @@
    "cloud_cover_pct": 74.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 77.0,
-   "wbgt_f": 77.0,
+   "solar_w_m2": 607.2,
+   "wbgt_f": 79.8,
    "fhsaa_zone": 1
   },
   {
@@ -1471,7 +1603,8 @@
    "cloud_cover_pct": 82.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 77.0,
-   "wbgt_f": 77.0,
+   "solar_w_m2": 504.6,
+   "wbgt_f": 79.6,
    "fhsaa_zone": 1
   },
   {
@@ -1482,7 +1615,8 @@
    "cloud_cover_pct": 82.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 77.0,
-   "wbgt_f": 77.0,
+   "solar_w_m2": 456.4,
+   "wbgt_f": 79.9,
    "fhsaa_zone": 1
   },
   {
@@ -1493,7 +1627,8 @@
    "cloud_cover_pct": 82.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 77.0,
-   "wbgt_f": 77.0,
+   "solar_w_m2": 372.3,
+   "wbgt_f": 79.2,
    "fhsaa_zone": 1
   },
   {
@@ -1504,7 +1639,8 @@
    "cloud_cover_pct": 82.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 76.0,
-   "wbgt_f": 76.0,
+   "solar_w_m2": 258.4,
+   "wbgt_f": 77.8,
    "fhsaa_zone": 1
   },
   {
@@ -1515,7 +1651,8 @@
    "cloud_cover_pct": 82.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 75.0,
-   "wbgt_f": 75.0,
+   "solar_w_m2": 123.4,
+   "wbgt_f": 75.7,
    "fhsaa_zone": 1
   },
   {
@@ -1526,7 +1663,8 @@
    "cloud_cover_pct": 82.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 74.0,
-   "wbgt_f": 74.0,
+   "solar_w_m2": 0.1,
+   "wbgt_f": 73.7,
    "fhsaa_zone": 1
   },
   {
@@ -1537,7 +1675,8 @@
    "cloud_cover_pct": 84.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 72.0,
-   "wbgt_f": 72.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 72.2,
    "fhsaa_zone": 1
   },
   {
@@ -1548,7 +1687,8 @@
    "cloud_cover_pct": 84.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 72.0,
-   "wbgt_f": 72.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 71.7,
    "fhsaa_zone": 1
   },
   {
@@ -1559,7 +1699,8 @@
    "cloud_cover_pct": 84.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 70.0,
-   "wbgt_f": 70.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 70.3,
    "fhsaa_zone": 1
   },
   {
@@ -1570,7 +1711,8 @@
    "cloud_cover_pct": 84.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 70.0,
-   "wbgt_f": 70.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 69.7,
    "fhsaa_zone": 1
   },
   {
@@ -1581,7 +1723,8 @@
    "cloud_cover_pct": 84.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 69.0,
-   "wbgt_f": 69.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 68.7,
    "fhsaa_zone": 1
   },
   {
@@ -1592,7 +1735,8 @@
    "cloud_cover_pct": 84.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 69.0,
-   "wbgt_f": 69.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 68.7,
    "fhsaa_zone": 1
   },
   {
@@ -1603,7 +1747,8 @@
    "cloud_cover_pct": 83.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 68.0,
-   "wbgt_f": 68.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 68.2,
    "fhsaa_zone": 1
   },
   {
@@ -1614,7 +1759,8 @@
    "cloud_cover_pct": 83.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 68.0,
-   "wbgt_f": 68.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 68.3,
    "fhsaa_zone": 1
   },
   {
@@ -1625,7 +1771,8 @@
    "cloud_cover_pct": 83.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 67.0,
-   "wbgt_f": 67.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 67.3,
    "fhsaa_zone": 1
   },
   {
@@ -1636,7 +1783,8 @@
    "cloud_cover_pct": 83.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 67.0,
-   "wbgt_f": 67.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 67.3,
    "fhsaa_zone": 1
   },
   {
@@ -1647,7 +1795,8 @@
    "cloud_cover_pct": 83.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 67.0,
-   "wbgt_f": 67.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 66.7,
    "fhsaa_zone": 1
   },
   {
@@ -1658,7 +1807,8 @@
    "cloud_cover_pct": 83.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 66.0,
-   "wbgt_f": 66.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 66.3,
    "fhsaa_zone": 1
   },
   {
@@ -1669,6 +1819,7 @@
    "cloud_cover_pct": 74.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 68.0,
+   "solar_w_m2": 53.2,
    "wbgt_f": 68.0,
    "fhsaa_zone": 1
   },
@@ -1680,7 +1831,8 @@
    "cloud_cover_pct": 74.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 70.0,
-   "wbgt_f": 70.0,
+   "solar_w_m2": 218.4,
+   "wbgt_f": 71.8,
    "fhsaa_zone": 1
   },
   {
@@ -1691,7 +1843,8 @@
    "cloud_cover_pct": 74.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 72.0,
-   "wbgt_f": 72.0,
+   "solar_w_m2": 368.0,
+   "wbgt_f": 75.3,
    "fhsaa_zone": 1
   },
   {
@@ -1702,7 +1855,8 @@
    "cloud_cover_pct": 74.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 76.0,
-   "wbgt_f": 76.0,
+   "solar_w_m2": 487.4,
+   "wbgt_f": 78.6,
    "fhsaa_zone": 1
   },
   {
@@ -1713,7 +1867,8 @@
    "cloud_cover_pct": 74.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 78.0,
-   "wbgt_f": 78.0,
+   "solar_w_m2": 568.0,
+   "wbgt_f": 80.7,
    "fhsaa_zone": 1
   },
   {
@@ -1724,7 +1879,8 @@
    "cloud_cover_pct": 74.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 79.0,
-   "wbgt_f": 79.0,
+   "solar_w_m2": 604.2,
+   "wbgt_f": 81.4,
    "fhsaa_zone": 1
   },
   {
@@ -1735,7 +1891,8 @@
    "cloud_cover_pct": 80.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 79.0,
-   "wbgt_f": 79.0,
+   "solar_w_m2": 526.8,
+   "wbgt_f": 81.4,
    "fhsaa_zone": 1
   },
   {
@@ -1746,7 +1903,8 @@
    "cloud_cover_pct": 80.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 79.0,
-   "wbgt_f": 79.0,
+   "solar_w_m2": 476.1,
+   "wbgt_f": 81.4,
    "fhsaa_zone": 1
   },
   {
@@ -1757,7 +1915,8 @@
    "cloud_cover_pct": 80.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 78.0,
-   "wbgt_f": 78.0,
+   "solar_w_m2": 387.7,
+   "wbgt_f": 80.6,
    "fhsaa_zone": 1
   },
   {
@@ -1768,7 +1927,8 @@
    "cloud_cover_pct": 80.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 78.0,
-   "wbgt_f": 78.0,
+   "solar_w_m2": 268.1,
+   "wbgt_f": 79.7,
    "fhsaa_zone": 1
   },
   {
@@ -1779,7 +1939,8 @@
    "cloud_cover_pct": 80.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 77.0,
-   "wbgt_f": 77.0,
+   "solar_w_m2": 126.5,
+   "wbgt_f": 77.5,
    "fhsaa_zone": 1
   },
   {
@@ -1790,7 +1951,8 @@
    "cloud_cover_pct": 80.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 75.0,
-   "wbgt_f": 75.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 75.3,
    "fhsaa_zone": 1
   },
   {
@@ -1801,7 +1963,8 @@
    "cloud_cover_pct": 84.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 74.0,
-   "wbgt_f": 74.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 73.7,
    "fhsaa_zone": 1
   },
   {
@@ -1812,7 +1975,8 @@
    "cloud_cover_pct": 84.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 73.0,
-   "wbgt_f": 73.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 72.7,
    "fhsaa_zone": 1
   },
   {
@@ -1823,7 +1987,8 @@
    "cloud_cover_pct": 84.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 72.0,
-   "wbgt_f": 72.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 71.7,
    "fhsaa_zone": 1
   },
   {
@@ -1834,7 +1999,8 @@
    "cloud_cover_pct": 84.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 71.0,
-   "wbgt_f": 71.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 71.3,
    "fhsaa_zone": 1
   },
   {
@@ -1845,7 +2011,8 @@
    "cloud_cover_pct": 84.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 71.0,
-   "wbgt_f": 71.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 70.7,
    "fhsaa_zone": 1
   },
   {
@@ -1856,7 +2023,8 @@
    "cloud_cover_pct": 84.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 70.0,
-   "wbgt_f": 70.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 70.3,
    "fhsaa_zone": 1
   },
   {
@@ -1867,7 +2035,8 @@
    "cloud_cover_pct": 84.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 70.0,
-   "wbgt_f": 70.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 70.3,
    "fhsaa_zone": 1
   },
   {
@@ -1878,7 +2047,8 @@
    "cloud_cover_pct": 84.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 70.0,
-   "wbgt_f": 70.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 70.3,
    "fhsaa_zone": 1
   },
   {
@@ -1889,7 +2059,8 @@
    "cloud_cover_pct": 84.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 70.0,
-   "wbgt_f": 70.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 69.7,
    "fhsaa_zone": 1
   },
   {
@@ -1900,7 +2071,8 @@
    "cloud_cover_pct": 84.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 70.0,
-   "wbgt_f": 70.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 69.7,
    "fhsaa_zone": 1
   },
   {
@@ -1911,7 +2083,8 @@
    "cloud_cover_pct": 84.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 69.0,
-   "wbgt_f": 69.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 69.3,
    "fhsaa_zone": 1
   },
   {
@@ -1922,7 +2095,8 @@
    "cloud_cover_pct": 84.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 69.0,
-   "wbgt_f": 69.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 68.7,
    "fhsaa_zone": 1
   },
   {
@@ -1933,6 +2107,7 @@
    "cloud_cover_pct": 73.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 70.0,
+   "solar_w_m2": 52.4,
    "wbgt_f": 70.0,
    "fhsaa_zone": 1
   },
@@ -1944,7 +2119,8 @@
    "cloud_cover_pct": 73.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 72.0,
-   "wbgt_f": 72.0,
+   "solar_w_m2": 219.9,
+   "wbgt_f": 74.0,
    "fhsaa_zone": 1
   },
   {
@@ -1955,7 +2131,8 @@
    "cloud_cover_pct": 73.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 75.0,
-   "wbgt_f": 75.0,
+   "solar_w_m2": 371.7,
+   "wbgt_f": 77.4,
    "fhsaa_zone": 1
   },
   {
@@ -1966,7 +2143,8 @@
    "cloud_cover_pct": 73.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 78.0,
-   "wbgt_f": 78.0,
+   "solar_w_m2": 492.9,
+   "wbgt_f": 80.7,
    "fhsaa_zone": 1
   },
   {
@@ -1977,8 +2155,9 @@
    "cloud_cover_pct": 73.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 80.0,
-   "wbgt_f": 80.0,
-   "fhsaa_zone": 1
+   "solar_w_m2": 574.6,
+   "wbgt_f": 82.5,
+   "fhsaa_zone": 2
   },
   {
    "time": "2026-10-10T13:00:00-04:00",
@@ -1988,8 +2167,9 @@
    "cloud_cover_pct": 73.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 81.0,
-   "wbgt_f": 81.0,
-   "fhsaa_zone": 1
+   "solar_w_m2": 611.1,
+   "wbgt_f": 82.9,
+   "fhsaa_zone": 2
   },
   {
    "time": "2026-10-10T14:00:00-04:00",
@@ -1999,8 +2179,9 @@
    "cloud_cover_pct": 82.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 81.0,
-   "wbgt_f": 81.0,
-   "fhsaa_zone": 1
+   "solar_w_m2": 499.1,
+   "wbgt_f": 82.8,
+   "fhsaa_zone": 2
   },
   {
    "time": "2026-10-10T15:00:00-04:00",
@@ -2010,8 +2191,9 @@
    "cloud_cover_pct": 82.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 81.0,
-   "wbgt_f": 81.0,
-   "fhsaa_zone": 1
+   "solar_w_m2": 450.6,
+   "wbgt_f": 83.0,
+   "fhsaa_zone": 2
   },
   {
    "time": "2026-10-10T16:00:00-04:00",
@@ -2021,8 +2203,9 @@
    "cloud_cover_pct": 82.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 80.0,
-   "wbgt_f": 80.0,
-   "fhsaa_zone": 1
+   "solar_w_m2": 366.4,
+   "wbgt_f": 82.3,
+   "fhsaa_zone": 2
   },
   {
    "time": "2026-10-10T17:00:00-04:00",
@@ -2032,7 +2215,8 @@
    "cloud_cover_pct": 82.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 79.0,
-   "wbgt_f": 79.0,
+   "solar_w_m2": 252.4,
+   "wbgt_f": 80.9,
    "fhsaa_zone": 1
   },
   {
@@ -2043,7 +2227,8 @@
    "cloud_cover_pct": 82.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 78.0,
-   "wbgt_f": 78.0,
+   "solar_w_m2": 117.6,
+   "wbgt_f": 78.9,
    "fhsaa_zone": 1
   },
   {
@@ -2054,7 +2239,8 @@
    "cloud_cover_pct": 82.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 77.0,
-   "wbgt_f": 77.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 76.7,
    "fhsaa_zone": 1
   },
   {
@@ -2065,7 +2251,8 @@
    "cloud_cover_pct": 87.0,
    "source": "nws_forecast",
    "nws_wbgt_f": 75.0,
-   "wbgt_f": 75.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 74.8,
    "fhsaa_zone": 1
   }
  ]
