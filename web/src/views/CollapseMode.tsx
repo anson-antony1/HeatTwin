@@ -7,6 +7,7 @@ import { mmss } from '../lib/heat'
 import { ease, spring } from '../lib/motion'
 import { useCwiTargets, useNodeLatest } from './collapse/hooks'
 import { EAP_NOTE, buildSteps, nataGoalText, nataWindowLabel, noRectalNote } from './collapse/targets'
+import { emsHandoffText, type HandoffEntry } from './collapse/handoff'
 import { NO_PROBE_TEXT, TUB_TITLE, formatAge, formatNodeClock, tubDisplay, tubHandoffLine, tubVerdict } from './collapse/tub'
 import './CollapseMode.css'
 
@@ -19,10 +20,7 @@ import './CollapseMode.css'
 // GET /sources, and the tub temperature only from a real field-node reading
 // (GET /node/latest); with neither, the text shows without numbers.
 
-interface LogEntry {
-  t: number
-  text: string
-}
+type LogEntry = HandoffEntry
 
 function speak(text: string) {
   if (!('speechSynthesis' in window)) return
@@ -84,14 +82,7 @@ export function CollapseMode({ athleteId, onClose }: { athleteId: string; onClos
   }
 
   const copy = async () => {
-    const text = [
-      `HeatTwin — EMS handoff · ${athlete.name} (${athlete.position}, ${athlete.massKg} kg, roster entry)`,
-      `Times are since Collapse mode started on this screen.`,
-      ...log.map((e) => `+${mmss(e.t)}  ${e.text}`),
-      tubHandoffLine(tub),
-      'Core temperature figures above are model estimates — planning only, not measurements.',
-      'Rectal temperature is the only basis for treatment decisions.',
-    ].join('\n')
+    const text = emsHandoffText(athlete, log, tubHandoffLine(tub))
     try {
       await navigator.clipboard.writeText(text)
       setCopied(true)

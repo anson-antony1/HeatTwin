@@ -5,8 +5,8 @@ export type Position = 'OL' | 'DL' | 'LB' | 'TE' | 'RB' | 'QB' | 'WR' | 'DB' | '
 
 export interface Athlete {
   id: string
+  /** Carries "(fictional)" for the synthetic demo roster. */
   name: string
-  number: number
   position: Position
   massKg: number
   heightCm: number

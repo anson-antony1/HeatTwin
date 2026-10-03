@@ -6,6 +6,7 @@ import { liveCaptionsSupported, useLiveCaptions } from '../lib/useLiveCaptions'
 import { planStore, usePlanState, type PlanState } from '../data/planStore'
 import type { PlanDraft } from '../data/llmPlan'
 import { ROSTER } from '../data/fixtures'
+import { useRoster } from '../data/roster'
 import { mmss } from '../lib/heat'
 import { ease, spring } from '../lib/motion'
 import { fmtCore } from '../lib/format'
@@ -464,7 +465,9 @@ function Result({
   const near = sim.athletes.filter((a) => a.status === 'near_limit').length
   const wasOver = p.original ? p.original.athletes.filter((a) => a.status === 'over_limit').length : over
   const hottest = [...sim.athletes].sort((a, b) => b.peak_core_c_p95 - a.peak_core_c_p95).slice(0, 3)
-  const name = (id: string) => ROSTER.find((r) => r.id === id)?.name ?? id
+  const roster = useRoster()
+  // Engine roster names (with "(fictional)" for the synthetic demo roster); else the local fixture copy, which keeps it too.
+  const name = (id: string) => (roster.byId(id) ? roster.name(id) : (ROSTER.find((r) => r.id === id)?.name ?? id))
   const optimizing = p.phase === 'optimizing'
   const canOptimize = p.source !== 'optimized' && (over > 0 || near > 0 || sim.fhsaa_violations.length > 0)
 
