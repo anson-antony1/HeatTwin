@@ -5,17 +5,34 @@
 #         DESIGN    = a modelling/product choice (not a sourced fact); an AT/coach should own it, and the UI labels it
 
 fhsaa_wbgt_zones:   # Florida statewide WBGT chart, practices
-  status: SECONDARY
-  source: "Perry Weather, '2026 Heat Stress Playbook: Florida' summarizing FHSAA policy — confirm with FHSAA Sports Medicine heat policy PDF"
-  url: "https://perryweather.com/resources/2026-heat-stress-playbook-florida/"
+  status: VERIFIED
+  source: "Bylaws of the Florida High School Athletic Association 2025-26 (FHSAA Handbook, revised 4/24/26), Policy 41 Exertional Heat Illness, §41.8.3 WBGT Index for Practices, p.107 (read). Summary also in Perry Weather, '2026 Heat Stress Playbook: Florida'."
+  url: "https://s3.amazonaws.com/fhsaa.org/documents/2026/4/27/2526_handbook_42426.pdf ; https://perryweather.com/resources/2026-heat-stress-playbook-florida/"
+  quote_or_location: "§41.8.3 table: '< 82.0 Normal activities.' '82.1 - 87.0 Three (3) separate four (4) minute rest breaks per hour of activity.' '87.1 - 90.0 Maximum two (2) hour activity time. Four (4) separate four (4) minute rest breaks per hour of activity. For football, student-athletes are restricted to helmet, shoulder pads and shorts during activity. If WBGT reading rises to this level after practice has begun, student-athletes may continue to workout wearing football pants without changing into shorts.' '90.1 - 92.0 Maximum one (1) hour activity time. Five (5) separate four (4) minute rest breaks. No protective equipment permitted. No conditioning activities permitted.' '≥ 92.1 No outdoor activities.'"
+  note: "Readings are to 0.1 °F; engine/fhsaa.py rounds WBGT to 0.1 before applying the bands. Zone 4's 'five breaks' has no 'per hour' but the zone allows only 1 h, so it is applied per hour."
+  zone3_pants_if_rose_after_start: true   # §41.8.3 zone-3 exception: full pads (pants) may stay on if zone 3 began after practice started
   zones:
     - {zone: 1, wbgt_f_max: 82.0, activity: "normal", breaks_per_hour: 0, break_min: 0, max_duration_min: null, gear: "any"}
     - {zone: 2, wbgt_f_max: 87.0, activity: "unrestricted", breaks_per_hour: 3, break_min: 4, max_duration_min: null, gear: "any"}
     - {zone: 3, wbgt_f_max: 90.0, activity: "max 2 h", breaks_per_hour: 4, break_min: 4, max_duration_min: 120, gear: "football: helmet, shoulder pads, shorts only"}
     - {zone: 4, wbgt_f_max: 92.0, activity: "max 1 h", breaks_per_hour: 5, break_min: 4, max_duration_min: 60, gear: "no protective gear, no conditioning"}
     - {zone: 5, wbgt_f_max: 999, activity: "no outdoor activity", breaks_per_hour: null, break_min: null, max_duration_min: 0, gear: "n/a"}
-  measurement: "15–20 min before activity, then every 30 min"
+  measurement: "15–20 min before activity, then every 30 min"   # §41.7.2, §41.7.5
   cooling_zone_required_above_wbgt_f: 82.1
+  cooling_zone_status: SECONDARY
+  cooling_zone_note: "82.1 °F threshold is from the Perry Weather summary ('Above 82.1°F, cold water immersion tubs or ice and water tarps must be available'). The handbook (§41.8.4-41.8.5) defines cooling zones (CWI tub or TACO + trained individual) and requires them 'for each outdoor athletic contest, practice, workout, or conditioning session as designated by this policy' without a WBGT number in the text read; §41.7.1 triggers WBGT recording and modifications when WBGT is 'reasonably expected to exceed 82 degrees'."
+
+fhsaa_practice_limits:
+  status: VERIFIED
+  source: "FHSAA Handbook 2025-26, Policy 41 §41.5.7 and §41.5.12, p.106 (read)"
+  url: "https://s3.amazonaws.com/fhsaa.org/documents/2026/4/27/2526_handbook_42426.pdf"
+  quote_or_location: "§41.5.12 'On days when a single practice is conducted, practices shall not exceed three (3) hours in length.' §41.5.7 'Football only (including spring): ... the first two (2) days of practice are restricted to helmets only, days 3-5 can introduce shoulder-pads with shorts and then beginning day six (6) of practice, full gear can be utilized'"
+  max_single_practice_min: 180
+  football_gear_by_day:             # last practice day on which each gear level is the maximum allowed
+    - {through_day: 2, max_gear: helmet}
+    - {through_day: 5, max_gear: helmet_shoulder_pads}
+  gear_order: [none, helmet, helmet_shoulder_pads, full_pads]   # DESIGN: GearLevel from least to most protective equipment
+  note: "Applies football acclimatization by Athlete.acclimatization_day, treated as the athlete's practice day (CONTRACTS.md defines it as day of heat exposure this preseason)."
 
 ksi_cwi:
   status: VERIFIED
@@ -197,8 +214,11 @@ node_globe:
   d_globe_m: 0.040
 
 wbgt_globe_height_m:
-  status: TODO
-  note: "Confirm standard measurement height for standing subjects (ISO 7243)."
+  status: VERIFIED
+  source: "FHSAA Handbook 2025-26, Policy 41 §41.7.3-41.7.4, p.107 (read)"
+  url: "https://s3.amazonaws.com/fhsaa.org/documents/2026/4/27/2526_handbook_42426.pdf"
+  quote_or_location: "'The WBGT should be set up three (3) feet above the surface of the field or turf and away from any obstructions.' 'The WBGT should be set up in the sun, not under shade.'"
+  value: 0.914          # 3 ft (FHSAA). ISO 7243 itself (paywalled) not read.
 
 # ─────────────────────────────────────────────────────────────────────────────
 # WS2 physiology (engine/physio). Equations: engine/physio/MODEL.md
