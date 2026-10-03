@@ -35,21 +35,39 @@ What we change relative to the reference (each change is listed in §10):
 | 10 | Critical wettedness w_crit = 0.59·v^−0.08 (clothed, Gagge's comfort-derived value) | ISO 7933 w_max: 0.85 unacclimatized → 1.0 acclimatized (§7.3), in the default ISO clothing mode |
 | 11 | No aerobic ceiling | Metabolic rate per athlete clipped at VO₂max (§4) |
 
-Two **modes** (constants `model_options.clothing_mode`):
-* `iso7933_dynamic` (default, used for planning): rows 4 and 10 as above.
+Three **clothing modes** (constants `model_options.clothing_mode`):
+* `conservative` (**planning default**): ISO 7933 structure with (1) **no walking-ventilation credit**. ISO's walking-speed
+  term is off; with it, the model under-predicts Armstrong CON by about 1 SD. The **wind** term is kept, because still-air chamber
+  data can't test it. (2) A **gear load surcharge** on metabolic heat, `M × (1 + δ·w(gear))`. δ = 0.1669 is calibrated so
+  full pads reproduce Armstrong 2010's mean FULL treadmill rise (0.071 °C/min). w(gear) runs from 0 for `none` to 1 for `full_pads`,
+  interpolated by intrinsic insulation. Armstrong and Hitchcock 2007 both attribute extra metabolic cost to the uniform; δ
+  lumps uniform weight, pad coverage and sweat-soaking. It's a calibration, not a measurement.
+* `iso7933_dynamic` (alternate): the full ISO 7933 dynamic correction, with no surcharge.
 * `gagge_static`: Gagge's own clothing and w_crit structure with static intrinsic manikin values. With Gagge's
   i_cl = 0.45 law and 70 kg / 1.8258 m², this mode reproduces `two_nodes_gagge` (test tolerance 0.01 °C).
 
-**Why the default isn't the static mode.** On the fixture practice, static manikin values give median peaks of
-44–45 °C, which isn't credible. Godek 2006 measured NFL preseason practice maxima of 38.65 ± 0.48 °C. McCullough & Kenney
-say their manikin was "stationary, in still air". ISO 7933's dynamic correction is the standard way to apply such values to
-moving people in wind. In a check against Armstrong et al. 2010 (33 °C, 48.5 % RH chamber, treadmill), the corrected model
-gives 0.030 °C/min (control) and 0.035–0.045 °C/min (full uniform), against measured 0.037 ± 0.015 and 0.071 ± 0.032.
-Both are inside one SD, and full uniform is under-predicted. WS7 owns the formal reproduction.
+**Armstrong et al. 2010 reproduction** (`validation/armstrong_2010.py` → `validation/results.json`): deterministic mean
+participant, 33 °C / 48.5 % RH chamber, air speed not reported (still-air floor 0.1 m/s shown; a sweep is in results.json),
+Compendium METs (box lifting 4.0, seated 1.0, treadmill 5.3).
 
-Vectorization: the state arrays have shape `[n_ensemble, n_athletes]` and are stepped
-together. Time-varying inputs are precomputed as `[T]` (weather) and `[n_athletes, T]`
-(activity, gear, shade).
+| Mode | Condition | Model treadmill rate | Measured (mean ± SD) | Error / SD | Whole-protocol model / measured |
+|---|---|---|---|---|---|
+| conservative | CON | 0.0349 | 0.037 ± 0.015 | -0.14 | 0.0251 / 0.026 |
+| conservative | FULL | 0.0710 | 0.071 ± 0.032 | -0.00 (fit) | 0.0500 / 0.042 |
+| iso7933_dynamic | CON | 0.0219 | 0.037 ± 0.015 | -1.01 | 0.0156 / 0.026 |
+| iso7933_dynamic | FULL | 0.0390 | 0.071 ± 0.032 | -1.00 | 0.0260 / 0.042 |
+| gagge_static | CON | 0.0313 | 0.037 ± 0.015 | -0.38 | 0.0231 / 0.026 |
+| gagge_static | FULL | 0.0562 | 0.071 ± 0.032 | -0.46 | 0.0393 / 0.042 |
+
+The FULL row in conservative mode is the calibration target, and CON informed dropping the walking credit, so the only
+unfitted checks are the whole-protocol rates. Conservative over-predicts FULL whole-protocol by 0.8 SD (0.050 vs 0.042),
+which is the safe direction. ISO-dynamic under-predicts both conditions by about 1 SD, the unsafe direction.
+
+**Field consequence** (fixture practice, NATA-phased gear, cached NWS forecast). Conservative: median peak 40.1–41.5 °C,
+p95 40.7–41.9 °C. ISO-dynamic: median 38.8–39.8 °C, p95 39.5–40.5 °C. In both modes all 16 athletes cross 39.0 °C at p95 on the
+unmodified plan. Field context: Godek 2006 measured NFL preseason practice maxima of 38.65 ± 0.48 °C (adult, acclimatized,
+unknown intensity), so conservative is likely hot in the field while ISO is low in the lab. The truth needs field data with
+measured activity.
 
 ---
 

@@ -33,7 +33,7 @@ MODEL_BLOCKS = (
     "gagge_1986", "physical", "body_surface_area", "metabolic", "drill_met", "gear_clothing",
     "solar_position", "solarcal", "solarcal_ground", "irradiance_split", "wind_profile", "shade_model",
     "non_participant", "acclimatization", "ensemble_priors", "planning_limit_core_c", "iso7933_dynamic",
-    "model_options", "hr_met", "nata_gear_phasing",
+    "model_options", "hr_met", "nata_gear_phasing", "clothing_conservative",
 )
 
 
@@ -175,18 +175,27 @@ class IsoClothing:
     i_m: np.ndarray       # [N, S] static permeability index
     i_cl_clo: np.ndarray  # [N, S] intrinsic insulation (clo) — selects the low-clo blend
     w_max: np.ndarray     # [N] maximum skin wettedness
+    fraction: float = 1.0  # share of the ISO dynamic correction applied (1 = ISO 7933, 0 = static manikin)
+    walk_credit: float = 1.0  # share of ISO's walking-speed (pumping) term kept; wind term unaffected
 
 
-def iso_dynamic_resistances(m_act, v, i_t, i_m, i_cl_clo, f_cl, Q: IsoDynamic):
+def iso_dynamic_resistances(m_act, v, i_t, i_m, i_cl_clo, f_cl, Q: IsoDynamic, fraction: float = 1.0,
+                            walk_credit: float = 1.0):
     """ISO 7933 dynamic correction → (dynamic intrinsic dry insulation R_cl [m²K/W],
-    dynamic total evaporative resistance R_e,T [m²·mmHg/W]). Broadcasts over [E, N]."""
-    wa = np.minimum(Q.walk_k * np.maximum(m_act - Q.walk_off, 0.0), Q.walk_cap)
+    dynamic total evaporative resistance R_e,T [m²·mmHg/W]). Broadcasts over [E, N].
+
+    ``fraction`` λ applies part of the correction: corr_eff = 1 − λ·(1 − corr) for both corr_tot and corr_ia
+    (λ = 1 → ISO 7933; λ = 0 → static manikin values; the conservative mode uses a λ calibrated on Armstrong 2010)."""
+    wa = walk_credit * np.minimum(Q.walk_k * np.maximum(m_act - Q.walk_off, 0.0), Q.walk_cap)
     v_ux = min(v, Q.v_cap)
     w_ux = np.minimum(wa, Q.w_cap)
     corr_cl = np.minimum(Q.cl_scale * np.exp((Q.cl_v2 * v_ux + Q.cl_v1) * v_ux + (Q.cl_w2 * w_ux + Q.cl_w1) * w_ux), 1.0)
     corr_ia = np.minimum(np.exp((Q.ia_v2 * v + Q.ia_v1) * v + (Q.ia_w2 * w_ux + Q.ia_w1) * w_ux), 1.0)
     corr_tot = np.where(i_cl_clo <= Q.blend_clo,
                         ((Q.blend_clo - i_cl_clo) * corr_ia + i_cl_clo * corr_cl) / Q.blend_clo, corr_cl)
+    if fraction != 1.0:
+        corr_tot = 1.0 - fraction * (1.0 - corr_tot)
+        corr_ia = 1.0 - fraction * (1.0 - corr_ia)
     i_t_dyn = i_t * corr_tot
     im_dyn = np.minimum(i_m * ((Q.ce_a * corr_tot + Q.ce_b) * corr_tot + Q.ce_c), Q.im_max)
     r_et = i_t_dyn / (im_dyn * Q.lewis_kpa) * Q.mmhg_per_kpa
@@ -285,7 +294,8 @@ def integrate(
         v_s = max(v[s], P.v_min)
         tr_s, rcl, recl, fcl = tr[:, s], r_cl[:, s], r_ecl[:, s], f_cl[:, s]
         if iso is not None:
-            rcl, r_et = iso_dynamic_resistances(m_act, v_s, iso.i_t[:, s], iso.i_m[:, s], iso.i_cl_clo[:, s], fcl, Q)
+            rcl, r_et = iso_dynamic_resistances(m_act, v_s, iso.i_t[:, s], iso.i_m[:, s], iso.i_cl_clo[:, s], fcl, Q,
+                                                iso.fraction, iso.walk_credit)
 
         # respiration (MODEL §7.2)
         resp = P.resp_s * m_act * (P.resp_s_ref - ta_s) + P.resp_l * m_act * (P.resp_l_ref - pa_s)
@@ -595,7 +605,7 @@ def simulate_arrays(tl: Timeline, env: Environment, R: RosterArrays, D: Draws,
                     cap_mode: str | None = None, clothing_mode: str | None = None) -> IntegrateOut:
     """Core temperature [E, N, S] for a timeline (all athletes × ensemble members)."""
     clothing_mode = clothing_mode or consts.get("model_options.clothing_mode")
-    if clothing_mode not in ("iso7933_dynamic", "gagge_static"):
+    if clothing_mode not in CLOTHING_MODES:
         raise ValueError(clothing_mode)
     if tl.n_steps > env.n_steps:
         raise ValueError(f"plan needs {tl.n_steps} steps but environment covers {env.n_steps}")
@@ -603,12 +613,15 @@ def simulate_arrays(tl: Timeline, env: Environment, R: RosterArrays, D: Draws,
     met_scale, thermo = scales(R, D)
     met_wm2 = metabolic.met_to_w_m2(tl.met, R.mass_kg[:, None], R.bsa_m2[:, None])
     gt = clothing.gear_table()
+    if clothing_mode == "conservative":
+        met_wm2 = met_wm2 * (1.0 + gear_met_surcharge()[tl.gear])
     tr = np.where(tl.shade, env.ta[None, :S], env.tr_sun[None, :S])
     iso = None
-    if clothing_mode == "iso7933_dynamic":
+    if clothing_mode in ("iso7933_dynamic", "conservative"):
         d = consts.get("iso7933_dynamic")
         w_max = d["w_max_unacclimatized"] + R.accl_frac * (d["w_max_acclimatized"] - d["w_max_unacclimatized"])
-        iso = IsoClothing(i_t=gt["i_t"][tl.gear], i_m=gt["i_m"][tl.gear], i_cl_clo=gt["i_cl_clo"][tl.gear], w_max=w_max)
+        iso = IsoClothing(i_t=gt["i_t"][tl.gear], i_m=gt["i_m"][tl.gear], i_cl_clo=gt["i_cl_clo"][tl.gear], w_max=w_max,
+                          fraction=iso_fraction(clothing_mode), walk_credit=walk_credit(clothing_mode))
     return integrate(
         met_wm2=met_wm2, met_scale=met_scale,
         ta=env.ta[:S], pa=env.pa[:S], v=env.v_body[:S], tr=tr,
@@ -618,6 +631,30 @@ def simulate_arrays(tl: Timeline, env: Environment, R: RosterArrays, D: Draws,
         met_cap_wm2=metabolic.met_to_w_m2(R.met_cap, R.mass_kg, R.bsa_m2),
         cap_mode=cap_mode or consts.get("model_options.cap_mode"), iso=iso,
     )
+
+
+CLOTHING_MODES = ("conservative", "iso7933_dynamic", "gagge_static")
+
+
+def iso_fraction(clothing_mode: str) -> float:
+    """λ for the ISO-structured clothing modes: 1 for iso7933_dynamic, calibrated value for conservative."""
+    if clothing_mode == "conservative":
+        return float(consts.get("clothing_conservative.iso_correction_fraction"))
+    return 1.0
+
+
+def walk_credit(clothing_mode: str) -> float:
+    if clothing_mode == "conservative":
+        return float(consts.get("clothing_conservative.walk_credit_fraction"))
+    return 1.0
+
+
+def gear_met_surcharge() -> np.ndarray:
+    """Conservative mode: δ·w(gear) per gear level, w interpolating intrinsic insulation none → full pads (0 → 1)."""
+    d = float(consts.get("clothing_conservative.gear_met_surcharge_full_pads"))
+    icl = clothing.gear_table()["i_cl_clo"]
+    lo, hi = icl[clothing.gear_index("none")], icl[clothing.gear_index("full_pads")]
+    return d * np.clip((icl - lo) / (hi - lo), 0.0, 1.0)
 
 
 def percentiles(core: np.ndarray) -> tuple[np.ndarray, np.ndarray]:

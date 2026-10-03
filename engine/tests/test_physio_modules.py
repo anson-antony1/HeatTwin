@@ -149,3 +149,21 @@ def test_unverified_gear_level_is_labelled():
     from engine.physio.twonode import simulate_roster
     res = simulate_roster(fixtures.roster()[:2], fixtures.plan(), fixtures.forecast(), n_ensemble=5)
     assert any("gear_clothing.levels.helmet (TODO)" in lab for lab in res["labels"])
+
+
+def test_conservative_calibration_reproduces_armstrong_full():
+    """constants.clothing_conservative.δ must still reproduce Armstrong 2010 FULL treadmill rise (recalibrate if not)."""
+    from validation.armstrong_2010 import simulate
+    target = consts.get("armstrong_2010.treadmill_rate_c_per_min.FULL")[0]
+    assert simulate("FULL", "conservative")["treadmill_rate_c_per_min"] == pytest.approx(target, abs=5e-4)
+    # conservative never heats less than the ISO-dynamic alternate
+    for cond in ("CON", "FULL"):
+        assert simulate(cond, "conservative")["treadmill_rate_c_per_min"] >= simulate(cond, "iso7933_dynamic")["treadmill_rate_c_per_min"]
+
+
+def test_results_json_is_computed_by_validation_code():
+    import json
+    from pathlib import Path
+    res = json.loads((Path(__file__).resolve().parents[2] / "validation" / "results.json").read_text())["armstrong_2010"]
+    assert res["computed_by"] == "validation/armstrong_2010.py" and res["synthetic"] is False
+    assert {r["clothing_mode"] for r in res["rows"]} == {"conservative", "iso7933_dynamic", "gagge_static"}
