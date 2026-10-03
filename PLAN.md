@@ -150,43 +150,39 @@ Each person runs **their own Claude Code session in their own git worktree/branc
 
 ## 7. Demo script (3 minutes)
 
-*Rewritten Oct 3 from the engine's actual output: fixtures + cached NWS forecast, `?demo=1` (seed 0, fixed iteration cap,
-reproducible), conservative clothing mode, NATA-phased gear. Rerun `POST /simulate?demo=1` and `POST /optimize?demo=1` after
-any model change and update these numbers. Say "estimate — planning only" out loud once.*
+*Rewritten Oct 3 (evening) from the engine's actual output: fixtures + cached NWS forecast, `?demo=1` (seed 0, fixed
+iteration caps, reproducible), Armstrong-calibrated clothing, NATA-phased gear. **Warm the cache before presenting:** call
+`POST /optimize?demo=1` and `POST /optimize?demo=1&preset=fewest_changes` once each; repeat calls then return in about 2 ms. After
+any model change, rerun and update these numbers. Say "estimate — planning only" out loud once.*
 
 1. **(20 s) Hook.** "More than 70 high school athletes have died of exertional heat stroke since 1982. Cooled within 30 minutes, survival is essentially 100%. A third of these events happen with no athletic trainer present. Florida law already requires heat monitoring and an ice tub. Nobody tells a coach what *today's* practice will do to *each* kid."
 2. **(40 s) Plan.**
    - **Forecast:** tomorrow's Gainesville forecast is NWS's own WBGT grid, cached and labelled as a fixture. Practice runs 3:30–5:23 pm at 86 / 83 / 82 °F WBGT, which is FHSAA zones 2 / 2 / 1.
-   - **Plan:** load the 113-minute practice. Gear already follows NATA phasing: day-2 athletes in helmets only, days 3–5 helmets and shoulder pads.
+   - **Plan:** load the 113-minute practice. Gear follows NATA phasing: day-2 athletes in helmets only, days 3–5 helmets and shoulder pads.
    - **Heat strip:**
-     - Every athlete's p95 estimate crosses the AT's 39.0 °C planning line between minute 45 and minute 51, during the inside run and the start of team period.
-     - First across, at minute 45: the day-2 linebackers Caleb and Isaiah, plus Darius (TE) and Kai (OL).
+     - Every athlete's p95 estimate crosses the AT's 39.0 °C line between minute 47 and minute 57, in the inside run and team period.
+     - First across, at minute 47: the day-2 linebackers Caleb and Isaiah. Next, at minute 49: Jordan, a day-3 receiver.
      - The plan also misses FHSAA zone-2 shaded-break minutes in both hours.
-   - **Line to say:** "That's not a red flag on three kids; the plan as written is too hot for this forecast."
-3. **(30 s) Optimize.** Click (`?demo=1`, about 6 s).
-   - **Shown on screen:**
-     - A water break moves to 3:40.
-     - Team period moves early and runs in two platoons; the resting platoon waits in the shaded cooling area.
-     - Team period and inside run drop to helmets only; special teams and individual period drop to no pads.
-     - Inside run is trimmed to 11 minutes.
-     - Breaks lengthen to 8 and 16 minutes, and one 8-minute shaded break is added.
-     - Gassers are split around the individual period.
-   - **Say:**
-     - "All 16 athletes are under 39.0 °C at p95, with a maximum of 38.97. Five sit in the near-limit band, so watch them."
-     - "Zero FHSAA and NATA violations. 79% of the training load kept. Practice grows 20 minutes, the AT's cap."
-   - Show the 15-line diff.
-   - **Honesty:** the coach can lower the change count by accepting less load; the optimizer won't cross the line to do it.
+   - **Line to say:** "The plan as written is too hot for this forecast, not just for three kids."
+3. **(30 s) Optimize.** Show the **fewest-changes** preset first; coaches hate big diffs.
+   - **Five changes:**
+     1. Individual period moves to 4:12.
+     2. Inside run (priority 2) comes out.
+     3. Team period is split into 12 + 8 + 5 minutes around shaded breaks.
+     4. A 4-minute shaded break is added at 3:56.
+     5. A 16-minute shaded break is added at 4:52.
+   - **Say:** "All 16 athletes are under 39.0 °C at p95 (max 38.99). Zero FHSAA and NATA violations. 81% of the training load kept. Practice is 5 minutes longer."
+   - **Then flip to max-load:** 13 changes (platoons, helmet + shoulder pads for team period, three added breaks) keep 83%, but practice is 20 minutes longer.
+   - **Line to say:** "The coach picks; the line doesn't move."
 4. **(40 s) Watch.**
-   - A teammate in an HR strap does burpees, or `fixtures/hr_a07_synthetic.csv` replays and is labelled REPLAY.
+   - A teammate in an HR strap does burpees: the Amazfit Helio Strap with Zepp "Heart Rate Push" through `engine/hr_bridge.py`. The fallback is `fixtures/hr_a07_synthetic.csv` replay, labelled REPLAY.
    - The card's met_scale moves off its prior (replay: 1.0 → 1.24 ± 0.03 in about 16 one-minute updates) and the rest of the session re-forecasts.
    - The gate log reads "not enough data" until coverage holds, then "re-forecast shows crossing" only if the crossing lasts at least 3 minutes.
-   - If the node logged: show the sideline node and the field-vs-forecast number from WS7 item 2.
+   - If the node logged: show the field-vs-forecast number from WS7 item 2.
 5. **(30 s) Respond.** Hit Collapse. The clock starts, the voice walks the KSI steps, the tub probe reads the ice water live, and an EMS timeline is generated. Every sentence passes `engine/guard.py`.
-6. **(20 s) Close.**
-   - **Validation, from `validation/results.json`:**
-     - Calibration: the conservative clothing mode is calibrated on Armstrong 2010's full-uniform treadmill rate, 0.071 °C/min.
-     - Unfitted check: it reproduces control clothing at 0.035 vs 0.037 ± 0.015 °C/min.
-     - Comparison: ISO-dynamic and JOS-3 under-predict by about 1 SD, which is why planning uses the conservative side.
+6. **(20 s) Close.** Validation, from `validation/results.json`:
+   - **Armstrong 2010 (lab):** calibrated on the full-uniform rise. Unfitted, it reproduces the full-uniform treadmill rate (−0.3 SD) and control clothing (−0.5 SD).
+   - **Field pill data from football practices** (said plainly): "Our medians run 0.6–0.8 °C above measured practice peaks at the same WBGT. The driver is drill intensity, and live HR calibration is how we close that gap. The p95 line is where the safety margin lives."
    - Then a $30 node vs. $300-per-athlete wearables, the IP position, and the next step: pilot with one Gainesville high school, then UF I2E.
 
 ---
