@@ -12,6 +12,7 @@ import {
   nataMaxGear,
   planMinutes,
   seriesByMinute,
+  withPlanLabel,
   type AthleteLive,
 } from '../data/selectors'
 import { BodyFigure } from '../components/BodyFigure'
@@ -44,6 +45,7 @@ interface Props {
 export function AthleteView({ athleteId, onSelect, onCollapse }: Props) {
   const reduce = useReducedMotion()
   const s = useSession()
+  const meta = useEngineMeta()
   return (
     <div className="twin">
       {s.source === 'offline' && <OfflineBanner />}
@@ -57,7 +59,7 @@ export function AthleteView({ athleteId, onSelect, onCollapse }: Props) {
       <div className="twin__provenance">
         <span className="twin__tag">demo playback — not live</span>
         {replayLabel(s.replay) && <span className="twin__tag twin__tag--replay">{replayLabel(s.replay)}</span>}
-        <ProvenanceLabels labels={s.labels} title={s.source === 'offline' ? 'Offline' : s.replay.status === 'ready' ? 'Engine /live/replay' : 'Engine /simulate'} />
+        <ProvenanceLabels labels={withPlanLabel(s.labels, s.plan, meta.inputs)} title={s.source === 'offline' ? 'Offline' : s.replay.status === 'ready' ? 'Engine /live/replay' : 'Engine /simulate'} />
       </div>
 
       <AnimatePresence mode="wait" initial={false}>

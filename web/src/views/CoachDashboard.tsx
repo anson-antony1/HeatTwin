@@ -6,7 +6,7 @@ import { useEngineMeta } from '../data/engineMeta'
 import { useRoster } from '../data/roster'
 import { ESTIMATE_LABEL, zoneColor } from '../data/constants'
 import { SCHOOL } from '../data/fixtures'
-import { drillAtMinute, FHSAA_CITATION, noHrLabel, statusCounts, zoneRule, zoneRuleText, type AthleteLive } from '../data/selectors'
+import { drillAtMinute, FHSAA_CITATION, noHrLabel, statusCounts, withPlanLabel, zoneRule, zoneRuleText, type AthleteLive } from '../data/selectors'
 import { NumberTicker } from '../components/NumberTicker'
 import { StatusPill } from '../components/StatusPill'
 import { TempChart } from '../components/TempChart'
@@ -42,6 +42,7 @@ interface Props {
 export function CoachDashboard({ acked, onAck, onOpenAthlete, onCollapse }: Props) {
   const s = useSession()
   const roster = useRoster()
+  const meta = useEngineMeta()
   const reduce = useReducedMotion()
   const offline = s.source === 'offline'
 
@@ -102,7 +103,7 @@ export function CoachDashboard({ acked, onAck, onOpenAthlete, onCollapse }: Prop
         </div>
       </LayoutGroup>
 
-      <ProvenanceLabels labels={s.labels} title={s.source === 'offline' ? 'Offline' : s.replay.status === 'ready' ? 'Engine /live/replay' : 'Engine /simulate'} />
+      <ProvenanceLabels labels={withPlanLabel(s.labels, s.plan, meta.inputs)} title={s.source === 'offline' ? 'Offline' : s.replay.status === 'ready' ? 'Engine /live/replay' : 'Engine /simulate'} />
 
       <div className="roster" role="table" aria-label="Roster heat status">
         <div className="roster__head" role="row">

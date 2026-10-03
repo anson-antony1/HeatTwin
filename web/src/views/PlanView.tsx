@@ -14,6 +14,7 @@ import {
   seriesByMinute,
   statusCounts,
   weatherHourAt,
+  withPlanLabel,
   zoneRule,
   zoneRuleText,
 } from '../data/selectors'
@@ -186,11 +187,13 @@ export function PlanView() {
       {offline && <OfflineBanner />}
 
       <ProvenanceLabels
-        labels={
+        labels={withPlanLabel(
           p.sim
             ? [...(p.opt && p.source === 'optimized' ? (p.opt.labels ?? []) : []), ...p.sim.labels]
-            : (p.offline?.labels ?? [])
-        }
+            : (p.offline?.labels ?? []),
+          p.plan,
+          meta.inputs,
+        )}
         title={p.sim ? (p.source === 'optimized' ? 'Engine /optimize' : 'Engine /simulate') : 'Offline'}
       />
 

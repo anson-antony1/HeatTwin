@@ -1,6 +1,7 @@
 import type { ContractDrill, ContractGear, PracticePlan } from './llmPlan'
 import type {
   AthleteStatus,
+  DemoInputs,
   FhsaaZoneRule,
   LiveReplay,
   NataPhase,
@@ -171,6 +172,46 @@ export function nearMargin(settings: SettingsResponse | null, sim: Pick<Simulati
 export function displayName(name: string, synthetic: boolean): string {
   if (!synthetic || /\(fictional\)/i.test(name)) return name
   return `${name} (fictional)`
+}
+
+// ── the engine's demo plan ─────────────────────────────────────────────────
+
+export const SYNTHETIC_PLAN_LABEL = 'synthetic plan (fixture)'
+
+/** JSON with sorted object keys, so the same drills compare equal whatever key order they arrived in. */
+function canonical(x: unknown): string {
+  if (Array.isArray(x)) return `[${x.map(canonical).join(',')}]`
+  if (x && typeof x === 'object') {
+    const o = x as Record<string, unknown>
+    return `{${Object.keys(o)
+      .filter((k) => o[k] !== undefined)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${canonical(o[k])}`)
+      .join(',')}}`
+  }
+  return JSON.stringify(x) ?? 'null'
+}
+
+/** The plan on screen is the engine's demo plan (GET /demo/inputs): same id and the same drills. */
+export function isDemoPlan(
+  plan: Pick<PracticePlan, 'id' | 'drills'> | null | undefined,
+  inputs: Pick<DemoInputs, 'plan'> | null | undefined,
+): boolean {
+  if (!plan || !inputs?.plan) return false
+  return plan.id === inputs.plan.id && canonical(plan.drills) === canonical(inputs.plan.drills)
+}
+
+/**
+ * A view's labels, plus "synthetic plan (fixture)" (first, so it is never folded away) when the plan on screen is
+ * the demo plan /demo/inputs marks synthetic and the engine's labels don't already say so.
+ */
+export function withPlanLabel(
+  labels: string[],
+  plan: Pick<PracticePlan, 'id' | 'drills'> | null | undefined,
+  inputs: Pick<DemoInputs, 'plan' | 'synthetic'> | null | undefined,
+): string[] {
+  if (!inputs?.synthetic?.plan || !isDemoPlan(plan, inputs) || labels.includes(SYNTHETIC_PLAN_LABEL)) return labels
+  return [SYNTHETIC_PLAN_LABEL, ...labels]
 }
 
 /** NATA 2009 gear phasing for an acclimatization day (phases from GET /sources), tightened by an AT-set cap. */

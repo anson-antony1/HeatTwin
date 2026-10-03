@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { ProvenanceLabels } from '../ProvenanceLabels'
+import { orderLabels } from '../../lib/labels'
 import { OfflineBadge, OfflineBanner } from '../OfflineBadge'
 import { OFFLINE_LABEL } from '../../offline/standIn'
 
@@ -26,6 +27,47 @@ describe('<ProvenanceLabels/>', () => {
     expect(html).toContain('synthetic roster')
     expect(html).not.toContain('uses unverified constants')
     expect(html).toContain('+2 more')
+  })
+
+  it('puts synthetic / fixture / replay / demo first, then "uses unverified constants", then the rest (S2)', () => {
+    // The engine's /simulate order: the AT-settings and solar labels come before the provenance ones.
+    const engineOrder = [
+      'estimate — planning only',
+      'solar irradiance estimated from cloud cover (wbgt.solar_from_cloud)',
+      'AT-owned settings — planning limit 39.0 °C (default)',
+      'uses unverified constants: drill_met (DESIGN)',
+      'forecast is fixture',
+      'synthetic roster',
+    ]
+    expect(orderLabels(engineOrder)).toEqual([
+      'forecast is fixture',
+      'synthetic roster',
+      'uses unverified constants: drill_met (DESIGN)',
+      'solar irradiance estimated from cloud cover (wbgt.solar_from_cloud)',
+      'AT-owned settings — planning limit 39.0 °C (default)',
+    ])
+    const html = renderToStaticMarkup(<ProvenanceLabels labels={engineOrder} />)
+    expect(html).toContain('uses unverified constants')
+    expect(html).not.toContain('AT-owned settings')
+    expect(html).toContain('+2 more')
+  })
+
+  it('ranks replay, DEMO scenario and OFFLINE FALLBACK labels ahead of the rest, keeping their order', () => {
+    expect(
+      orderLabels([
+        'AT-owned settings',
+        'DEMO scenario: indoor globe on a hot-day scenario (synthetic) — not field data',
+        'replay',
+        'OFFLINE FALLBACK — not the validated model',
+        'estimate — planning only',
+        'replay',
+      ]),
+    ).toEqual([
+      'OFFLINE FALLBACK — not the validated model',
+      'DEMO scenario: indoor globe on a hot-day scenario (synthetic) — not field data',
+      'replay',
+      'AT-owned settings',
+    ])
   })
 
   it('can omit the estimate chip for non-temperature cards', () => {
