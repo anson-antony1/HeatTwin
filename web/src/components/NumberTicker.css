@@ -1,0 +1,43 @@
+.ticker {
+  display: inline-flex;
+  align-items: baseline;
+}
+
+.ticker__glyphs {
+  display: inline-flex;
+  align-items: flex-start;
+  line-height: 1.1;
+}
+
+.ticker__digit {
+  position: relative;
+  display: inline-block;
+  height: 1.1em;
+  overflow: hidden;
+}
+
+.ticker__col {
+  display: flex;
+  flex-direction: column;
+  will-change: transform;
+}
+
+.ticker__col > span {
+  height: 1.1em;
+  line-height: 1.1;
+  text-align: center;
+}
+
+.ticker__sep {
+  display: inline-block;
+  height: 1.1em;
+}
+
+.ticker__suffix {
+  display: inline-block;
+  margin-left: 0.04em;
+  font-size: 0.55em;
+  line-height: 1.6;
+  color: var(--ink-3);
+  letter-spacing: 0;
+}

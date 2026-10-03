@@ -1,0 +1,28 @@
+.body {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 100%;
+  min-height: 460px;
+}
+
+.body__aura {
+  position: absolute;
+  inset: 8% -20% 12%;
+  filter: blur(18px);
+  opacity: 0.9;
+  transition: background 600ms ease;
+}
+
+.body__svg {
+  position: relative;
+  height: min(560px, 100%);
+  max-width: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 24px 30px rgb(80 60 140 / 0.18));
+}
+
+.body__svg circle {
+  transform-box: fill-box;
+  transform-origin: center;
+}

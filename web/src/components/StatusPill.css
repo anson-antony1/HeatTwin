@@ -1,0 +1,52 @@
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 28px;
+  padding: 0 12px 0 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  white-space: nowrap;
+  transition:
+    background-color var(--dur-ui) ease,
+    color var(--dur-ui) ease;
+}
+
+.pill--sm {
+  height: 24px;
+  font-size: 12px;
+  padding: 0 10px 0 8px;
+}
+
+.pill__label {
+  position: relative;
+  display: inline-grid;
+  min-width: 62px;
+  overflow: hidden;
+}
+
+.pill__label > span {
+  grid-area: 1 / 1;
+}
+
+.pill__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+  transition: background-color var(--dur-ui) ease;
+}
+
+.pill--steady {
+  background: var(--steady-bg);
+  color: var(--steady);
+}
+.pill--watch {
+  background: var(--watch-bg);
+  color: var(--watch);
+}
+.pill--alert {
+  background: var(--alert);
+  color: white;
+}

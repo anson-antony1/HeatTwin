@@ -1,0 +1,314 @@
+.plan {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-bottom: 96px;
+}
+
+.plan__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.plan__head h1 {
+  margin-top: 6px;
+}
+
+.plan__actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn--lg {
+  height: 46px;
+  padding: 0 20px;
+  font-size: 15px;
+}
+
+.btn.is-done {
+  color: var(--steady);
+  cursor: default;
+}
+
+/* ---------- Summary metrics ---------- */
+
+.plan__summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.metric {
+  padding: 18px 20px;
+  border-radius: var(--r-lg);
+}
+
+.metric__value {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 10px 0 2px;
+  transition: color 400ms ease;
+}
+
+.metric.is-better .metric__value {
+  color: var(--steady);
+}
+
+.metric__unit {
+  font-family: var(--font-body);
+  font-size: 13px;
+  letter-spacing: 0;
+  color: var(--ink-3);
+}
+
+.metric__was {
+  font-size: 12.5px;
+}
+
+/* ---------- Board ---------- */
+
+.plan__board {
+  padding: 22px 24px 18px;
+}
+
+.plan__rules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 30px;
+  margin-bottom: 18px;
+}
+
+.rule {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 13px;
+}
+
+.rule--bad {
+  background: var(--alert-bg);
+  color: var(--alert);
+}
+
+.rule--ok {
+  background: var(--steady-bg);
+  color: var(--steady);
+}
+
+.plan__grid {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr) 64px;
+  row-gap: 6px;
+  column-gap: 14px;
+  align-items: center;
+}
+
+.plan__grid > .wbgt {
+  margin-bottom: 8px;
+}
+
+.strip-row {
+  display: contents;
+}
+
+.plan__label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.plan__label--head {
+  align-self: start;
+  padding-top: 18px;
+}
+
+.plan__num {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 22px;
+  border-radius: 7px;
+  background: rgb(255 255 255 / 0.85);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  font-size: 11.5px;
+  color: var(--ink);
+  flex: none;
+}
+
+.plan__name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.plan__sat {
+  flex: none;
+  font-size: 10.5px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--watch-bg);
+  color: var(--watch);
+}
+
+/* Drill blocks — flex-grow by minutes so a reorder is a pure layout change. */
+.timeline {
+  display: flex;
+  gap: 3px;
+  height: 56px;
+}
+
+.block {
+  position: relative;
+  min-width: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgb(255 255 255 / 0.85);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.block--break {
+  background: rgb(139 150 255 / 0.28);
+  box-shadow: none;
+}
+.block--conditioning {
+  background: rgb(255 122 89 / 0.22);
+}
+.block--team {
+  background: rgb(255 178 107 / 0.22);
+}
+.block--warmup {
+  background: rgb(255 255 255 / 0.65);
+}
+
+.block__text {
+  position: absolute;
+  inset: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  white-space: nowrap;
+}
+
+.block__name {
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.block__min {
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+.wbgt,
+.strip {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), 1fr);
+  gap: 1.5px;
+}
+
+.wbgt span {
+  height: 6px;
+  border-radius: 2px;
+  opacity: 0.75;
+}
+
+.strip span {
+  height: 22px;
+  border-radius: 3px;
+  transition: background-color 420ms ease;
+}
+
+.strip span.is-over {
+  box-shadow: inset 0 0 0 1.5px rgb(255 255 255 / 0.7);
+}
+
+.plan__peak {
+  font-size: 13.5px;
+  text-align: right;
+  color: var(--ink-2);
+  transition: color 400ms ease;
+}
+
+.plan__peak.is-over {
+  color: var(--alert);
+}
+
+.plan__axis {
+  position: relative;
+  height: 18px;
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+.plan__axis span {
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+.plan__axis span:first-child {
+  transform: none;
+}
+
+/* ---------- Change log ---------- */
+
+.plan__changes {
+  padding: 22px 24px;
+}
+
+.plan__changes ul {
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.plan__changes li {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.change {
+  flex: none;
+  width: 72px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.change--sit-out {
+  color: var(--watch);
+}
+
+.plan__note {
+  margin: 16px 0 0;
+  font-size: 12.5px;
+}
+
+@media (max-width: 1100px) {
+  .plan__summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .plan__grid {
+    grid-template-columns: 110px minmax(0, 1fr) 60px;
+  }
+  .plan__name {
+    display: none;
+  }
+}
