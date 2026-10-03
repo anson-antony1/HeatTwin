@@ -29,10 +29,36 @@ export default function App() {
   const [ackState, setAckState] = useState<{ session: number; ids: Set<string> }>({ session: 0, ids: new Set() })
   const [collapseFor, setCollapseFor] = useState<string | null>(null)
 
-  // App start: the engine's demo inputs → /simulate for the current plan → every view.
+  // App start: the engine's demo inputs → /simulate for the current plan → every view. The Settings location
+  // is where plans are modeled; live conditions for it (GET /weather) are shown on the Settings page only —
+  // estimates keep the engine's weather selection (?demo=1 → the pinned saved forecast).
   useEffect(() => {
-    void planStore.boot().then(() => engine.play())
-    return () => engine.pause()
+    const applySite = () => {
+      const l = settingsStore.get().location
+      void planStore.setSite({ ...planStore.get().plan.site, name: l.name, lat: l.lat, lon: l.lon })
+    }
+    void planStore.boot().then(() => {
+      applySite()
+      engine.play()
+    })
+    const offPlan = planStore.subscribe(() => weatherStore.setPlanDate(planStore.get().plan.start.slice(0, 10)))
+    const offSettings = settingsStore.subscribe(applySite)
+    // Once live weather gives the site's UTC offset, keep practice at the same local clock time there.
+    const offTz = weatherStore.subscribe(() => {
+      const w = weatherStore.get()
+      if (w.source !== 'nws_forecast' || !w.now) return
+      const l = settingsStore.get().location
+      if (w.location.lat !== l.lat || w.location.lon !== l.lon) return
+      void planStore.setSite({ ...planStore.get().plan.site, name: l.name, lat: l.lat, lon: l.lon }, w.now.time.slice(19))
+    })
+    const stopWeather = weatherStore.start()
+    return () => {
+      engine.pause()
+      offPlan()
+      offSettings()
+      offTz()
+      stopWeather()
+    }
   }, [])
 
   const acked = ackState.session === s.session ? ackState.ids : new Set<string>()

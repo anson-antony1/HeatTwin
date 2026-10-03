@@ -78,17 +78,23 @@ export function FieldCard() {
               <dt>Node WBGT</dt>
               <dd>{reading.node_wbgt_f.toFixed(1)} °F</dd>
             </div>
-            <div>
-              <dt>Forecast WBGT</dt>
-              <dd>{reading.forecast_wbgt_f.toFixed(1)} °F</dd>
-            </div>
-            <div>
-              <dt>Field − forecast</dt>
-              <dd>
-                {reading.field_minus_forecast_f > 0 ? '+' : ''}
-                {reading.field_minus_forecast_f.toFixed(1)} °F
-              </dd>
-            </div>
+            {reading.forecast_wbgt_f != null && reading.field_minus_forecast_f != null ? (
+              <>
+                <div>
+                  <dt>Forecast WBGT</dt>
+                  <dd>{reading.forecast_wbgt_f.toFixed(1)} °F</dd>
+                </div>
+                <div>
+                  <dt>Field − forecast</dt>
+                  <dd>
+                    {reading.field_minus_forecast_f > 0 ? '+' : ''}
+                    {reading.field_minus_forecast_f.toFixed(1)} °F
+                  </dd>
+                </div>
+              </>
+            ) : (
+              <div className="faint">no forecast comparison (indoor demo scenario)</div>
+            )}
           </dl>
         )}
       </div>

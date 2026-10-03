@@ -111,7 +111,7 @@ def test_demo_mode_pins_the_cached_forecast_even_with_live_weather_on(monkeypatc
     labels = r.json()["labels"]
     assert "forecast is fixture" in labels
     assert "demo mode: forecast pinned to the cached NWS fixture" in labels
-    assert api.weather_mode(demo=True) == "fixture" and api.weather_mode() == "live"
+    assert api.weather_mode(demo_mode=True) == "fixture" and api.weather_mode() == "live"
 
 
 def test_demo_inputs_match_what_demo_simulate_uses():
@@ -141,7 +141,8 @@ def test_live_replay_synthetic_fixture_is_labelled_and_deterministic():
 def test_node_latest_without_recording_has_no_numbers(monkeypatch, tmp_path):
     from engine import demo_data
     monkeypatch.setattr(demo_data, "DATA", tmp_path)
-    demo_data._clear_posted()
+    from engine import node_routes
+    node_routes.reset()
     j = client.get("/node/latest").json()
     assert j == {"reading": None, "series": [], "file": None, "labels": ["no field recording yet"]}
 
@@ -149,7 +150,8 @@ def test_node_latest_without_recording_has_no_numbers(monkeypatch, tmp_path):
 def test_node_latest_reads_newest_node_csv(monkeypatch, tmp_path):
     from engine import demo_data, node_bridge
     monkeypatch.setattr(demo_data, "DATA", tmp_path)
-    demo_data._clear_posted()
+    from engine import node_routes
+    node_routes.reset()
     rows = [{"ts": "2026-10-04T15:30:05-04:00", "globe_c": 45.0, "globe_ohm": 1, "air_c": 31.0, "rh_pct": 60, "wind_m_s": "",
              "air_source": "KGNV", "node_wbgt_f": 88.1, "forecast_wbgt_f": 86.0, "field_minus_forecast_f": 2.1,
              "fhsaa_zone": 3, "solar_inferred_w_m2": 700, "globe_calibrated": "false", "mode": "live"}]

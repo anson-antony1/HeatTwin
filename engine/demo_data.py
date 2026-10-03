@@ -4,8 +4,9 @@
 * HR: the newest real ``fixtures/hr_<date>.csv`` written by engine/hr_bridge.py wins; otherwise the synthetic
   ``fixtures/hr_a07_synthetic.csv``. A file is synthetic when its header comment or ``synthetic`` column says so.
   A real recording's clock is shifted so its first reading lands on the plan start (labelled).
-* Node: the newest ``data/node_<date>.csv`` written by engine/node_bridge.py, else readings POSTed to /node during
-  this engine run, else nothing — the caller then says "no field recording yet" and shows no numbers.
+* Node: live readings POSTed to /node are served by engine/node_routes.py; with none in memory, /node/latest falls back
+  to the newest ``data/node_<date>.csv`` written by engine/node_bridge.py, else nothing — the caller then says
+  "no field recording yet" and shows no numbers.
 """
 from __future__ import annotations
 
@@ -115,9 +116,6 @@ def run_replay(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], wea
 
 # ── field node ───────────────────────────────────────────────────────────────
 
-_POSTED: list[dict[str, Any]] = []
-
-
 def _num(x: Any) -> Optional[float]:
     try:
         v = float(x)
@@ -169,32 +167,7 @@ def node_latest() -> dict[str, Any]:
             if str(rows[-1].get("mode", "")).lower() == "replay":
                 labels.append("replay")
             return {"reading": last, "series": _per_minute(rows), "file": f"data/{path.name}", "labels": labels}
-    if _POSTED:
-        last = _POSTED[-1]
-        return {"reading": last, "series": _per_minute(_POSTED), "file": None,
-                "labels": ["field node readings posted to this engine run"]
-                + ([] if last.get("globe_calibrated") else ["globe thermistor uncalibrated"])}
     return {"reading": None, "series": [], "file": None, "labels": [NO_FIELD]}
 
 
-def post_node(reading: Mapping[str, Any], forecast: Sequence[Mapping[str, Any]], lat: Optional[float],
-              lon: Optional[float]) -> dict[str, Any]:
-    from engine import weather
-
-    hour = weather.node_hour(reading, forecast, lat, lon)
-    row = {"ts": reading["ts"], "globe_c": _num(reading.get("globe_temp_c")), "air_c": _num(reading.get("air_temp_c")),
-           "rh_pct": _num(reading.get("rh_pct")), "air_source": reading.get("air_source"),
-           "globe_calibrated": bool(reading.get("globe_calibrated", False)),
-           "tub_temp_c": _num(reading.get("tub_temp_c")),
-           "node_wbgt_f": hour["wbgt_f"] if hour else None, "fhsaa_zone": hour["fhsaa_zone"] if hour else None}
-    f = weather._interp(sorted(forecast, key=lambda h: twonode.parse_time(h["time"])), "wbgt_f",
-                        twonode.parse_time(reading["ts"])) if hour else None
-    row["forecast_wbgt_f"] = f
-    row["field_minus_forecast_f"] = round(hour["wbgt_f"] - f, 1) if hour and f is not None else None
-    _POSTED.append(row)
-    return {"ok": True, "hour": hour}
-
-
-def _clear_posted() -> None:  # tests
-    _POSTED.clear()
 

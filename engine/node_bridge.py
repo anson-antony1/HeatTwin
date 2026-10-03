@@ -5,7 +5,7 @@ Hackathon build: only the black-globe thermistor is wired. So for each reading t
   * air temperature, RH and wind from the nearest NWS station's latest observation (KGNV, Gainesville airport),
     refreshed every 10 min — real measurements, but from the airport, not the field (``air_source`` column);
     if the station is unreachable, the hourly NWS forecast at that time (``air_source=nws_forecast``);
-  * a shaded-air thermistor on A1 is used instead when it reads (``air_source=node_a1``).
+  * with ``--use-a1``, a shaded-air thermistor on A1 instead (``air_source=node_a1``); A1 is ignored otherwise.
 The globe thermistor is **uncalibrated** (nominal Beta, see firmware/README.md); every row says so.
 
 Field WBGT uses engine/wbgt.py's globe inversion (weather.node_reading_wbgt) and is logged next to the forecast WBGT
@@ -14,6 +14,7 @@ for the same minute.
     python -m engine.node_bridge --port /dev/ttyACM0                    # live, log to data/
     python -m engine.node_bridge --port /dev/ttyACM0 --post http://localhost:8000/node
     python -m engine.node_bridge --replay data/node_2026-10-03.raw.txt     # re-run saved serial output
+    python -m engine.node_bridge --port /dev/ttyACM0 --demo --post http://localhost:8000/node   # indoor demo
 """
 from __future__ import annotations
 
@@ -61,8 +62,11 @@ def parse_line(line: str) -> Optional[dict[str, float]]:
 class AirSource:
     """Latest NWS station observation (cached), falling back to the hourly forecast."""
 
-    def __init__(self, forecast: list[dict[str, Any]], station: str = STATION, offline: bool = False):
-        self.forecast, self.station, self.offline = forecast, station, offline
+    def __init__(self, forecast: list[dict[str, Any]], station: str = STATION, offline: bool = False,
+                 use_a1: bool = False):
+        # use_a1: only when a shaded air thermistor is really wired to A1 — an unconnected analog pin floats and
+        # reads a plausible-looking but meaningless temperature.
+        self.forecast, self.station, self.offline, self.use_a1 = forecast, station, offline, use_a1
         self._obs: Optional[dict[str, Any]] = None
         self._fetched = 0.0
 
@@ -89,13 +93,66 @@ class AirSource:
 
     def at(self, t: datetime, node_air_c: float) -> dict[str, Any]:
         obs = self._station_obs()
-        if not math.isnan(node_air_c):
+        if self.use_a1 and not math.isnan(node_air_c):
             rh = obs["rh_pct"] if obs else weather._interp(self.forecast, "rh_pct", t)
             return {"air_c": node_air_c, "rh_pct": rh, "wind_m_s": None, "air_source": "node_a1"}
         if obs:
             return {**obs, "air_source": f"nws_station_{self.station}"}
         return {"air_c": weather._interp(self.forecast, "air_temp_c", t),
                 "rh_pct": weather._interp(self.forecast, "rh_pct", t), "wind_m_s": None, "air_source": "nws_forecast"}
+
+
+class DemoScenario:
+    """Indoor demo (constants.demo_node, synthetic): globe rise above the room baseline on a hot-day scenario."""
+
+    def __init__(self):
+        from engine import consts, wbgt
+
+        self.cfg = consts.get("demo_node")
+        inp = consts.get("wbgt_inputs")
+        stab = wbgt.stability_class(True, self.cfg["wind_10m_m_s"], 0.0, inp["night_dt_c"])
+        self.wind_2m = float(wbgt.wind_at_2m(self.cfg["wind_10m_m_s"], inp["wind_height_m"], stab, inp["urban"]))
+        self.air_c = self._solve_air()
+        self.baseline: list[float] = []
+
+    def _solve_air(self) -> float:
+        """Air temperature at which WBGT (globe = air, no sun) equals baseline_wbgt_f — bisection."""
+        from engine import wbgt
+
+        lo, hi = 15.0, 45.0
+        for _ in range(40):
+            mid = 0.5 * (lo + hi)
+            if wbgt.wbgt_from_node(mid, self.cfg["rh_pct"], mid, self.wind_2m) < self.cfg["baseline_wbgt_f"]:
+                lo = mid
+            else:
+                hi = mid
+        return 0.5 * (lo + hi)
+
+    @property
+    def ready(self) -> bool:
+        return len(self.baseline) >= self.cfg["baseline_samples"]
+
+    def row(self, raw: dict[str, float], t: datetime) -> Optional[dict[str, Any]]:
+        from engine import fhsaa, wbgt
+
+        if not self.ready:
+            self.baseline.append(raw["globe_c"])
+            print(f"  zeroing globe on the room: {raw['globe_c']:.2f}°C ({len(self.baseline)}/{self.cfg['baseline_samples']})",
+                  flush=True)
+            return None
+        base = sum(self.baseline) / len(self.baseline)
+        rise = max(0.0, raw["globe_c"] - base)
+        globe = self.air_c + rise
+        n = wbgt.node_components(self.air_c, self.cfg["rh_pct"], globe, self.wind_2m)
+        return {"ts": t.isoformat(timespec="seconds"), "globe_c": round(globe, 2), "globe_ohm": round(raw["globe_ohm"]),
+                "air_c": round(self.air_c, 2), "rh_pct": self.cfg["rh_pct"], "wind_m_s": round(self.wind_2m, 2),
+                "air_source": "demo_scenario", "node_wbgt_f": round(n["wbgt_f"], 1),
+                "forecast_wbgt_f": self.cfg["baseline_wbgt_f"],
+                "field_minus_forecast_f": round(n["wbgt_f"] - self.cfg["baseline_wbgt_f"], 1),
+                "fhsaa_zone": fhsaa.zone(n["wbgt_f"]), "solar_inferred_w_m2": round(n["solar_inferred_w_m2"]),
+                "globe_calibrated": False, "mode": "demo",
+                "_demo": {"globe_measured_c": raw["globe_c"], "globe_baseline_c": round(base, 2),
+                          "globe_rise_c": round(rise, 2)}}
 
 
 # ── one reading → one row ────────────────────────────────────────────────────
@@ -124,7 +181,8 @@ def node_payload(row: dict[str, Any]) -> dict[str, Any]:
     """CONTRACTS.md node reading, plus additive fields saying where air/RH came from."""
     return {"node_id": "node-1", "ts": row["ts"], "air_temp_c": row["air_c"], "rh_pct": row["rh_pct"],
             "globe_temp_c": row["globe_c"], "tub_temp_c": None, "wind_m_s": None, "battery_v": None,
-            "air_source": row["air_source"], "globe_calibrated": False}
+            "air_source": row["air_source"], "globe_calibrated": False,
+            **({"demo": True, "synthetic": True, "wind_m_s": row["wind_m_s"], **row["_demo"]} if row.get("_demo") else {})}
 
 
 # ── main loop ────────────────────────────────────────────────────────────────
@@ -138,13 +196,17 @@ def serial_lines(port: str, baud: int = 115200) -> Iterator[str]:
 
 
 def run(lines: Iterable[str], mode: str, post_url: Optional[str] = None, out_dir: Path = DATA_DIR,
-        offline: bool = False, clock=None) -> Path:
+        offline: bool = False, clock=None, use_a1: bool = False, demo: bool = False) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     now = (clock or (lambda: datetime.now().astimezone()))
     forecast = weather.get_forecast(SITE["lat"], SITE["lon"], offline=offline)
-    air = AirSource(forecast, offline=offline)
+    air = AirSource(forecast, offline=offline, use_a1=use_a1)
+    scenario = DemoScenario() if demo else None
+    if scenario:
+        print(f"DEMO scenario (synthetic): air {scenario.air_c:.1f}°C, RH {scenario.cfg['rh_pct']:.0f}%, "
+              f"baseline WBGT {scenario.cfg['baseline_wbgt_f']:.0f}°F; heat the globe to add 'sun'.", flush=True)
     day = now().date().isoformat()
-    path = out_dir / f"node_{day}.csv"
+    path = out_dir / (f"node_demo_{day}.csv" if demo else f"node_{day}.csv")
     raw_path = out_dir / f"node_{day}.raw.txt"
     new = not path.exists()
     warned = False
@@ -155,17 +217,19 @@ def run(lines: Iterable[str], mode: str, post_url: Optional[str] = None, out_dir
         for line in lines:
             if mode == "live":
                 raw_f.write(line if line.endswith("\n") else line + "\n")   # keep the untouched serial stream
+                raw_f.flush()
             raw = parse_line(line)
             if raw is None:
                 continue
-            row = make_row(raw, now(), air, mode)
+            row = scenario.row(raw, now()) if scenario else make_row(raw, now(), air, mode)
             if row is None:
                 continue
-            w.writerow(row)
+            w.writerow({k: v for k, v in row.items() if k in FIELDS})
             f.flush()
             print(f"{row['ts'][11:19]}  globe {row['globe_c']:5.1f}°C  air {row['air_c']:4.1f}°C RH {row['rh_pct']:3.0f}% "
                   f"({row['air_source']})  →  field WBGT {row['node_wbgt_f']:5.1f}°F zone {row['fhsaa_zone']}  "
-                  f"vs forecast {row['forecast_wbgt_f']:5.1f}°F  [{row['field_minus_forecast_f']:+.1f}]  uncalibrated", flush=True)
+                  f"vs {'baseline' if scenario else 'forecast'} {row['forecast_wbgt_f']:5.1f}°F  [{row['field_minus_forecast_f']:+.1f}]  "
+                  f"{'DEMO scenario' if scenario else 'uncalibrated'}", flush=True)
             if post_url:
                 try:
                     import requests
@@ -186,13 +250,17 @@ def main(argv: Optional[list[str]] = None) -> None:
     ap.add_argument("--post", help="engine URL, e.g. http://localhost:8000/node")
     ap.add_argument("--out", type=Path, default=DATA_DIR)
     ap.add_argument("--offline", action="store_true", help="no network: cached forecast for air/RH")
+    ap.add_argument("--use-a1", action="store_true", help="a shaded air thermistor is wired to A1 (ignored otherwise)")
+    ap.add_argument("--demo", action="store_true",
+                    help="indoor demo: zero the globe on the room, hot-day scenario (constants.demo_node; synthetic)")
     a = ap.parse_args(argv)
     if a.port:
-        path = run(serial_lines(a.port), "live", a.post, a.out, a.offline)
+        path = run(serial_lines(a.port), "live", a.post, a.out, a.offline, use_a1=a.use_a1, demo=a.demo)
     else:
         t0 = datetime.now().astimezone()
         ticks = iter(t0 + timedelta(seconds=2 * i) for i in range(10**9))
-        path = run(a.replay.read_text().splitlines(), "replay", a.post, a.out, a.offline, clock=lambda: next(ticks))
+        path = run(a.replay.read_text().splitlines(), "replay", a.post, a.out, a.offline, clock=lambda: next(ticks), use_a1=a.use_a1,
+                   demo=a.demo)
     print(f"logged to {path}")
 
 

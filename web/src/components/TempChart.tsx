@@ -69,26 +69,6 @@ export function TempChart({
   const w = Math.max(0, width - pad.l - pad.r)
   const h = Math.max(0, height - pad.t - pad.b)
 
-  // Fit the vertical range to the data (estimate, forecast + p95 band), in
-  // half-degree steps so it doesn't creep as the live forecast updates. Never
-  // narrower than 36.8–39.6, so the alert line always has context.
-  const domain = useMemo<[number, number]>(() => {
-    if (domainProp) return domainProp
-    let lo = Infinity
-    let hi = -Infinity
-    for (let i = 0; i < forecast.length; i++) {
-      const b = band[i] ?? 0
-      lo = Math.min(lo, forecast[i] - b)
-      hi = Math.max(hi, forecast[i] + b)
-    }
-    for (const v of history) {
-      lo = Math.min(lo, v)
-      hi = Math.max(hi, v)
-    }
-    if (!Number.isFinite(lo)) return [36.8, 39.6]
-    return [Math.min(36.8, Math.floor((lo - 0.1) * 2) / 2), Math.max(39.6, Math.ceil((hi + 0.15) * 2) / 2)]
-  }, [domainProp, forecast, band, history])
-
   const v0 = view?.[0] ?? 0
   const v1 = view?.[1] ?? total
   const span = Math.max(1, v1 - v0)

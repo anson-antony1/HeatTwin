@@ -83,3 +83,32 @@ WBGT = 0.7·wet-bulb + 0.2·globe + 0.1·air. `engine/wbgt.py: node_components()
 sunlight the globe is absorbing, then computes Liljegren's wet-bulb and standard-globe temperatures from it. Humidity
 and wind come from the NWS forecast until we have an RH sensor. A 40 mm ball is not the 150 mm standard globe, so
 we report "our field vs. the forecast" and don't present it as a certified WBGT meter.
+
+## Getting readings to the app
+`engine/node_routes.py` implements CONTRACTS.md's `POST /node` and `GET /node/latest` (+ `GET /node/history`).
+- Until `/integrate` adds it to `engine/api.py` (`from engine import node_routes; app.include_router(node_routes.router)`),
+  run it on its own: `uvicorn engine.node_routes:standalone_app --factory --port 8000`
+- Bridge with posting: `python -m engine.node_bridge --port /dev/ttyACM0 --post http://localhost:8000/node`
+- Web field card: `GET /node/latest` → `field.wbgt_f`, `field.fhsaa_zone`, `labels` (show them). `assimilated` is the
+  rest of today's forecast corrected by the field readings.
+- `fixtures/node_indoor_test_2026-10-03.csv` / `.raw.txt`: a real but **indoor** test run (globe warmed by hand/air,
+  air/RH from the KGNV airport station). For building and replaying the UI only — not field data, not for validation:
+  `python -m engine.node_bridge --replay fixtures/node_indoor_test_2026-10-03.raw.txt --post http://localhost:8000/node`
+
+## Indoor demo (what we present — no outdoor readings)
+`--demo` zeroes the globe on the room (first 5 readings, so start it with the ball at room temperature), then puts
+only the globe's rise on a hot-day scenario (constants.demo_node: WBGT 80 °F with no sun, RH 70 %). A heat gun or hair
+dryer on the ball reads as sunlight. Everything is labelled **"DEMO scenario … (synthetic) — not field data"**.
+
+```bash
+# terminal 1: the engine (node routes are mounted in engine/api.py on this branch)
+env -u PYTHONPATH .venv/bin/python -m uvicorn engine.api:app --port 8000
+# terminal 2: the bridge
+env -u PYTHONPATH .venv/bin/python -m engine.node_bridge --port /dev/ttyACM0 --demo --post http://localhost:8000/node
+```
+While demo readings arrive (and for 5 min after), `/simulate`, `/optimize` and the live session use the scenario
+weather, and every `POST /node` that moves the inferred sun by ≥25 W/m² returns a fresh live `reforecast`.
+
+Demo beat: Plan (original plan is red) → Optimize (green) → heat the ball → field WBGT climbs 80 → ~92 °F (zone 4) and
+the first athlete on the optimized plan crosses the planning limit. The sun angle comes from the plan's clock, so run it
+on a daytime plan (the fixture plan, or `/live/start` with `start_now` during the day).

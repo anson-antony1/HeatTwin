@@ -1,13 +1,12 @@
 import { useSyncExternalStore } from 'react'
-import type { WeatherHour, Zone } from './types'
-import { FORECAST } from './fixtures'
-import { ZONES } from './constants'
 import { settingsStore, type PracticeLocation } from './settingsStore'
 
 // Live conditions for the practice location, from the engine's GET /weather
 // (WS1: NWS hourly forecast + Liljegren WBGT + FHSAA zone per hour). Polled
 // every 10 minutes and whenever the location changes. Falls back to the
 // labelled fixture when NWS is unreachable or the site is outside the US.
+// Display only (Settings page): plan estimates use the engine's own weather
+// selection (?demo=1 → the pinned saved forecast), never these hours.
 
 const ENGINE = (import.meta.env?.VITE_ENGINE_URL as string | undefined) ?? '/engine'
 const POLL_MS = 10 * 60 * 1000
@@ -52,7 +51,6 @@ let state: WeatherState = {
 }
 
 const listeners = new Set<() => void>()
-const dayListeners = new Set<(hours: WeatherHour[]) => void>()
 let planDate = '2026-10-04'
 let timer: number | null = null
 let inflight: AbortController | null = null
@@ -64,23 +62,6 @@ function set(patch: Partial<WeatherState>) {
 
 export const cToF = (c: number) => c * 1.8 + 32
 export const msToMph = (m: number) => m * 2.23694
-
-/** WS1's FHSAA zone number (verified against the 2025-26 handbook) → the UI's zone. */
-export function zoneOf(n: number): Zone {
-  return ZONES[Math.max(0, Math.min(ZONES.length - 1, n - 1))]
-}
-
-/** Engine hours → the replay's WeatherHour shape (keyed by local hour of day). */
-export function toReplayHours(hours: EngineHour[]): WeatherHour[] {
-  return hours.map((h) => ({
-    hour: Number(h.time.slice(11, 13)),
-    tempF: cToF(h.air_temp_c),
-    rh: h.rh_pct,
-    windMph: msToMph(h.wind_m_s),
-    wbgtF: h.wbgt_f,
-    source: 'forecast',
-  }))
-}
 
 async function refresh() {
   const loc = settingsStore.get().location
@@ -103,9 +84,6 @@ async function refresh() {
       day: d.day ?? [],
       fetchedAt: Date.now(),
     })
-    const live = d.source === 'nws_forecast' && (d.day?.length ?? 0) >= 6
-    const replay = live ? toReplayHours(d.day) : FORECAST
-    dayListeners.forEach((fn) => fn(replay))
   } catch (e) {
     if ((e as Error).name === 'AbortError') return
     set({ status: 'error', error: "Can't reach the engine for weather." })
@@ -141,11 +119,6 @@ export const weatherStore = {
     if (date === planDate) return
     planDate = date
     refresh()
-  },
-  /** Called with the replay forecast (live day, or the fixture) after every fetch. */
-  onDayForecast(fn: (hours: WeatherHour[]) => void) {
-    dayListeners.add(fn)
-    return () => dayListeners.delete(fn)
   },
 }
 

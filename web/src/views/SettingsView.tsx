@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { settingsStore, useSettings, type PracticeLocation } from '../data/settingsStore'
-import { cToF, msToMph, useWeather, weatherStore, zoneOf } from '../data/weatherStore'
-import { ZONE_COLOR } from '../data/constants'
+import { cToF, msToMph, useWeather, weatherStore } from '../data/weatherStore'
+import { zoneColor } from '../data/constants'
+import { useEngineMeta } from '../data/engineMeta'
+import { zoneRule, zoneRuleText } from '../data/selectors'
 import { usePlanState } from '../data/planStore'
 import { NumberTicker } from '../components/NumberTicker'
 import { IconCheck, IconReset } from '../components/Icons'
@@ -247,7 +249,8 @@ function ConditionsCard() {
   const reduce = useReducedMotion()
   const now = w.now
   const live = w.source === 'nws_forecast'
-  const zone = now ? zoneOf(now.fhsaa_zone) : null
+  const rules = useEngineMeta().sources?.fhsaa_wbgt_zones?.zones
+  const rule = now ? zoneRule(rules, now.fhsaa_zone) : null
 
   return (
     <section className="glass settings__card conditions" aria-live="polite">
@@ -276,12 +279,10 @@ function ConditionsCard() {
                     <NumberTicker value={now.wbgt_f} decimals={1} suffix="°F" />
                   </div>
                 </div>
-                {zone && (
-                  <div className="conditions__zone" style={{ ['--zone' as string]: ZONE_COLOR[zone.id] }}>
-                    <span className="conditions__zone-n num">Zone {now.fhsaa_zone}</span>
-                    <span>{zone.label}</span>
-                  </div>
-                )}
+                <div className="conditions__zone" style={{ ['--zone' as string]: zoneColor(now.fhsaa_zone) }}>
+                  <span className="conditions__zone-n num">Zone {now.fhsaa_zone}</span>
+                  {rule && <span>{zoneRuleText(rule)}</span>}
+                </div>
               </div>
               <dl className="conditions__list num">
                 <div>
@@ -309,7 +310,6 @@ function ConditionsCard() {
               </dl>
               <div className="hours" aria-label="WBGT, next 12 hours">
                 {w.next.map((h, i) => {
-                  const z = zoneOf(h.fhsaa_zone)
                   const t = Number(h.time.slice(11, 13))
                   const pct = Math.max(8, Math.min(100, ((h.wbgt_f - 60) / 35) * 100))
                   return (
@@ -317,7 +317,7 @@ function ConditionsCard() {
                       <div className="hours__bar-wrap">
                         <motion.span
                           className="hours__bar"
-                          style={{ background: ZONE_COLOR[z.id], height: `${pct}%` }}
+                          style={{ background: zoneColor(h.fhsaa_zone), height: `${pct}%` }}
                           initial={reduce ? false : { transform: 'scaleY(0.2)', opacity: 0 }}
                           animate={{ transform: 'scaleY(1)', opacity: 1 }}
                           transition={{ duration: 0.3, ease: ease.out, delay: i * 0.03 }}

@@ -156,8 +156,8 @@ export interface NodeLatest {
     rh_pct: number
     air_source: string
     node_wbgt_f: number
-    forecast_wbgt_f: number
-    field_minus_forecast_f: number
+    forecast_wbgt_f: number | null
+    field_minus_forecast_f: number | null
     fhsaa_zone: number
     globe_calibrated: boolean
   }

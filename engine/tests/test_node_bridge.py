@@ -35,6 +35,15 @@ def test_offline_replay_writes_labelled_rows(tmp_path):
 def test_shaded_air_channel_preferred(tmp_path):
     t0 = datetime.fromisoformat(fixtures.forecast()[3]["time"])
     ticks = iter(t0 + timedelta(seconds=2 * i) for i in range(100))
-    path = node_bridge.run([line(40, air="29.50")], "replay", out_dir=tmp_path, offline=True, clock=lambda: next(ticks))
+    path = node_bridge.run([line(40, air="29.50")], "replay", out_dir=tmp_path, offline=True, clock=lambda: next(ticks),
+                           use_a1=True)
     (row,) = csv.DictReader(path.open())
     assert row["air_source"] == "node_a1" and float(row["air_c"]) == 29.5
+
+
+def test_floating_a1_ignored_by_default(tmp_path):
+    t0 = datetime.fromisoformat(fixtures.forecast()[3]["time"])
+    ticks = iter(t0 + timedelta(seconds=2 * i) for i in range(100))
+    path = node_bridge.run([line(40, air="24.38")], "replay", out_dir=tmp_path, offline=True, clock=lambda: next(ticks))
+    (row,) = csv.DictReader(path.open())
+    assert row["air_source"] == "nws_forecast"

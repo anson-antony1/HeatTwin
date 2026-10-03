@@ -1,5 +1,6 @@
 import { motion } from 'motion/react'
 import { engine, replayLabel, useSession } from '../data/engine'
+import { useTimelineScrub } from '../lib/useTimelineScrub'
 import { clockLabel } from '../lib/heat'
 import { spring } from '../lib/motion'
 import { IconPause, IconPlay, IconReset, IconSkip } from './Icons'
@@ -13,6 +14,7 @@ const SPEEDS = [1, 4, 10]
 export function DemoBar() {
   const s = useSession()
   const progress = s.totalMinutes > 0 ? s.minute / s.totalMinutes : 0
+  const scrub = useTimelineScrub(s.totalMinutes)
   // Skip to the first minute the engine's HR-calibration gates flag someone;
   // without a replay, to the first p95 crossing in the engine forecast.
   const crossings = Object.values(s.athletes)
