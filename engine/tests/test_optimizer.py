@@ -134,3 +134,13 @@ def test_change_cap_never_outranks_a_rule():
     over_cap = Eval(feasible=False, infeas=1.0, load_w=50.0, n_changes=7, infeas_cap=1.0, **common)
     breaks_rule = Eval(feasible=False, infeas=0.5, load_w=90.0, n_changes=5, infeas_rules=0.5, **common)
     assert over_cap.rank() < breaks_rule.rank()
+
+
+def test_top_changes_ranked_by_heat_reduction():
+    plan, roster, weather = _load("reorder_only")
+    res = optimize(plan, roster, weather, **FAST)
+    top = res["top_changes"]
+    assert len(top) <= consts.get("optimizer.top_changes_k")
+    assert all(t["heat_reduction_c"] > 0 for t in top)
+    assert [t["heat_reduction_c"] for t in top] == sorted((t["heat_reduction_c"] for t in top), reverse=True)
+    assert res["top_changes_text"].endswith("Estimate — planning only.")

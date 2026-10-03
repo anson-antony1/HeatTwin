@@ -22,10 +22,41 @@ def intensity_met(intensity: str) -> float:
     return float(entry["met"] if isinstance(entry, Mapping) else entry)
 
 
+def drill_type(drill: Mapping[str, Any]) -> str:
+    """Drill.drill_type if given, else the first matching name keyword, else the intensity default (constants.drill_types)."""
+    if drill.get("drill_type"):
+        return str(drill["drill_type"])
+    if drill.get("is_break"):
+        return "break"
+    dt = consts.get("drill_types")
+    name = str(drill.get("name", "")).lower()
+    for kw, t in dt["name_keywords"]:
+        if kw in name:
+            return t
+    return dt["by_intensity"][drill["intensity"]]
+
+
+def duty_cycle_met(drill: Mapping[str, Any]) -> float | None:
+    """f_active·MET_active + (1 − f_active)·MET_between for the drill's type, or None if the model is off / type unknown."""
+    dc = consts.get("drill_duty_cycle")
+    if not dc.get("enabled"):
+        return None
+    t = dc.get("types", {}).get(drill_type(drill))
+    if not t:
+        return None
+    f = float(t["f_active"])
+    return f * float(t["met_active"]) + (1.0 - f) * float(t["met_between"])
+
+
 def drill_met(drill: Mapping[str, Any]) -> float:
-    """MET for a drill: ``met_override`` if supplied by coach/AT, else the intensity's Compendium MET."""
+    """MET for a drill: ``met_override`` (coach/AT) → duty-cycle MET for its type (if enabled and sourced) →
+    the intensity's Compendium MET."""
     if drill.get("met_override") is not None:
         return float(drill["met_override"])
+    if not drill.get("is_break"):
+        m = duty_cycle_met(drill)
+        if m is not None:
+            return m
     return intensity_met(drill["intensity"])
 
 

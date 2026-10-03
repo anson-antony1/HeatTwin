@@ -236,3 +236,10 @@ def test_concurrent_simulations_do_not_crash():
     with ThreadPoolExecutor(max_workers=6) as ex:
         outs = list(ex.map(lambda _: simulate_roster(*args, n_ensemble=10), range(12)))
     assert all(o["athletes"] == outs[0]["athletes"] for o in outs)
+
+
+def test_drill_type_inference():
+    types = {d["id"]: metabolic.drill_type(d) for d in fixtures.plan()["drills"]}
+    assert types == {"d1": "warmup", "d2": "individual", "b1": "break", "d3": "team", "d4": "team", "b2": "break",
+                     "d5": "special_teams", "d6": "conditioning", "d7": "cooldown"}
+    assert metabolic.drill_type({"name": "x", "intensity": "hard", "drill_type": "individual"}) == "individual"

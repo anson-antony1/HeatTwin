@@ -57,6 +57,7 @@ class Seg:
     movable: bool
     participants: tuple[str, ...] | None
     gear_by: tuple[tuple[str, str], ...] | None = None   # per-athlete gear (CONTRACTS v1.1 gear_by_athlete)
+    drill_type: str | None = None                          # CONTRACTS v1.2 (optional)
 
     def gear_of(self, athlete_id: str) -> str:
         return dict(self.gear_by or ()).get(athlete_id, self.gear)
@@ -69,7 +70,8 @@ class Seg:
                    shade=bool(d.get("shade", False)), is_break=bool(d.get("is_break", False)),
                    priority=int(d.get("priority", 2)), movable=bool(d.get("movable", True)),
                    participants=tuple(sorted(p)) if p is not None else None,
-                   gear_by=tuple(sorted((d.get("gear_by_athlete") or {}).items())) or None)
+                   gear_by=tuple(sorted((d.get("gear_by_athlete") or {}).items())) or None,
+                   drill_type=d.get("drill_type"))
 
     def to_drill(self) -> dict[str, Any]:
         d: dict[str, Any] = {"id": self.id, "name": self.name, "duration_min": self.duration,
@@ -81,6 +83,8 @@ class Seg:
             d["participants"] = list(self.participants)
         if self.gear_by:
             d["gear_by_athlete"] = dict(self.gear_by)
+        if self.drill_type:
+            d["drill_type"] = self.drill_type
         return d
 
 
@@ -141,8 +145,10 @@ class Problem:
         self.orig_index = {s.src: i for i, s in enumerate(self.orig)}
         self.orig_total = sum(s.duration for s in self.orig)
         self.max_total = self.orig_total + int(self.S.max_added_minutes)
+        # horizon: the longest plan the search may produce, plus one original drill so a "top changes" undo still fits
+        horizon = self.max_total + max(s.duration for s in self.orig)
         self.env = twonode.build_environment(self.weather, plan["site"], self.t0, step_min,
-                                             int(math.ceil(self.max_total / step_min)))
+                                             int(math.ceil(horizon / step_min)))
         self.limit = self.S.planning_limit_core_c
         self.near = self.S.near_limit_margin_c
         self.weights = self.S.weights()
@@ -221,7 +227,9 @@ class Problem:
 
     # ── objective ──
     def met_of(self, s: Seg) -> float:
-        return metabolic.drill_met({"intensity": s.intensity, "met_override": s.met_override})
+        o = self.orig_by_src.get(s.src) if s.src else None
+        return metabolic.drill_met({"intensity": s.intensity, "met_override": s.met_override, "is_break": s.is_break,
+                                    "name": o.name if o else s.name, "drill_type": s.drill_type})
 
     def weighted_load(self, st: State) -> float:
         n = len(self.R.ids)
@@ -888,6 +896,8 @@ def optimize(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weath
         fallback_note = "max_load fallback also found no plan meeting every constraint"
     final = _renumber_added(best.state, P)
     new_plan = P.to_plan(final)
+    changes_out = diff(P, final, with_times=True)
+    top3 = top_changes(P, final, changes_out, int(_opt("top_changes_k")))
     labels = list(extra_labels)
     original = twonode.simulate_roster(roster, plan, weather, step_min=step_min, n_ensemble=n_ensemble, seed=seed,
                                        extra_labels=labels, settings=P.S)
@@ -899,7 +909,9 @@ def optimize(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weath
         "original": original,
         "optimized": optimized,
         "plan": new_plan,
-        "changes": diff(P, final, with_times=True),
+        "changes": changes_out,
+        "top_changes": top3,
+        "top_changes_text": top_changes_text(top3),
         "load_kept_pct": round(100.0 * optimized["training_load_met_min"] / load0, 1) if load0 else 100.0,
         "feasible": bool(best.feasible),
         "search": {
@@ -925,6 +937,73 @@ def optimize(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weath
                   + ([] if best.feasible else ["no plan met every constraint — least-bad plan shown"])
                   + ([fallback_note] if fallback_note else []),
     }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Top changes by heat reduction (for the UI and the voice agent)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def undo_change(P: Problem, st: State, ch: Mapping[str, str]) -> State | None:
+    """The plan with one reported change reverted (best effort; the result need not satisfy every constraint)."""
+    move, src = ch.get("move"), ch["drill_id"]
+    idx = [i for i, s in enumerate(st) if s.src == src]
+    if move == "insert_break":
+        return tuple(s for s in st if s.id != src)
+    o = P.orig_by_src.get(src)
+    if o is None:
+        return None
+    if move == "remove":
+        prev = {x.src for x in P.orig[:P.orig_index[src]]}
+        k = max([i + 1 for i, s in enumerate(st) if s.src in prev], default=0)
+        return st[:k] + (o,) + st[k:]
+    if not idx:
+        return None
+    if move == "split" or move == "platoon":
+        parts = [st[i] for i in idx]
+        merged = replace(parts[0], duration=sum(p.duration for p in parts), id=src, part=1, name=o.name,
+                         participants=o.participants if move == "platoon" else parts[0].participants)
+        out = [s for s in st if s.src != src]
+        out.insert(idx[0], merged)
+        return tuple(out)
+    if move == "reorder":
+        first = st[idx[0]]
+        rest = st[:idx[0]] + st[idx[0] + 1:]
+        prev = {x.src for x in P.orig[:P.orig_index[src]]}
+        k = max([i + 1 for i, s in enumerate(rest) if s.src in prev], default=0)
+        return rest[:k] + (first,) + rest[k:]
+    attrs = {"gear_down": ("gear", "gear_by"), "gear_per_athlete": ("gear_by",), "rotate_out": ("participants",),
+             "shade": ("shade",)}.get(move)
+    out = list(st)
+    if attrs:
+        for i in idx:
+            out[i] = replace(out[i], **{a: getattr(o, a) for a in attrs})
+        return tuple(out)
+    if move in ("trim", "lengthen_break"):
+        total = sum(st[i].duration for i in idx)
+        out[idx[0]] = replace(out[idx[0]], duration=st[idx[0]].duration + (o.duration - total))
+        return tuple(out) if out[idx[0]].duration > 0 else None
+    return None
+
+
+def top_changes(P: Problem, st: State, changes: Sequence[Mapping[str, str]], k: int) -> list[dict[str, Any]]:
+    """Rank reported changes by how much undoing each one would raise the team-mean peak p95 (°C)."""
+    base = float(np.mean(P.evaluate(st).peak_p95))
+    scored = []
+    for ch in changes:
+        alt = undo_change(P, st, ch)
+        if alt is None or not alt:
+            continue
+        delta = float(np.mean(P.evaluate(alt).peak_p95)) - base
+        scored.append({**ch, "heat_reduction_c": round(delta, 2)})
+    scored.sort(key=lambda c: -c["heat_reduction_c"])
+    return [c for c in scored if c["heat_reduction_c"] > 0][:k]
+
+
+def top_changes_text(top: Sequence[Mapping[str, Any]]) -> str:
+    if not top:
+        return "No single change accounts for a measurable drop in the estimated team peak."
+    parts = [f"{i + 1}) {c['detail']} (team peak estimate {c['heat_reduction_c']:.1f} °C lower)" for i, c in enumerate(top)]
+    return "Biggest heat reductions: " + "; ".join(parts) + ". Estimate — planning only."
 
 
 def _renumber_added(st: State, P: "Problem | None" = None) -> State:

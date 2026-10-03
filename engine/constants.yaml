@@ -425,6 +425,7 @@ optimizer:
   heat_excess_per_unit_c: 0.1
   change_penalty: 0.02                           # tie-break: energy per change (≪ 1 % of load)
   default_budget_s: 8.0
+  top_changes_k: 3                               # 'top changes by heat reduction' summary for the UI / voice agent
 
 nata_gear_phasing:
   status: VERIFIED
@@ -575,3 +576,31 @@ field_plausibility_assumptions:
   wind_m_s: 2.0
   date: "2026-08-15"
   sites: {godek_2006: [40.61, -75.38], godek_2004: [39.95, -75.60], gainesville: [29.65, -82.32]}
+
+drill_types:
+  status: DESIGN
+  note: "Drill type for the duty-cycle model: Drill.drill_type (CONTRACTS v1.2, optional) if given, else the first name keyword that matches, else from intensity."
+  name_keywords:            # checked in order, case-insensitive substring of the drill name
+    - [special, special_teams]
+    - [kick, special_teams]
+    - [punt, special_teams]
+    - [condition, conditioning]
+    - [gasser, conditioning]
+    - [sprint, conditioning]
+    - [warm, warmup]
+    - [cool, cooldown]
+    - [stretch, cooldown]
+    - [team, team]
+    - [scrimmage, team]
+    - [inside run, team]
+    - [7-on-7, team]
+    - [11-on-11, team]
+    - [individual, individual]
+    - [indy, individual]
+  by_intensity: {rest: break, light: warmup, moderate: individual, hard: team, max: conditioning}
+
+drill_duty_cycle:
+  status: TODO
+  enabled: false
+  note: "MET_eff = f_active × MET_active + (1 − f_active) × MET_between, per drill type. Values pending the workload-data search (Oct 3); disabled → intensity METs (drill_met) are used."
+  types: {}

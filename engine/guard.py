@@ -116,6 +116,10 @@ def guard_result(res: dict[str, Any]) -> dict[str, Any]:
         v["detail"] = check(v["detail"], source="fhsaa_violations")["redacted_text"]
     for c in res.get("changes", []) or []:
         c["detail"] = check(c["detail"], source="changes")["redacted_text"]
+    for c in res.get("top_changes", []) or []:
+        c["detail"] = check(c["detail"], source="top_changes")["redacted_text"]
+    if isinstance(res.get("top_changes_text"), str):
+        res["top_changes_text"] = check(res["top_changes_text"], source="top_changes_text")["redacted_text"]
     for sub in ("original", "optimized"):
         if isinstance(res.get(sub), dict):
             guard_result(res[sub])
