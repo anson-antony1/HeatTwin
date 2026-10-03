@@ -1,8 +1,9 @@
-# CONTRACTS.md — frozen data shapes (v1.1)
+# CONTRACTS.md — frozen data shapes (v1.3)
 
 Freeze at M0. Additive changes only after that.
 **v1.1 (additive, Oct 3):** fields marked `// v1.1` are new and optional; every v1 field keeps its meaning.
 **v1.2 (additive, Oct 3 night):** `// v1.2` — Drill.drill_type, OptimizeResult.top_changes/top_changes_text, voice-tool endpoints. Units are in field names. Times are ISO 8601 with offset; durations are in minutes.
+**v1.3 (additive, Oct 3 evening, audit-fixes):** `// v1.3` — /demo/inputs, POST /athlete_status and /field_conditions (act on the plan on screen), /live/replay, /node + /node/latest implemented, /plan/parse* (Gemini plan entry, already shipped), voice Q&A: /voice/intent → /voice/answer → /voice/tts. GET /weather is still not implemented (the engine reads the cached NWS fixture; live NWS only with HEATTWIN_WEATHER=live, never with ?demo=1).
 
 ## Athlete
 ```ts
@@ -184,3 +185,62 @@ type CollapseLog = {
 | GET | `/athlete_status?athlete_id=` | v1.2 id or name → `{id, name, position, acclimatization_day, gear_limit, peak_p50_c, peak_p95_c, status, first_cross_min, limit_c, say, labels}` |
 | GET | `/field_conditions` | v1.2 → `{hours: [{time, wbgt_f, fhsaa_zone, air_temp_c, rh_pct, source}], sources, say, labels}` |
 | POST | `/guard` | `{text}` → `{ok, redacted_text, hits[]}` |
+| GET | `/health` | v1.3 adds `weather: "fixture" \| "live"` |
+| GET | `/demo/inputs` | v1.3 → `{plan: PracticePlan, roster: Athlete[], weather: WeatherHour[], labels, synthetic: {plan, roster, weather}}` — exactly what `/simulate?demo=1` with no body simulates. The web shows this plan/roster instead of its own copies |
+| POST | `/athlete_status` | v1.3 `{athlete: id or name, plan?, roster?, settings?}` (`?demo=1`) → same as the GET, on the plan sent. `labels` now carry the fixture labels too |
+| POST | `/field_conditions` | v1.3 `{plan?, roster?, settings?}` → same as the GET, for the plan's window |
+| POST | `/live/replay` | v1.3 `{plan?, roster?, settings?, file?}` (`?demo=1`) → `LiveReplay` (below). Newest non-synthetic `fixtures/hr_<date>.csv` wins; else `fixtures/hr_a07_synthetic.csv` (labelled synthetic). Deterministic; cached |
+| POST | `/node` | v1.3 implemented: node reading (`node_bridge.node_payload`) → `{ok, hour: WeatherHour (source "field_node")}` — kept in memory for this engine run |
+| GET | `/node/latest` | v1.3 → `NodeLatest` (below). Newest `data/node_<date>.csv` or the last POST /node; else `{reading: null, labels: ["no field recording yet"]}` — never placeholder numbers |
+| POST | `/plan/parse` · `/plan/parse_audio` · GET `/plan/llm_status` | v1.3 (shipped on llm-bridge) Gemini plan entry → `PlanDraft {plan, transcript, assumptions[], unclear[], total_min, needs_confirmation: true, labels, model}`. Coach must confirm before /simulate |
+| POST | `/voice/intent` | v1.3 `{text? \| audio_b64 + mime_type, plan?, roster?}` → `VoiceIntent` (below). Gemini returns only `{transcript, intent, slots}` against a JSON schema; the engine validates it and resolves names against the plan. 503 when no GEMINI_API_KEY (the web then routes typed text locally) |
+| POST | `/voice/answer` | v1.3 `{intent, slots, plan?, roster?, settings?}` (`?demo=1`) → `VoiceAnswer` (below). The engine runs the tool and writes the sentence; `say` already passed engine/guard.py |
+| POST | `/voice/tts` | v1.3 `{text}` → `audio/mpeg`. Re-guards `text` (422 on a hit); 503 when no ELEVENLABS_API_KEY or the network is down (the web then uses speechSynthesis). The key stays on the engine |
+
+```ts
+// v1.3
+type LiveReplay = {
+  source: { file: string; synthetic: boolean; athletes: string[]; n_readings: number; first_ts: string; last_ts: string;
+            aligned_to_plan_start: boolean };   // a real recording's clock is shifted so its first reading = plan start
+  plan_forecast: SimulationResult;               // before any HR (the prior)
+  frames: {                                      // one per calibration update (every update_interval_s)
+    minute: number;                              // minutes since plan start
+    athlete_id: string;
+    hr_bpm: number;                              // last reading used
+    calib: { met_scale: number; met_scale_sd: number };
+    gates: { crossing: boolean; persistent: boolean; coverage_ok: boolean; coverage_fraction: number; n_updates: number;
+             flag: boolean; held_by: string[]; message: string };
+    athlete: { core_c_p50: number[]; core_c_p95: number[]; peak_core_c_p95: number; status: string; first_cross_min: number | null };
+  }[];
+  hr_series: Record<string, [number, number][]>; // athlete_id → [minute, bpm], one point per 10 s
+  labels: string[];                              // "replay", "synthetic HR (not a real athlete)" when synthetic, + plan labels
+};
+
+type NodeLatest = {
+  reading: null | { ts: string; globe_c: number; air_c: number; rh_pct: number; air_source: string; node_wbgt_f: number;
+                    forecast_wbgt_f: number; field_minus_forecast_f: number; fhsaa_zone: number; globe_calibrated: boolean };
+  series: { ts: string; node_wbgt_f: number; forecast_wbgt_f: number }[];   // the recording, one point per minute
+  file: string | null;
+  labels: string[];                              // "no field recording yet" | "field node recording", "globe thermistor uncalibrated", …
+};
+
+type VoiceIntentName = "plan_summary" | "optimize" | "what_if" | "athlete_status" | "field_conditions" | "unknown";
+type VoiceIntent = {
+  transcript: string;
+  intent: VoiceIntentName;
+  slots: { athlete_id?: string; drill_id?: string; change?: "gear" | "duration" | "shade" | "intensity" | "remove" | "add_break" | "move";
+           gear?: GearLevel; duration_min?: number; intensity?: Intensity; shade?: boolean; move_to?: number;
+           preset?: "max_load" | "fewest_changes" };
+  unresolved: string[];                          // names the engine could not match on the plan (asked back, not guessed)
+  labels: string[];                              // "intent parsed by AI — numbers come from the engine"
+  model: string;
+};
+
+type VoiceAnswer = {
+  intent: VoiceIntentName;
+  say: string;                                   // engine-written, guarded; the ONLY text shown/spoken
+  numbers: string[];                             // every number token that appears in `say`, as written (per-answer ledger)
+  data: Record<string, unknown>;                 // the tool result the numbers came from
+  labels: string[];
+};
+```
