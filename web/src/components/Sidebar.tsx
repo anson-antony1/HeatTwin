@@ -1,17 +1,18 @@
 import { useEffect, type ComponentType, type SVGProps } from 'react'
 import { motion, useReducedMotion, useSpring, useTransform, useVelocity } from 'motion/react'
 import { useMotionBlur } from '../lib/useMotionBlur'
-import { IconAthlete, IconLive, IconPlan, IconResponse } from './Icons'
+import { IconAthlete, IconLive, IconPlan, IconResponse, IconSettings } from './Icons'
 import { FieldCard } from './FieldCard'
 import './Sidebar.css'
 
-export type View = 'live' | 'plan' | 'athlete' | 'response'
+export type View = 'live' | 'plan' | 'athlete' | 'response' | 'settings'
 
 const ITEMS: { id: View; label: string; Icon: ComponentType<SVGProps<SVGSVGElement>> }[] = [
   { id: 'live', label: 'Live roster', Icon: IconLive },
   { id: 'plan', label: 'Practice plan', Icon: IconPlan },
   { id: 'athlete', label: 'Athlete twin', Icon: IconAthlete },
   { id: 'response', label: 'Response', Icon: IconResponse },
+  { id: 'settings', label: 'Settings', Icon: IconSettings },
 ]
 
 const ROW = 52 // item height + gap, px

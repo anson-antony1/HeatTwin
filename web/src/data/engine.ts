@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import type { Athlete, AthleteLive, Drill, SessionState, Status } from './types'
+import type { Athlete, AthleteLive, Drill, SessionState, Status, WeatherHour } from './types'
 import { THRESHOLDS, zoneFor } from './constants'
 import { FORECAST, PLAN, PRACTICE_START_HOUR, ROSTER, TRUE_HEAT_FACTOR } from './fixtures'
 import { bandFor, drillAt, heartRate, nextBreakIn, peakOf, simulate, stepCore, totalMinutes, wbgtAt } from './model'
@@ -58,6 +58,8 @@ class Engine {
   private snapshot!: SessionState
   private session = 0
   private ext: Record<string, EngineSeries> | null = null
+  /** Hourly WBGT for the plan's day: the live NWS forecast when available, else the fixture. */
+  private forecast: WeatherHour[] = FORECAST
 
   constructor() {
     this.reset()
@@ -110,6 +112,19 @@ class Engine {
         )
       : null
     this.reset()
+  }
+
+  /** Swap in a new day forecast (live weather arrived or the location changed). */
+  setForecast(hours: WeatherHour[]) {
+    if (JSON.stringify(hours) === JSON.stringify(this.forecast)) return
+    this.forecast = hours
+    const at = this.minute
+    this.rewind()
+    this.seek(at) // replay to the same minute under the new weather
+  }
+
+  get currentForecast() {
+    return this.forecast
   }
 
   play() {
@@ -172,13 +187,13 @@ class Engine {
     const e = this.ext?.[t.athlete.id]
     if (e) return t.est + (at(e.p50, m + 1) - at(e.p50, m)) * t.factor
     const { drill } = drillAt(this.plan, m)
-    return stepCore(t.est, t.athlete, drill, wbgtAt(FORECAST, PRACTICE_START_HOUR + m / 60), t.factor)
+    return stepCore(t.est, t.athlete, drill, wbgtAt(this.forecast, PRACTICE_START_HOUR + m / 60), t.factor)
   }
 
   /** Close out practice minute `m` (0-based) for every athlete. */
   private advanceMinute(m: number) {
     const { drill } = drillAt(this.plan, m)
-    const wbgt = wbgtAt(FORECAST, PRACTICE_START_HOUR + m / 60)
+    const wbgt = wbgtAt(this.forecast, PRACTICE_START_HOUR + m / 60)
     for (const t of this.tracks) {
       const e = this.ext?.[t.athlete.id]
       if (e) {
@@ -214,7 +229,7 @@ class Engine {
     const k = Math.floor(this.minute)
     const frac = this.minute - k
     const { index, minuteLeft } = drillAt(this.plan, this.minute)
-    const wbgtF = wbgtAt(FORECAST, PRACTICE_START_HOUR + this.minute / 60)
+    const wbgtF = wbgtAt(this.forecast, PRACTICE_START_HOUR + this.minute / 60)
 
     const athletes: Record<string, AthleteLive> = {}
     for (const t of this.tracks) {
@@ -231,7 +246,7 @@ class Engine {
           ...e.p95.slice(k).map((v, i) => (i === 0 ? 0 : (v - e.p50[k + i]) * (calibrated ? 0.6 : 1))),
         ]
       } else {
-        rest = simulate(t.athlete, this.plan, FORECAST, PRACTICE_START_HOUR, t.factor, k, t.est)
+        rest = simulate(t.athlete, this.plan, this.forecast, PRACTICE_START_HOUR, t.factor, k, t.est)
         band = Array.from({ length: k + rest.length }, (_, i) => (i <= k ? 0 : bandFor(i - k, calibrated)))
       }
       const forecast = [...t.history.slice(0, k), ...rest]

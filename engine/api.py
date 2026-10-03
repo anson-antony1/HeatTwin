@@ -347,3 +347,7 @@ def sources() -> dict[str, Any]:
 # Coach plan entry by text/voice via Gemini (engine/llm_routes.py)
 from engine import llm_routes  # noqa: E402
 app.include_router(llm_routes.router)
+
+from engine import weather_routes  # noqa: E402 — live conditions for the web app (WS1 forecast)
+
+app.include_router(weather_routes.router)

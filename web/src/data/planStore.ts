@@ -147,6 +147,34 @@ export const planStore = {
     } else persist()
   },
 
+  /**
+   * Model plans at a new site (Settings → location). The current plan keeps its
+   * drills; if it was modeled, it's re-run so the engine uses that site's weather.
+   */
+  async setSite(site: PracticePlan['site'], utcOffset?: string) {
+    const same = state.plan.site.lat === site.lat && state.plan.site.lon === site.lon && state.plan.site.name === site.name
+    // Keep the local wall-clock start ("3:30 PM") when the site's time zone differs.
+    const start = utcOffset && state.plan.start.slice(19) !== utcOffset ? state.plan.start.slice(0, 19) + utcOffset : state.plan.start
+    if (same && start === state.plan.start) return
+    const plan = { ...state.plan, site, start }
+    if (!state.sim) {
+      set({ plan })
+      return
+    }
+    inflight?.abort()
+    inflight = new AbortController()
+    set({ plan, phase: 'simulating', error: null })
+    try {
+      const sim = await simulatePlan(plan, inflight.signal)
+      set({ phase: 'ready', sim, original: state.opt ? state.original : sim })
+      apply(plan, sim)
+      persist()
+    } catch (e) {
+      if ((e as Error).name === 'AbortError') return
+      set({ phase: 'error', error: (e as Error).message })
+    }
+  },
+
   dismissError() {
     set({ phase: state.sim ? 'ready' : 'idle', error: null })
   },

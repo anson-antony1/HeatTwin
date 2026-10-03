@@ -7,6 +7,9 @@ import { Sidebar, type View } from './components/Sidebar'
 import { DemoBar } from './components/DemoBar'
 import { VoiceDock } from './components/VoiceDock'
 import { planStore } from './data/planStore'
+import { settingsStore } from './data/settingsStore'
+import { weatherStore } from './data/weatherStore'
+import { SettingsView } from './views/SettingsView'
 import { CoachDashboard } from './views/CoachDashboard'
 import { AthleteView } from './views/AthleteView'
 import { PlanView } from './views/PlanView'
@@ -24,8 +27,39 @@ export default function App() {
   const [ackState, setAckState] = useState<{ session: number; ids: Set<string> }>({ session: 0, ids: new Set() })
   const [collapseFor, setCollapseFor] = useState<string | null>(null)
 
+  // Live weather + location: the chosen site is where plans are modeled, and
+  // the plan day's live forecast drives the replay's WBGT and zones.
+  useEffect(() => {
+    const applySite = () => {
+      const l = settingsStore.get().location
+      const site = planStore.get().plan.site
+      planStore.setSite({ ...site, name: l.name, lat: l.lat, lon: l.lon })
+    }
+    const offDay = weatherStore.onDayForecast((hours) => engine.setForecast(hours))
+    const offPlan = planStore.subscribe(() => weatherStore.setPlanDate(planStore.get().plan.start.slice(0, 10)))
+    const offSettings = settingsStore.subscribe(applySite)
+    // Once live weather tells us the site's UTC offset, keep practice at the same local clock time there.
+    const offTz = weatherStore.subscribe(() => {
+      const w = weatherStore.get()
+      if (w.source !== 'nws_forecast' || !w.now) return
+      const l = settingsStore.get().location
+      if (w.location.lat !== l.lat || w.location.lon !== l.lon) return
+      planStore.setSite({ ...planStore.get().plan.site, name: l.name, lat: l.lat, lon: l.lon }, w.now.time.slice(19))
+    })
+    const stopWeather = weatherStore.start()
+    return () => {
+      offDay()
+      offPlan()
+      offSettings()
+      offTz()
+      stopWeather()
+    }
+  }, [])
+
   useEffect(() => {
     planStore.restore()
+    const l = settingsStore.get().location
+    planStore.setSite({ ...planStore.get().plan.site, name: l.name, lat: l.lat, lon: l.lon })
     engine.play()
     return () => engine.pause()
   }, [])
@@ -73,6 +107,7 @@ export default function App() {
             )}
             {view === 'plan' && <PlanView />}
             {view === 'athlete' && <AthleteView athleteId={athleteId} onSelect={setAthleteId} onCollapse={setCollapseFor} />}
+            {view === 'settings' && <SettingsView />}
             {view === 'response' && <ResponseView onStart={() => setCollapseFor(unacked[0] ?? alertIds[0] ?? hottest)} />}
           </motion.main>
         </AnimatePresence>
