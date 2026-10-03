@@ -131,3 +131,21 @@ def test_jos3_crosscheck_reports_gap():
         assert 36.0 < max(r["jos3_core_c"]) < 44.0
         assert np.isfinite(r["rmse_c"])
     assert "model cross-check, not a validation against measured data" in rep["labels"]
+
+
+def test_exact_mrt_delivers_the_solarcal_field():
+    """T_r from the linear SolarCal ΔMRT must make σ·(T_r⁴ − T_a⁴) = h_r·ΔMRT (exact radiation, reviewer B1)."""
+    sc, ph = consts.get("solarcal"), consts.get("physical")
+    ta, dlin = np.array([30.0, 31.0]), np.array([20.0, 36.0])
+    tr = radiation.mrt_from_linear_delta(ta, dlin)
+    k = ph["kelvin_offset"]
+    lhs = ph["stefan_boltzmann_w_m2_k4"] * ((tr + k) ** 4 - (ta + k) ** 4)
+    assert np.allclose(lhs, sc["h_r_w_m2_k"] * dlin)
+    assert np.all(tr - ta < dlin)  # hotter radiant field → smaller exact ΔMRT than the linear one
+
+
+def test_unverified_gear_level_is_labelled():
+    """The plan uses 'helmet', whose clothing values are TODO — the label must say so (reviewer B3)."""
+    from engine.physio.twonode import simulate_roster
+    res = simulate_roster(fixtures.roster()[:2], fixtures.plan(), fixtures.forecast(), n_ensemble=5)
+    assert any("gear_clothing.levels.helmet (TODO)" in lab for lab in res["labels"])

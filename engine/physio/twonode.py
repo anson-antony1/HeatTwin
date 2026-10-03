@@ -149,7 +149,7 @@ class IsoDynamic:
     ce_c: float
     im_max: float
     lewis_kpa: float
-    ia_st: float
+    ia_st: float          # still-air layer contained in the static I_T (McCullough & Kenney's manikin)
     mmhg_per_kpa: float
 
 
@@ -163,7 +163,7 @@ def iso_params() -> IsoDynamic:
         cl_scale=cl["scale"], cl_v2=cl["v2"], cl_v1=cl["v1"], cl_w2=cl["w2"], cl_w1=cl["w1"],
         ia_v2=ia["v2"], ia_v1=ia["v1"], ia_w2=ia["w2"], ia_w1=ia["w1"],
         blend_clo=d["blend_below_clo"], ce_a=ce[0], ce_b=ce[1], ce_c=ce[2], im_max=d["im_dyn_max"],
-        lewis_kpa=d["lewis_k_per_kpa"], ia_st=d["i_a_static_m2k_w"],
+        lewis_kpa=d["lewis_k_per_kpa"], ia_st=consts.get("gear_clothing.i_a_static_m2k_w"),
         mmhg_per_kpa=1000.0 / consts.get("physical.pa_per_mmhg"),
     )
 
@@ -420,12 +420,12 @@ def build_environment(weather: Sequence[Mapping[str, Any]], site: Mapping[str, A
         ghi = _ghi_fallback(hours, site, ts, elev, cloud, labels, blocks)
     ghi = np.where(elev > 0, ghi, 0.0)
     surface = site.get("surface", "grass")
-    d_mrt = radiation.solar_delta_mrt(ghi, ts, elev, radiation.ground_reflectance(surface))
+    d_mrt_lin = radiation.solar_delta_mrt(ghi, ts, elev, radiation.ground_reflectance(surface))
     if any(h.get("source") == "fixture" for h in hours):
         labels.append("forecast is fixture")
     return Environment(t0=t0, step_min=step_min, t_utc_s=ts, ta=ta, rh=rh, pa=pa,
                        v_body=radiation.wind_at_body(v10), ghi=ghi, sun_elev_deg=elev,
-                       tr_sun=ta + d_mrt, labels=labels, blocks=blocks)
+                       tr_sun=radiation.mrt_from_linear_delta(ta, d_mrt_lin), labels=labels, blocks=blocks)
 
 
 def _ghi_fallback(hours, site, ts, elev, cloud, labels, blocks):
@@ -456,7 +456,7 @@ class RosterArrays:
     setpoint_shift: np.ndarray  # acclimatization: lowers T_cr,n, T_b,n and resting core [°C]
     sw_gain: np.ndarray         # acclimatization sweat-gain multiplier
     accl_frac: np.ndarray       # fraction of full adaptation
-    met_cap: np.ndarray         # aerobic ceiling VO₂max / (mL·kg⁻¹·min⁻¹ per MET) [MET]
+    met_cap: np.ndarray         # sustained aerobic ceiling: fraction × VO₂max / (mL·kg⁻¹·min⁻¹ per MET) [MET]
     met_mu: np.ndarray
     met_sd: np.ndarray
     thermo_mu: np.ndarray
@@ -519,7 +519,8 @@ def build_roster(roster: Sequence[Mapping[str, Any]]) -> RosterArrays:
         mass_kg=mass, bsa_m2=metabolic.body_surface_area_m2(mass, height),
         sw_gain=np.array([e[0] for e in eff]), setpoint_shift=np.array([e[1] for e in eff]),
         accl_frac=np.array([acclimatization_fraction(d, s) for d, s in days]),
-        met_cap=np.array([vo2max_ml_kg_min(a) for a in roster]) / consts.get("hr_met.ml_o2_per_kg_min_per_met"),
+        met_cap=np.array([vo2max_ml_kg_min(a) for a in roster]) * consts.get("hr_met.sustained_vo2max_fraction")
+        / consts.get("hr_met.ml_o2_per_kg_min_per_met"),
         met_mu=met_mu, met_sd=met_sd, thermo_mu=th_mu, thermo_sd=th_sd, labels=labels,
     )
 
@@ -698,6 +699,7 @@ def assemble_result(plan, roster, weather, tl: Timeline, env: Environment, R: Ro
             "status": athlete_status(peak, limit),
         })
     blocks = set(MODEL_BLOCKS) | env.blocks
+    blocks |= {f"gear_clothing.levels.{clothing.GEAR_LEVELS[g]}" for g in np.unique(tl.gear)}
     labels = [ESTIMATE_LABEL, *env.labels, *R.labels, *extra_labels]
     unv = consts.unverified(blocks)
     if unv:

@@ -118,6 +118,21 @@ def solarcal_delta_mrt(i_dir, i_diff, ghi, fp, ground_reflectance: float):
     return erf / (f_eff * sc["h_r_w_m2_k"])
 
 
+def mrt_from_linear_delta(ta_c, d_mrt_lin):
+    """Mean radiant temperature whose exact longwave exchange carries the SolarCal radiant field.
+
+    SolarCal's ΔMRT = ERF/(f_eff·h_r) is linearised (h_r ≈ 6 W/m²K near room temperature). The two-node model
+    evaluates radiation with T⁴ at the clothing/MRT mean, so feeding it T_a + ΔMRT would over-deliver the field.
+    Solve f_eff·ε·σ·(T_r⁴ − T_a⁴) = ε·ERF, i.e. T_r⁴ = T_a⁴ + h_r·ΔMRT/σ (temperatures in K).
+    """
+    sc = consts.get("solarcal")
+    ph = consts.get("physical")
+    k = ph["kelvin_offset"]
+    ta_k = np.asarray(ta_c, dtype=float) + k
+    tr4 = ta_k ** 4 + sc["h_r_w_m2_k"] * np.asarray(d_mrt_lin, dtype=float) / ph["stefan_boltzmann_w_m2_k4"]
+    return tr4 ** 0.25 - k
+
+
 def ground_reflectance(surface: str) -> float:
     return float(consts.get(f"solarcal_ground.reflectance_{surface}"))
 

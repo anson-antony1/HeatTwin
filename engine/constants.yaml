@@ -101,6 +101,7 @@ gear_clothing:
   url: "https://journals.lww.com/acsm-msse/fulltext/2003/05000/thermal_insulation_and_evaporative_resistance_of.17.aspx"
   quote_or_location: "Table 2 (I_t, I_cl, f_cl; I_a = 0.61 clo) and Table 3 (R_e,cl, i_m). Stationary manikin, still air (dry 20 °C, 0.2 m/s; wet 26.7 °C, 0.15 m/s): 'These data were collected under still air conditions with a stationary manikin.'"
   note: "Static values. In the default clothing mode (model_options.clothing_mode = iso7933_dynamic) I_t and i_m are corrected for wind and body movement per ISO 7933 (constants.iso7933_dynamic) before use; r_ecl_m2kpa_w is used only in the static mode."
+  i_a_static_m2k_w: 0.0946   # manikin still-air layer: Table 2 footnote 'Icl was calculated using an Ia value of 0.61 clo' (0.61 × 0.155)
   levels:
     none:                  {ensemble: "Reference: T-shirt, briefs, shorts, ankle socks, athletic shoes", i_t_clo: 0.90, i_cl_clo: 0.35, f_cl: 1.10, r_ecl_m2kpa_w: 0.009, i_m: 0.42, mapping: "good match (athletic shoes, not cleats)"}
     helmet:                {ensemble: "NOT MEASURED — uses P2 (helmet + shoulder pads) values", i_t_clo: 1.14, i_cl_clo: 0.63, f_cl: 1.20, r_ecl_m2kpa_w: 0.017, i_m: 0.40, status: TODO, mapping: "DESIGN: no published helmet-only ensemble; conservatively takes P2 (overestimates heat strain)"}
@@ -125,6 +126,8 @@ hr_met:
   vo2max_default_ml_kg_min: 38.5
   vo2max_by_group_ml_kg_min: {linemen: 32.8, non_linemen: 41.8}
   linemen_positions: ["OL", "DL"]
+  sustained_vo2max_fraction: 0.81
+  sustained_vo2max_fraction_source: "Hitchcock KM et al. (2007) J Strength Cond Res 21:710 (abstract): simulated football practice drills 'ranged from 30 to 81% VO(2)max but averaged 55%VO(2)max'. Used as the ceiling on drill-average metabolic rate (DESIGN use of a VERIFIED number): the highest drill intensity measured in football practice."
 
 wbgt_model:
   status: VERIFIED
@@ -391,3 +394,28 @@ iso7933_dynamic:
   i_a_static_m2k_w: 0.111
   w_max_unacclimatized: 0.85
   w_max_acclimatized: 1.0          # interpolated with constants.acclimatization fraction (DESIGN)
+
+optimizer:
+  status: DESIGN
+  note: "WS4 search settings and product requirements. Not physiology; coach/AT-owned where marked. MODEL.md does not apply."
+  priority_weights: {1: 3.0, 2: 2.0, 3: 1.0}      # objective weight per drill priority (product choice)
+  p1_min_kept_fraction: 0.9                       # WS4 brief: priority-1 drills kept at ≥ 90 % of their minutes
+  max_added_minutes: 20                           # practice may grow by at most this much (coach's time window)
+  inserted_break_gear: same_as_previous          # athletes keep the previous drill's gear on an added break (conservative)
+  gear_floor_by_intensity: {hard: helmet, max: none}   # contact drills keep at least a helmet (coach-owned; PLAN.md demo: "team period drops to helmets-only")
+  trim_step_min: 5
+  lengthen_step_min: 4
+  min_split_part_min: 5
+  beam_width: 3
+  beam_depth: 12
+  beam_candidates_per_state: 40
+  repair_loss_floor_pct: 1.0                     # beam ranks fixes by infeasibility removed per % load lost (+ this floor)
+  beam_time_fraction: 0.35
+  sa_time_fraction_end: 0.75
+  sa_max_iterations: 1500
+  sa_t0: 3.0
+  sa_t_end: 0.03
+  infeasibility_weight: 100.0                    # energy per unit infeasibility (1 FHSAA violation or 0.1 °C over)
+  heat_excess_per_unit_c: 0.1
+  change_penalty: 0.02                           # tie-break: energy per change (≪ 1 % of load)
+  default_budget_s: 8.0

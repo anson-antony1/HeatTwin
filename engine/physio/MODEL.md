@@ -114,9 +114,11 @@ Conversions in `constants.yaml → physical` (CODATA/NIST): σ, 273.15 K, 1 kPa 
    70 kg / 1.8 m² athlete produces ≈ 45 W/m² per MET. The large-athlete heat burden falls out of the
    physics. It isn't a fudge factor.
 4. `met_scale` is the per-athlete calibration (CONTRACTS `AthleteCalibration.met_scale`; prior mean 1).
-5. **Aerobic ceiling:** `M ≤ VO₂max/3.5 · k_MET · m / A_D`. VO₂max is the athlete's value if known, else the Boden et al. 2022
-   high-school defaults: linemen (OL/DL) 32.8, others 41.8, unknown position 38.5 mL·kg⁻¹·min⁻¹. Without it, the ensemble's
-   high met_scale draws would ask a lineman for 11 MET × 1.4, which is above any sustained aerobic capacity.
+5. **Sustained aerobic ceiling:** `M ≤ 0.81·VO₂max/3.5 · k_MET · m / A_D`. 0.81 is the highest drill intensity Hitchcock
+   2007 measured in simulated football practice ("ranged from 30 to 81% VO(2)max"); using it as a ceiling is DESIGN. VO₂max is
+   the athlete's value if known, else the Boden et al. 2022 high-school defaults: linemen (OL/DL) 32.8, others 41.8, unknown
+   position 38.5 mL·kg⁻¹·min⁻¹. With a 100 % ceiling, high met_scale draws hold linemen at VO₂max for 40 min (physio-reviewer
+   J3). With this ceiling, "hard" (8 MET) is capped at 7.6 MET for linemen.
 6. External work `W = 0` (the reference default; ASHRAE treats W as negligible for most activities).
    → `gagge_1986.external_work_fraction` (0).
 7. Shivering (Gagge): `M_shiv = k_shiv · cold_sk · cold_cr` is added to M. It never activates in heat but is kept for correctness.
@@ -147,7 +149,7 @@ corr_tot = corr_cl  (I_cl > 0.6 clo), else blended ((0.6 − I_cl)·corr_ia + I_
 I_T,dyn  = I_T · corr_tot                                                       [m²K/W]
 i_m,dyn  = min(i_m · ((2.6·corr_tot − 6.5)·corr_tot + 4.9), 0.9)
 R_e,T    = I_T,dyn / (i_m,dyn · 16.7)  [m²·kPa/W] → × 7.50062 → m²·mmHg/W       total evaporative resistance
-R_cl     = I_T,dyn − 0.111·corr_ia / f_cl                                        dynamic intrinsic dry insulation
+R_cl     = I_T,dyn − I_a·corr_ia / f_cl,  I_a = 0.0946 m²K/W (McCullough's 0.61 clo still-air layer, contained in I_T)
 ```
 These enter the Gagge exchange as follows. Dry heat uses `R_cl` (dynamic) with Gagge's air layer (§7.1). Evaporation uses
 `E_max = (p_sk,s − p_a)/R_e,T` in place of Gagge's `R_e,a + R_e,cl` (§7.3). Both depend on M, so they're
@@ -197,8 +199,12 @@ E_dir   = f_eff · f_p(β) · τ · f_bes · I_dir                    [W/m²]  b
 E_refl  = f_eff · f_svv · 0.5 · τ · I_TH · ρ_ground             [W/m²]  ground-reflected
 ERF     = (E_diff + E_dir + E_refl) · α_sw / α_lw               [W/m²]
 ΔMRT    = ERF / (f_eff · h_r,solarcal)                          [K]
-T_r     = T_a + ΔMRT
+ΔMRT    = linearised value (h_r ≈ 6)
+T_r     = ((T_a + 273.15)^4 + h_r·ΔMRT/σ)^(1/4) − 273.15      ← exact-radiation MRT fed to the T⁴ exchange
 ```
+The last line converts SolarCal's linearised field to the MRT whose exact longwave exchange delivers the same absorbed
+energy. This was a physio-reviewer finding: feeding `T_a + ΔMRT` straight into Gagge's T⁴ radiation over-delivered the
+field by about 25 %. On the fixture, ΔMRT is 20–30 K.
 `f_p(β)` is the projected-area factor for a standing person (ASHRAE 55 table, as in pythermalcomfort
 `solar_gain`), **averaged over body azimuth** because players face every direction during practice.
 f_eff = 0.725, α_sw = 0.7, α_lw = 0.95, h_r = 6.012 and the f_p table are in `constants.solarcal`. Ground reflectance ρ is
@@ -234,8 +240,8 @@ T_cl  = (R_a·T_sk + R_cl·T_op) / (R_a + R_cl)        ← iterate with h_r unti
 DRY   = (T_sk − T_op) / (R_a + R_cl)                                          [W/m²]  (C + R, + = loss)
 ```
 P = barometric pressure in atm (1.0 at the field; → `gagge_1986.p_atm_atm`). ε = 0.95 and A_r/A_D = 0.73
-(standing) → `gagge_1986`. *Vectorized implementation:* a fixed number of T_cl/h_r fixed-point iterations
-(warm-started from the previous step's T_cl). The test suite checks the residual is ≤ 0.01 K, matching the reference's tolerance.
+(standing) → `gagge_1986`. *Vectorized implementation:* T_cl/h_r fixed-point iterations until every element moves
+≤ 0.01 K, as in the reference. h_r is warm-started from the previous step; T_cl is re-guessed from it.
 
 ### 7.2 Respiration
 ```
@@ -319,9 +325,10 @@ For each step k with inputs u_k (drill/gear/shade/weather at the step start):
 Initial state: `T_cr = T_cr,n (− acclimatization shift)`, `T_sk = T_sk,n`, `SKBF = SKBF_n`, `α = α₀`,
 `E_sk = 0.1·met_A` (the reference's initial guess).
 
-**Step size:** `step_min` sets dt. On constant scenarios, 1-min Euler core stays within 0.017 °C of a 5 s run. The test
-requires 15 s vs 1 min to agree within 0.05 °C (p50 and p95) on the fixture, so no sub-stepping is needed. Skin
-temperature differs by up to about 0.07 °C between 1 min and 5 s steps.
+**Step size:** `step_min` sets dt. Core: 1 min vs 15 s differs by ≤ 0.035 °C on the fixture (physio-reviewer). The test
+requires < 0.05 °C for p50 and p95, so no sub-stepping is needed. Skin: 1-min Euler overshoots by up to 0.7 °C right at
+drill boundaries (the skin node's time constant is about 1 min at high blood flow) and damps within 2 steps. Skin isn't
+an output, and the core is unaffected.
 
 ### 9.2 Ensemble (uncertainty, never invented)
 For each athlete i and member e (common random numbers from `seed`; the same draws are reused for every
@@ -338,7 +345,8 @@ derived from verified tables) are met_scale 0.20 and thermo_scale 0.15:
 
 Forecast-weather uncertainty isn't in v1's ensemble (a listed limitation).
 `core_c_p50`, `core_c_p95` = 50th/95th percentile over the ensemble axis (numpy linear interpolation). With
-n = 30, p95 sits between the 29th and 30th order statistics, so it's noisy at the ±0.05 °C level.
+n = 30, p95 is noisy. Across 12 seeds the hottest athlete's peak p95 has an SD of about 0.12 °C. Quote headline p95
+to 0.1 °C and state the seed; the optimizer uses common random numbers, so plan comparisons aren't affected.
 
 ### 9.3 Outputs (CONTRACTS `SimulationResult`)
 * `times[k]` = plan start + (k+1)·step (the state at the **end** of each step); T = ceil(total minutes / step).
@@ -367,6 +375,20 @@ n = 30, p95 sits between the 29th and 30th order statistics, so it's noisy at th
 7. Weather uncertainty isn't sampled, and prior SDs are placeholders until sourced.
 8. The skin-mass fraction α changes with blood flow (inherited from Gagge), so energy bookkeeping isn't exact.
 9. p95 from 30 draws is a statistical estimate with its own sampling noise.
+
+## 10b. Modelling judgement calls flagged by the physio-reviewer (not changed; ranked by effect)
+
+1. **ISO 7933 dynamic correction on pads** is the largest lever: static clothing gives a 47.1 °C peak p95, ISO-corrected
+   gives about 40–41.6. In full pads it raises i_m from 0.37 to about 0.80. That's aggressive for impermeable foam, and it's
+   why the Armstrong 2010 full-uniform rise is under-predicted (0.035–0.045 vs 0.071 ± 0.032 °C/min). Better options: correct
+   only the non-pad area fraction, or calibrate against Armstrong (WS7).
+2. **ISO w_max (0.85–1.0) inside Gagge's all-or-nothing wettedness cap.** Gagge's w_crit (about 0.58) would add about 1.6 °C.
+   ISO pairs w_max with a sweat-efficiency curve that this model lacks.
+3. **Sustained aerobic ceiling** (§4.5) at 0.81·VO₂max: about −1 °C for the heaviest linemen versus a 100 % ceiling.
+4. **Ensemble spread:** met_scale is held for the whole session (SD 0.20), which maximises the spread of accumulated heat.
+   Deterministic peak vs p95 differ by about 1.2 °C.
+5. Acclimatization is worth about −0.2 °C on the team maximum (up to −0.5 °C per athlete). The consistent cap mode adds +0.19 °C. Initial
+   core 36.8 vs 37.1 °C changes peak p95 by +0.04.
 
 ## 11. Constants status (summary — authoritative list is constants.yaml)
 
