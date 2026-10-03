@@ -10,6 +10,7 @@ import { useRoster } from '../data/roster'
 import { mmss } from '../lib/heat'
 import { ease, spring } from '../lib/motion'
 import { fmtCore } from '../lib/format'
+import { planErrorText } from '../lib/errors'
 import { NumberTicker } from './NumberTicker'
 import { IconArrow, IconMic, IconSpark, IconStop } from './Icons'
 import { AI_NAME } from '../lib/brand'
@@ -578,15 +579,11 @@ function Result({
 }
 
 function ErrorView({ message, onRetry, onType }: { message: string; onRetry: () => void; onType: () => void }) {
-  const friendly = /permission|NotAllowed/i.test(message)
-    ? 'Microphone access was blocked. Allow it in the browser, or type the plan instead.'
-    : /Failed to fetch|NetworkError|Load failed|reach the engine|ECONNREFUSED|HTTP 50[02]: ?$|^Internal Server Error$/i.test(message)
-      ? 'Can’t reach the HeatTwin engine. Start it from the repo root with `.venv/bin/uvicorn engine.api:app --port 8000`, then try again.'
-      : /timed out|took too long|TimeoutError/i.test(message)
-        ? 'That took too long — the engine or Gemini didn’t answer within a minute. Try again.'
-      : /GEMINI_API_KEY/i.test(message)
-        ? 'The engine has no Gemini key. Add GEMINI_API_KEY to .env at the repo root and restart the engine.'
-        : message
+  // Plain words on screen (lib/errors.ts); the raw message (e.g. "Gemini unreachable: ProxyError") goes to the console.
+  const friendly = planErrorText(message)
+  useEffect(() => {
+    if (friendly !== message) console.warn('[voice dock]', message)
+  }, [friendly, message])
   return (
     <div className="dock__error">
       <div className="eyebrow">Couldn’t build the plan</div>
