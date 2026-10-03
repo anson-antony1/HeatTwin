@@ -28,6 +28,7 @@ import { clockLabel, heatColor, type HeatScale } from '../lib/heat'
 import { useHeatScale, useNearMargin } from '../lib/useHeatScale'
 import { AI_NAME } from '../lib/brand'
 import { ease, spring } from '../lib/motion'
+import { CORE_DECIMALS, coreValue, fmtCore } from '../lib/format'
 import './PlanView.css'
 
 // Today's plan — the same plan the live roster and every athlete page use
@@ -213,11 +214,11 @@ export function PlanView() {
         />
         <Metric
           label="Hottest forecast (p95)"
-          value={p.sim ? hottestPeakP95(p.sim) : offline && now ? Math.max(...now.rows.map((r) => r.peak)) : null}
-          was={before ? hottestPeakP95(before) : null}
+          value={nullableCore(p.sim ? hottestPeakP95(p.sim) : offline && now ? Math.max(...now.rows.map((r) => r.peak)) : null, now?.limit)}
+          was={before ? nullableCore(hottestPeakP95(before), before.limit_core_c) : null}
           unit=" °C"
-          // Two decimals so a peak just under the line (e.g. 38.98) never reads as the line itself.
-          decimals={2}
+          // Two decimals so a peak just under the line (e.g. 38.98) never reads as the line itself (lib/format.ts).
+          decimals={CORE_DECIMALS}
           offline={offline}
         />
         <Metric
@@ -401,7 +402,7 @@ export function PlanView() {
                         })}
                       </div>
                       <div className={`plan__peak num ${r.status === 'over_limit' ? 'is-over' : ''}`}>
-                        <NumberTicker value={r.peak} decimals={1} suffix="°" />
+                        <NumberTicker value={coreValue(r.peak, now.limit)} decimals={CORE_DECIMALS} suffix="°" />
                         {offline && <OfflineBadge compact />}
                       </div>
                     </div>
@@ -460,6 +461,11 @@ export function PlanView() {
       </AnimatePresence>
     </div>
   )
+}
+
+/** A peak for the Metric tile, kept on its side of the line (lib/format.ts). */
+function nullableCore(c: number | null, limit: number | null | undefined): number | null {
+  return c == null ? null : coreValue(c, limit)
 }
 
 function SourceLabel({ source }: { source: string }) {
@@ -621,7 +627,7 @@ function DrillPopover({
               <li key={r.id}>
                 <span className="pop__dot" style={{ background: heatColor(peak, scale) }} />
                 <span>{r.name}</span>
-                <span className={`num ${peak >= f.limit ? 'is-over' : ''}`}>{peak.toFixed(1)}°</span>
+                <span className={`num ${peak >= f.limit ? 'is-over' : ''}`}>{fmtCore(peak, f.limit)}°</span>
               </li>
             ))}
           </ul>

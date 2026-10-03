@@ -24,6 +24,7 @@ import { IconDrop, IconHeart, IconResponse } from '../components/Icons'
 import { chartDomain, clockLabel, cToF, heatColor } from '../lib/heat'
 import { useHeatScale, useNearMargin } from '../lib/useHeatScale'
 import { ease, spring } from '../lib/motion'
+import { CORE_DECIMALS, coreValue, fmtCore } from '../lib/format'
 import { gearFor, usePlanState } from '../data/planStore'
 import { AI_NAME } from '../lib/brand'
 import './AthleteView.css'
@@ -169,7 +170,7 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
             )}
           </div>
           <div className="display-xl vitals__temp" style={{ color: heatColor(coreShown, scale) }}>
-            <NumberTicker value={coreShown} decimals={1} suffix="°C" />
+            <NumberTicker value={coreValue(coreShown, s.limitC)} decimals={CORE_DECIMALS} suffix="°C" />
           </div>
           <div className="muted num" style={{ fontSize: 14 }}>
             {cToF(coreShown).toFixed(1)} °F · ±{(scrubbed ? scrubbed.band : live.bandC).toFixed(2)}° (p95 − p50)
@@ -199,7 +200,7 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
           <div>
             <dt>Forecast peak (p95)</dt>
             <dd className="num">
-              {live.peakP95C.toFixed(1)}°{live.peakMin != null ? ` at ${clockLabel(s.startHour, live.peakMin)}` : ''}
+              {fmtCore(live.peakP95C, s.limitC)}°{live.peakMin != null ? ` at ${clockLabel(s.startHour, live.peakMin)}` : ''}
             </dd>
           </div>
           <div>
@@ -549,7 +550,7 @@ function AthletePlanCard({ athleteId, minute }: { athleteId: string; minute: num
             {simA && limit != null
               ? simA.first_cross_min != null
                 ? `Forecast p95 crosses ${limit.toFixed(1)}° at minute ${Math.round(simA.first_cross_min)}`
-                : `Forecast p95 peak ${simA.peak_core_c_p95.toFixed(1)}° (line ${limit.toFixed(1)}°)`
+                : `Forecast p95 peak ${fmtCore(simA.peak_core_c_p95, limit)}° (line ${limit.toFixed(1)}°)`
               : `${drills.length} blocks · ${Math.round(total)} min`}
           </div>
         </div>
@@ -573,7 +574,7 @@ function AthletePlanCard({ athleteId, minute }: { athleteId: string; minute: num
               initial={reduce ? { opacity: 0 } : { opacity: 0, transform: 'translateY(6px)' }}
               animate={{ opacity: 1, transform: 'translateY(0px)' }}
               transition={{ duration: 0.28, ease: ease.out, delay: i * 0.035 }}
-              title={`${d.name} · ${d.duration_min} min · ${GEAR[gear]}${peak != null ? ` · peak p95 ${peak.toFixed(1)}°` : ''}`}
+              title={`${d.name} · ${d.duration_min} min · ${GEAR[gear]}${peak != null ? ` · peak p95 ${fmtCore(peak, limit)}°` : ''}`}
             >
               {d.duration_min / total > 0.07 && (
                 <span className="dayblock__text">
@@ -584,7 +585,7 @@ function AthletePlanCard({ athleteId, minute }: { athleteId: string; minute: num
                 </span>
               )}
               {peak != null && limit != null && !d.is_break && d.duration_min / total > 0.07 && (
-                <span className={`dayblock__peak num ${peak >= limit ? 'is-over' : ''}`}>{peak.toFixed(1)}°</span>
+                <span className={`dayblock__peak num ${peak >= limit ? 'is-over' : ''}`}>{fmtCore(peak, limit)}°</span>
               )}
             </motion.div>
           ))}

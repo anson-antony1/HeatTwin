@@ -4,6 +4,7 @@ import type { ContractDrill } from '../data/llmPlan'
 import { bandPath, downsample, splinePath, type Pt } from '../lib/spline'
 import { chartDomain, clockLabel, heatColor, heatStops, niceTicks, type HeatScale } from '../lib/heat'
 import { ease } from '../lib/motion'
+import { fmtCore } from '../lib/format'
 import { useSize } from '../lib/useSize'
 import './TempChart.css'
 
@@ -330,7 +331,7 @@ export function TempChart({
       aria-label={onScrub ? 'Core temperature chart. Use arrow keys to scrub through practice.' : undefined}
     >
       {width > 0 && (
-        <svg width={width} height={height} role="img" aria-label={`Estimated core temperature ${live.toFixed(1)} degrees Celsius`}>
+        <svg width={width} height={height} role="img" aria-label={`Estimated core temperature ${fmtCore(live, limit)} degrees Celsius`}>
           {reveal && !reduce ? (
             <motion.g
               initial={{ clipPath: 'inset(0 100% 0 0)' }}
@@ -354,7 +355,7 @@ export function TempChart({
             {startHour != null ? clockLabel(startHour, scrub) : ''} · {scrub}′
           </div>
           <div className="chart__tip-temp num" style={{ color: heatColor(scrubRead.c, scale) }}>
-            {scrubRead.c.toFixed(2)}°C
+            {fmtCore(scrubRead.c, limit)}°C
             {scrubRead.band > 0 && <span className="chart__tip-band"> ±{scrubRead.band.toFixed(2)}</span>}
           </div>
           <div className="chart__tip-meta">

@@ -16,6 +16,7 @@ import { IconArrow, IconDrop, IconHeart, IconResponse } from '../components/Icon
 import { chartDomain, clockLabel, type HeatScale } from '../lib/heat'
 import { useHeatScale } from '../lib/useHeatScale'
 import { ease, spring } from '../lib/motion'
+import { CORE_DECIMALS, coreValue, fmtCore } from '../lib/format'
 import './CoachDashboard.css'
 
 // Live roster. Every number is the engine's, read at the demo playback minute
@@ -84,6 +85,7 @@ export function CoachDashboard({ acked, onAck, onOpenAthlete, onCollapse }: Prop
                 athlete={lead}
                 name={roster.name(lead.id)}
                 live={s.athletes[lead.id]}
+                limit={s.limitC}
                 more={alerts.length - 1}
                 onAck={() => onAck(lead.id)}
                 onOpen={() => onOpenAthlete(lead.id)}
@@ -281,6 +283,7 @@ function AlertCard({
   athlete,
   name,
   live,
+  limit,
   more,
   onAck,
   onOpen,
@@ -289,6 +292,7 @@ function AlertCard({
   athlete: RosterAthlete
   name: string
   live: AthleteLive
+  limit: number | null
   more: number
   onAck: () => void
   onOpen: () => void
@@ -319,10 +323,10 @@ function AlertCard({
         </span>
       </button>
       <div className="alertcard__temp display-lg">
-        <NumberTicker value={live.coreC} decimals={1} suffix="°C" />
+        <NumberTicker value={coreValue(live.coreC, limit)} decimals={CORE_DECIMALS} suffix="°C" />
       </div>
       <div className="alertcard__meta muted">
-        {ESTIMATE_LABEL} · peak p95 <span className="num">{live.peakP95C.toFixed(1)}°</span>
+        {ESTIMATE_LABEL} · peak p95 <span className="num">{fmtCore(live.peakP95C, limit)}°</span>
         {live.firstCrossMin != null && (
           <>
             {' '}· crosses at <span className="num">{Math.round(live.firstCrossMin)}′</span>
@@ -396,7 +400,7 @@ function RosterRow({
       role="row"
       onClick={onOpen}
       style={{ ['--i' as string]: index }}
-      aria-label={`${name}, estimated core ${live.coreC.toFixed(1)} degrees, ${live.status.replace('_', ' ')}`}
+      aria-label={`${name}, estimated core ${fmtCore(live.coreC, s.limitC)} degrees, ${live.status.replace('_', ' ')}`}
     >
       <span className="row__who" role="cell">
         <span className="row__num num">{athlete.position ?? '—'}</span>
@@ -436,11 +440,11 @@ function RosterRow({
 
       <span className="row__core" role="cell">
         <span className="row__core-val display-sm">
-          <NumberTicker value={live.coreC} decimals={1} suffix="°" />
+          <NumberTicker value={coreValue(live.coreC, s.limitC)} decimals={CORE_DECIMALS} suffix="°" />
           {offline && <OfflineBadge compact />}
         </span>
         <span className="row__peak num">
-          peak p95 {live.peakP95C.toFixed(1)}°{live.peakMin != null ? ` @ ${Math.round(live.peakMin)}′` : ''}
+          peak p95 {fmtCore(live.peakP95C, s.limitC)}°{live.peakMin != null ? ` @ ${Math.round(live.peakMin)}′` : ''}
         </span>
       </span>
 

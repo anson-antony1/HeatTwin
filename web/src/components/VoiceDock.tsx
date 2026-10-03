@@ -8,6 +8,7 @@ import type { PlanDraft } from '../data/llmPlan'
 import { ROSTER } from '../data/fixtures'
 import { mmss } from '../lib/heat'
 import { ease, spring } from '../lib/motion'
+import { fmtCore } from '../lib/format'
 import { NumberTicker } from './NumberTicker'
 import { IconArrow, IconMic, IconSpark, IconStop } from './Icons'
 import { AI_NAME } from '../lib/brand'
@@ -517,7 +518,7 @@ function Result({
           >
             <span className={`result__dot result__dot--${a.status}`} />
             <span className="result__name">{name(a.id)}</span>
-            <span className="num result__peak">{a.peak_core_c_p95.toFixed(1)}°</span>
+            <span className="num result__peak">{fmtCore(a.peak_core_c_p95, limit)}°</span>
             <span className="faint num result__cross">
               {a.first_cross_min != null ? `crosses at ${Math.round(a.first_cross_min)}′` : 'stays under'}
             </span>
