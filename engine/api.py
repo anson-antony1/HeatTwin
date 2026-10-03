@@ -190,6 +190,30 @@ class GuardRequest(_Model):
     text: str
 
 
+class HrReading(_Model):
+    athlete_id: str
+    ts: str
+    hr_bpm: float
+    device: Optional[str] = None
+    replay: bool = False
+
+
+class LiveStart(SimulateRequest):
+    pass
+
+
+_LIVE: dict[str, Any] = {}
+
+
+def _live_session():
+    from engine.calibrate import LiveSession
+    if "session" not in _LIVE:
+        req = SimulateRequest()
+        plan, roster, weather, labels = _inputs(req)
+        _LIVE["session"] = LiveSession(plan, roster, weather, extra_labels=labels)
+    return _LIVE["session"]
+
+
 # ── routes ──
 
 @app.get("/health")
@@ -220,6 +244,29 @@ def optimize(req: OptimizeRequest | None = None,
                              n_ensemble=req.n_ensemble, step_min=req.step_min, extra_labels=labels,
                              settings=_settings(req), demo=demo)
     return _guard(res)
+
+
+@app.post("/live/start")
+def live_start(req: LiveStart | None = None) -> dict[str, Any]:
+    """v1.1: start a live session for /hr (defaults to fixtures). Resets calibration state."""
+    from engine.calibrate import LiveSession
+    req = req or LiveStart()
+    plan, roster, weather, labels = _inputs(req)
+    _LIVE["session"] = LiveSession(plan, roster, weather, settings=_settings(req), seed=req.seed, extra_labels=labels)
+    return {"ok": True, "plan_id": plan["id"], "athletes": [a["id"] for a in roster]}
+
+
+@app.post("/hr")
+def hr(reading: HrReading) -> dict[str, Any]:
+    """Live HR → {athlete_id, calib, reforecast: SimulationResult, gates, labels} (CONTRACTS; gates/labels v1.1)."""
+    try:
+        out = _live_session().add_reading(_dump(reading))
+    except KeyError as e:
+        raise HTTPException(404, str(e)) from e
+    if "reforecast" in out:
+        out["reforecast"] = _guard(out["reforecast"])
+    out["labels"] = __import__("engine.guard", fromlist=["guard_strings"]).guard_strings(out["labels"], "hr")
+    return out
 
 
 @app.post("/guard")

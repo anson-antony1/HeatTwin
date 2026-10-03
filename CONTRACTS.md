@@ -171,7 +171,8 @@ type CollapseLog = {
 | POST | `/optimize` | `{plan, roster, budget_s?}` → `OptimizeResult` · v1.1: same optional fields; `?demo=1` = fixed seed + fixed iteration cap instead of a time budget (reproducible) |
 | GET | `/settings` | v1.1 → `{owner: "athletic trainer", settings: [{key, value, default, status, source, description, …}]}` |
 | GET | `/health` | v1.1 → `{ok, model, fhsaa: "stub" \| "ws1"}` |
-| POST | `/hr` | live HR → `{athlete_id, calib, reforecast: SimulationResult}` |
+| POST | `/hr` | live HR → `{athlete_id, calib, reforecast: SimulationResult}` · v1.1 adds `gates: {crossing, persistent, coverage_ok, coverage_fraction, n_updates, flag, held_by[], message}`, `updated`, `replay`, `labels` |
+| POST | `/live/start` | v1.1 `{plan?, roster?, weather?, settings?, seed?}` → `{ok, plan_id, athletes}` — starts/reset the live session /hr uses (defaults to fixtures) |
 | POST | `/node` | node reading → `{ok}` |
 | GET | `/node/latest` | → last reading + assimilated `WeatherHour` |
 | GET | `/sources` | → constants.yaml as JSON with status |

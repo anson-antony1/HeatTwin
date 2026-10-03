@@ -471,3 +471,23 @@ demo_mode:
   n_ensemble: 30
   sa_iterations: 300
   safety_budget_s: 120.0
+
+hr_model:
+  status: DESIGN
+  note: "Observation model for live calibration (WS3): HR = HR_rest + %VO2R × (HR_max − HR_rest), %VO2R = (MET − 1)/(VO2max/3.5 − 1) — the inverse of hr_met (Swain & Leutholtz 1997, VERIFIED). Cardiovascular drift with rising core temperature is NOT modelled (coefficient 0 until a source is found), so HR late in a hot session reads as higher metabolic rate: met_scale may be biased high, the conservative direction."
+  drift_bpm_per_c_core: 0.0
+  drift_status: TODO
+
+calibration:
+  status: DESIGN
+  note: "WS3 live-calibration tuning (Relay-style gates). Product choices, not physiology; labelled in outputs."
+  update_interval_s: 60
+  window_s: 60
+  obs_sd_bpm: 8.0                 # combined sensor + model error of a 60-s mean HR (tuning value)
+  n_ensemble: 64
+  expected_reading_interval_s: 1  # BLE Heart Rate Service notifies about once per second
+  min_coverage_fraction: 0.5      # gate (c): share of expected readings present in the window
+  min_updates_before_flag: 2
+  persistence_min: 3              # gate (b): p95 must stay at/above the limit this many consecutive minutes
+  plausible_hr_bpm: [30, 230]     # readings outside are dropped as artefacts
+  replay_speed: 10
