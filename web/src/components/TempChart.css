@@ -38,6 +38,24 @@
   opacity: 0.85;
 }
 
+/* Near band (planning line − AT-owned near_limit_margin_c). */
+.chart__near {
+  stroke: var(--watch);
+  stroke-width: 1;
+  stroke-dasharray: 1 4;
+  opacity: 0.5;
+}
+
+.chart--compact .chart__near {
+  display: none;
+}
+
+.chart__near-label {
+  font-size: 10.5px;
+  fill: var(--watch);
+  opacity: 0.85;
+}
+
 .chart__history {
   fill: none;
   stroke-width: 2.5;

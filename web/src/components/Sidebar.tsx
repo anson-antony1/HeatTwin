@@ -75,7 +75,7 @@ export function Sidebar({ view, onNavigate, alertCount }: Props) {
             <div>
               <div className="sidebar__coach-name">Coach Reyes</div>
               <div className="faint" style={{ fontSize: 12.5 }}>
-                Head coach · no AT on site
+                Head coach · no AT on site · demo persona
               </div>
             </div>
           </div>

@@ -500,3 +500,8 @@
   background: rgb(255 122 89 / 0.22);
   color: #c4442a;
 }
+
+.plan__line-note {
+  margin: -4px 0 0;
+  font-size: 12.5px;
+}

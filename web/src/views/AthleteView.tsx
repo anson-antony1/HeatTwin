@@ -19,8 +19,10 @@ import { NumberTicker } from '../components/NumberTicker'
 import { StatusPill } from '../components/StatusPill'
 import { TempChart } from '../components/TempChart'
 import { OfflineBadge, OfflineBanner } from '../components/OfflineBadge'
+import { ProvenanceLabels } from '../components/ProvenanceLabels'
 import { IconDrop, IconHeart, IconResponse } from '../components/Icons'
-import { clockLabel, cToF, heatColor } from '../lib/heat'
+import { chartDomain, clockLabel, cToF, heatColor } from '../lib/heat'
+import { useHeatScale, useNearMargin } from '../lib/useHeatScale'
 import { ease, spring } from '../lib/motion'
 import { gearFor, usePlanState } from '../data/planStore'
 import { AI_NAME } from '../lib/brand'
@@ -54,6 +56,7 @@ export function AthleteView({ athleteId, onSelect, onCollapse }: Props) {
       <div className="twin__provenance">
         <span className="twin__tag">demo playback — not live</span>
         {replayLabel(s.replay) && <span className="twin__tag twin__tag--replay">{replayLabel(s.replay)}</span>}
+        <ProvenanceLabels labels={s.labels} title={s.source === 'offline' ? 'Offline' : s.replay.status === 'ready' ? 'Engine /live/replay' : 'Engine /simulate'} />
       </div>
 
       <AnimatePresence mode="wait" initial={false}>
@@ -112,6 +115,9 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
   const drills = s.plan?.drills ?? []
   const drill = drillAtMinute(drills, s.minute)?.drill
   const offline = live.basis === 'offline'
+  const scale = useHeatScale()
+  const margin = useNearMargin()
+  const near = s.limitC != null && margin != null ? s.limitC - margin : null
 
   // Scrubbing the chart drives the whole page: figure, number, and labels read
   // the scrubbed minute until the coach lets go (mouse) or taps "Live".
@@ -162,7 +168,7 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
               </button>
             )}
           </div>
-          <div className="display-xl vitals__temp" style={{ color: heatColor(coreShown) }}>
+          <div className="display-xl vitals__temp" style={{ color: heatColor(coreShown, scale) }}>
             <NumberTicker value={coreShown} decimals={1} suffix="°C" />
           </div>
           <div className="muted num" style={{ fontSize: 14 }}>
@@ -211,9 +217,9 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
 
       {/* The twin itself */}
       <section className="twin__figure" aria-label="Thermal figure">
-        <BodyFigure coreC={coreShown} hr={scrubbed ? null : live.hr} />
+        <BodyFigure coreC={coreShown} hr={scrubbed ? null : live.hr} scale={scale} />
         <div className="twin__callout twin__callout--core">
-          <span className="twin__callout-dot" style={{ background: heatColor(coreShown) }} />
+          <span className="twin__callout-dot" style={{ background: heatColor(coreShown, scale) }} />
           Core (estimate)
         </div>
         {live.hr != null && !scrubbed && (
@@ -284,6 +290,8 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
             live={live.coreC}
             drills={drills}
             limit={s.limitC}
+            near={near}
+            scale={scale}
             view={zoom.view}
             startHour={s.startHour}
             scrub={scrub}
@@ -300,7 +308,7 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
               transition={{ duration: 0.22, ease: ease.out }}
               style={{ overflow: 'hidden' }}
             >
-              <Navigator series={live.forecast} total={s.totalMinutes} view={zoom.view} onPan={zoom.panTo} />
+              <Navigator series={live.forecast} total={s.totalMinutes} view={zoom.view} onPan={zoom.panTo} limit={s.limitC} />
             </motion.div>
           )}
         </AnimatePresence>
@@ -453,16 +461,17 @@ function Navigator({
   total,
   view,
   onPan,
+  limit,
 }: {
   series: number[]
   total: number
   view: [number, number]
   onPan: (center: number) => void
+  limit: number | null
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const grab = useRef<number | null>(null)
-  const lo = 36.8
-  const hi = 39.6
+  const [lo, hi] = chartDomain(series, [limit])
   const pts = series.map((v, i) => `${((i / total) * 100).toFixed(2)},${(32 - ((v - lo) / (hi - lo)) * 28).toFixed(2)}`)
   const minuteAt = (clientX: number) => {
     const r = ref.current!.getBoundingClientRect()
@@ -504,6 +513,7 @@ function Navigator({
 function AthletePlanCard({ athleteId, minute }: { athleteId: string; minute: number }) {
   const p = usePlanState()
   const reduce = useReducedMotion()
+  const scale = useHeatScale()
   const drills = p.plan.drills
   const total = planMinutes(p.plan)
   const simA = p.sim?.athletes.find((x) => x.id === athleteId)
@@ -559,7 +569,7 @@ function AthletePlanCard({ athleteId, minute }: { athleteId: string; minute: num
             <motion.div
               key={d.id}
               className={`dayblock ${d.is_break ? 'is-break' : ''} ${sitsOut ? 'is-out' : ''}`}
-              style={{ flexGrow: d.duration_min, flexBasis: 0, ['--heat' as string]: peak != null && !d.is_break ? heatColor(peak) : undefined }}
+              style={{ flexGrow: d.duration_min, flexBasis: 0, ['--heat' as string]: peak != null && !d.is_break ? heatColor(peak, scale) : undefined }}
               initial={reduce ? { opacity: 0 } : { opacity: 0, transform: 'translateY(6px)' }}
               animate={{ opacity: 1, transform: 'translateY(0px)' }}
               transition={{ duration: 0.28, ease: ease.out, delay: i * 0.035 }}
@@ -586,7 +596,7 @@ function AthletePlanCard({ athleteId, minute }: { athleteId: string; minute: num
 
       <div className="dayplan__foot faint">
         {simA
-          ? `Peak per block is the engine’s p95 estimate for this athlete — ${ESTIMATE_LABEL}.`
+          ? `Peak per block is the engine’s p95 estimate for this athlete — ${ESTIMATE_LABEL}. The line is an illustrative default an athletic trainer owns.`
           : offA
             ? 'OFFLINE FALLBACK — stand-in curve, not the validated model.'
             : `Tap the mic and describe today’s practice to ${AI_NAME} to model it on the engine.`}

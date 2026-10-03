@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useEngineMeta } from './engineMeta'
 import { FIXTURE_ROSTER, ROSTER_IS_SYNTHETIC } from './fixtures'
 import type { RosterAthlete } from './engineApi'
@@ -27,18 +28,16 @@ function view(athletes: RosterAthlete[], synthetic: boolean, fromEngine: boolean
   }
 }
 
-let cache: { key: unknown; v: RosterView } | null = null
-
 /** The roster the engine simulated (GET /demo/inputs). Offline: the local fixture copy (badged by the views). */
 export function useRoster(): RosterView {
-  const meta = useEngineMeta()
-  const key = meta.inputs ?? meta.link
-  if (cache?.key === key) return cache.v
-  const v = meta.inputs
-    ? view(meta.inputs.roster, meta.inputs.synthetic.roster, true)
-    : meta.link === 'offline'
-      ? view(FIXTURE_ROSTER, ROSTER_IS_SYNTHETIC, false)
-      : view([], false, false)
-  cache = { key, v }
-  return v
+  const { inputs, link } = useEngineMeta()
+  return useMemo(
+    () =>
+      inputs
+        ? view(inputs.roster, inputs.synthetic.roster, true)
+        : link === 'offline'
+          ? view(FIXTURE_ROSTER, ROSTER_IS_SYNTHETIC, false)
+          : view([], false, false),
+    [inputs, link],
+  )
 }

@@ -21,8 +21,10 @@ import type { OfflineResult } from '../offline/standIn'
 import { PlanEditor } from '../components/PlanEditor'
 import { NumberTicker } from '../components/NumberTicker'
 import { OfflineBadge, OfflineBanner } from '../components/OfflineBadge'
+import { ProvenanceLabels } from '../components/ProvenanceLabels'
 import { IconCheck, IconClose, IconSpark } from '../components/Icons'
-import { clockLabel, heatColor } from '../lib/heat'
+import { clockLabel, heatColor, type HeatScale } from '../lib/heat'
+import { useHeatScale, useNearMargin } from '../lib/useHeatScale'
 import { AI_NAME } from '../lib/brand'
 import { ease, spring } from '../lib/motion'
 import './PlanView.css'
@@ -95,6 +97,8 @@ export function PlanView() {
   const roster = useRoster()
   const meta = useEngineMeta()
   const zoneRules = meta.sources?.fhsaa_wbgt_zones?.zones
+  const scale = useHeatScale()
+  const margin = useNearMargin()
   const reduce = useReducedMotion()
   const [editing, setEditing] = useState(false)
   const [editFrom, setEditFrom] = useState<string | null>(null)
@@ -179,6 +183,15 @@ export function PlanView() {
 
       {offline && <OfflineBanner />}
 
+      <ProvenanceLabels
+        labels={
+          p.sim
+            ? [...(p.opt && p.source === 'optimized' ? (p.opt.labels ?? []) : []), ...p.sim.labels]
+            : (p.offline?.labels ?? [])
+        }
+        title={p.sim ? (p.source === 'optimized' ? 'Engine /optimize' : 'Engine /simulate') : 'Offline'}
+      />
+
       {p.phase === 'error' && !editing && (
         <div className="plan__error" role="alert">
           {p.error}
@@ -202,7 +215,8 @@ export function PlanView() {
           value={p.sim ? hottestPeakP95(p.sim) : offline && now ? Math.max(...now.rows.map((r) => r.peak)) : null}
           was={before ? hottestPeakP95(before) : null}
           unit=" °C"
-          decimals={1}
+          // Two decimals so a peak just under the line (e.g. 38.98) never reads as the line itself.
+          decimals={2}
           offline={offline}
         />
         <Metric
@@ -221,6 +235,14 @@ export function PlanView() {
           note={p.sim && p.opt && p.source === 'optimized' ? 'of the original plan’s load' : 'shown after the engine optimizes'}
         />
       </div>
+
+      {now && (
+        <p className="faint plan__line-note">
+          Planning line {now.limit.toFixed(1)} °C{margin != null ? `, near band ${margin.toFixed(1)} °C below it` : ''} —
+          illustrative defaults an athletic trainer owns{offline ? ' (stand-in placeholders while offline)' : ' (engine GET /settings)'}. Counts use
+          each athlete’s p95 estimate.
+        </p>
+      )}
 
       <section className="glass plan__board">
         <AnimatePresence mode="popLayout" initial={false}>
@@ -314,6 +336,7 @@ export function PlanView() {
                           total={minutes}
                           startHour={startHour}
                           f={now}
+                          scale={scale}
                           onClose={() => setOpenDrill(null)}
                           onEdit={() => startEdit(openDrill)}
                         />
@@ -369,7 +392,7 @@ export function PlanView() {
                               key={c}
                               className={v >= now.limit ? 'is-over' : ''}
                               // Column-wise sweep, 6ms apart — the change reads as one wave through the session.
-                              style={{ background: heatColor(v), transitionDelay: reduce ? '0ms' : `${c * 6}ms` }}
+                              style={{ background: heatColor(v, scale), transitionDelay: reduce ? '0ms' : `${c * 6}ms` }}
                             />
                           )
                         })}
@@ -499,6 +522,7 @@ function DrillPopover({
   total,
   startHour,
   f,
+  scale,
   onClose,
   onEdit,
 }: {
@@ -507,6 +531,7 @@ function DrillPopover({
   total: number
   startHour: number
   f: Forecasts
+  scale: HeatScale | null
   onClose: () => void
   onEdit: () => void
 }) {
@@ -591,7 +616,7 @@ function DrillPopover({
           <ul>
             {inBlock.slice(0, 3).map(({ r, peak }) => (
               <li key={r.id}>
-                <span className="pop__dot" style={{ background: heatColor(peak) }} />
+                <span className="pop__dot" style={{ background: heatColor(peak, scale) }} />
                 <span>{r.name}</span>
                 <span className={`num ${peak >= f.limit ? 'is-over' : ''}`}>{peak.toFixed(1)}°</span>
               </li>

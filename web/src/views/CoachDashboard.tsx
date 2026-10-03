@@ -11,8 +11,10 @@ import { NumberTicker } from '../components/NumberTicker'
 import { StatusPill } from '../components/StatusPill'
 import { TempChart } from '../components/TempChart'
 import { OfflineBadge, OfflineBanner } from '../components/OfflineBadge'
+import { ProvenanceLabels } from '../components/ProvenanceLabels'
 import { IconArrow, IconDrop, IconHeart, IconResponse } from '../components/Icons'
-import { clockLabel } from '../lib/heat'
+import { chartDomain, clockLabel, type HeatScale } from '../lib/heat'
+import { useHeatScale } from '../lib/useHeatScale'
 import { ease, spring } from '../lib/motion'
 import './CoachDashboard.css'
 
@@ -51,6 +53,21 @@ export function CoachDashboard({ acked, onAck, onOpenAthlete, onCollapse }: Prop
     [bucketKey], // eslint-disable-line react-hooks/exhaustive-deps
   )
 
+  const scale = useHeatScale()
+  // One y-range for every sparkline, so rows compare at a glance: all engine values plus the line.
+  const sparkDomain = useMemo(
+    () =>
+      chartDomain(
+        live.flatMap((a) => {
+          const x = s.athletes[a.id]
+          return [...x.forecast.map((v, i) => v + (x.band[i] ?? 0)), ...x.history]
+        }),
+        [s.limitC],
+      ),
+    // Recompute when the plan/replay changes, not every frame.
+    [s.session, s.replay.status, s.limitC, live.length], // eslint-disable-line react-hooks/exhaustive-deps
+  )
+
   const alerts = order.filter((a) => s.athletes[a.id].flag && !acked.has(a.id))
   const lead = alerts[0]
   const counts = statusCounts(live.map((a) => s.athletes[a.id]))
@@ -83,6 +100,8 @@ export function CoachDashboard({ acked, onAck, onOpenAthlete, onCollapse }: Prop
         </div>
       </LayoutGroup>
 
+      <ProvenanceLabels labels={s.labels} title={s.source === 'offline' ? 'Offline' : s.replay.status === 'ready' ? 'Engine /live/replay' : 'Engine /simulate'} />
+
       <div className="roster" role="table" aria-label="Roster heat status">
         <div className="roster__head" role="row">
           <span role="columnheader">Athlete</span>
@@ -110,6 +129,8 @@ export function CoachDashboard({ acked, onAck, onOpenAthlete, onCollapse }: Prop
               live={s.athletes[a.id]}
               s={s}
               index={i}
+              scale={scale}
+              domain={sparkDomain}
               onOpen={() => onOpenAthlete(a.id)}
             />
           </motion.div>
@@ -349,6 +370,8 @@ function RosterRow({
   live,
   s,
   index,
+  scale,
+  domain,
   onOpen,
 }: {
   athlete: RosterAthlete
@@ -356,6 +379,8 @@ function RosterRow({
   live: AthleteLive
   s: SessionState
   index: number
+  scale: HeatScale | null
+  domain: [number, number]
   onOpen: () => void
 }) {
   const meta = useEngineMeta()
@@ -427,6 +452,8 @@ function RosterRow({
           now={s.minute}
           live={live.coreC}
           limit={s.limitC}
+          scale={scale}
+          domain={domain}
         />
       </span>
 
