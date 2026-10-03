@@ -26,12 +26,26 @@ What we change relative to the reference (each change is listed in §10):
 | 1 | Fixed 70 kg body and 1.8258 m² skin area | Per-athlete mass; DuBois body surface area |
 | 2 | Constant conditions for 60 min, starting from neutral each call | Inputs change every step (drill, gear, shade, weather); state carries across steps |
 | 3 | Activity in ASHRAE met (per m²) | Compendium METs (per kg) → W → W/m² for each athlete (§4) |
-| 4 | Clothing vapour permeation efficiency i_cl = 0.45 for all clothing | Evaporative resistance per gear level, from football-uniform manikin data (§5) |
+| 4 | Clothing vapour permeation efficiency i_cl = 0.45 for all clothing | Football-uniform sweating-manikin values per gear level (McCullough & Kenney 2003), corrected for wind and body movement per ISO 7933 (§5) |
 | 5 | Mean radiant temperature (MRT) is an input | MRT = air temp + solar ΔMRT (ASHRAE 55 SolarCal) in sun; MRT = air temp in shade (§6) |
 | 6 | Wind is an input | 10 m forecast wind → wind at body height (log profile) (§6.4) |
-| 7 | Sweat and blood-flow gains fixed | Gains scaled by calibration `thermo_scale` and by acclimatization day (§8) |
+| 7 | Sweat and blood-flow gains fixed | Gains scaled by calibration `thermo_scale`; acclimatization day shifts the set point and sweat gain (§8) |
 | 8 | One deterministic run | Ensemble of N draws per athlete → p50 / p95 (§9) |
 | 9 | At the wettedness cap, skin evaporation = (w_crit + 0.06)·E_max (quirk) | Default: skin evaporation = w_crit·E_max, consistent with the definition w = E_sk/E_max; the reference behaviour is available as a mode (§7.3) |
+| 10 | Critical wettedness w_crit = 0.59·v^−0.08 (clothed, Gagge's comfort-derived value) | ISO 7933 w_max: 0.85 unacclimatized → 1.0 acclimatized (§7.3), in the default ISO clothing mode |
+| 11 | No aerobic ceiling | Metabolic rate per athlete clipped at VO₂max (§4) |
+
+Two **modes** (constants `model_options.clothing_mode`):
+* `iso7933_dynamic` (default, used for planning): rows 4 and 10 as above.
+* `gagge_static`: Gagge's own clothing and w_crit structure with static intrinsic manikin values. With Gagge's
+  i_cl = 0.45 law and 70 kg / 1.8258 m², this mode reproduces `two_nodes_gagge` (test tolerance 0.01 °C).
+
+**Why the default isn't the static mode.** On the fixture practice, static manikin values give median peaks of
+44–45 °C, which isn't credible. Godek 2006 measured NFL preseason practice maxima of 38.65 ± 0.48 °C. McCullough & Kenney
+say their manikin was "stationary, in still air". ISO 7933's dynamic correction is the standard way to apply such values to
+moving people in wind. In a check against Armstrong et al. 2010 (33 °C, 48.5 % RH chamber, treadmill), the corrected model
+gives 0.030 °C/min (control) and 0.035–0.045 °C/min (full uniform), against measured 0.037 ± 0.015 and 0.071 ± 0.032.
+Both are inside one SD, and full uniform is under-predicted. WS7 owns the formal reproduction.
 
 Vectorization: the state arrays have shape `[n_ensemble, n_athletes]` and are stepped
 together. Time-varying inputs are precomputed as `[T]` (weather) and `[n_athletes, T]`
@@ -84,8 +98,12 @@ Conversions in `constants.yaml → physical` (CODATA/NIST): σ, 273.15 K, 1 kPa 
 
 ## 4. Metabolic heat (metabolic.py)
 
-1. Drill → MET: `met = drill.met_override` if given, otherwise `drill_met[intensity]`
-   (Compendium of Physical Activities codes in `constants.drill_met`, **TODO until sourced**).
+1. Drill → MET: `met = drill.met_override` if given, otherwise `drill_met[intensity]`. The values come from the 2024 Adult
+   Compendium (VERIFIED): rest 1.3 (07040 standing quietly), light 2.8 (02024 calisthenics, light), moderate 4.0 (15232 football
+   touch/flag, light — "estimated" in the Compendium), hard 8.0 (15210 football, competitive), max 11.0 (02078 shuttle running).
+   The intensity → code mapping is DESIGN. The Compendium has no football-practice codes and covers ages 19–59; using it for
+   15–18-year-olds is an extrapolation. Context: Hitchcock 2007 measured a simulated practice in collegiate linemen
+   at 55 % VO₂max (6.7 MET) on average.
    Athletes not in `drill.participants` get `non_participant.intensity` (rest) in the shade
    cooling area (`constants.non_participant`, **DESIGN** assumption).
 2. Compendium METs are **mass-specific**: 1 MET ≡ 1 kcal·kg⁻¹·h⁻¹ (≈ 3.5 mL O₂·kg⁻¹·min⁻¹).
@@ -96,15 +114,18 @@ Conversions in `constants.yaml → physical` (CODATA/NIST): σ, 273.15 K, 1 kPa 
    70 kg / 1.8 m² athlete produces ≈ 45 W/m² per MET. The large-athlete heat burden falls out of the
    physics. It isn't a fudge factor.
 4. `met_scale` is the per-athlete calibration (CONTRACTS `AthleteCalibration.met_scale`; prior mean 1).
-5. External work `W = 0` (the reference default; ASHRAE treats W as negligible for most activities).
+5. **Aerobic ceiling:** `M ≤ VO₂max/3.5 · k_MET · m / A_D`. VO₂max is the athlete's value if known, else the Boden et al. 2022
+   high-school defaults: linemen (OL/DL) 32.8, others 41.8, unknown position 38.5 mL·kg⁻¹·min⁻¹. Without it, the ensemble's
+   high met_scale draws would ask a lineman for 11 MET × 1.4, which is above any sustained aerobic capacity.
+6. External work `W = 0` (the reference default; ASHRAE treats W as negligible for most activities).
    → `gagge_1986.external_work_fraction` (0).
-6. Shivering (Gagge): `M_shiv = k_shiv · cold_sk · cold_cr` is added to M. It never activates in heat but is kept for correctness.
+7. Shivering (Gagge): `M_shiv = k_shiv · cold_sk · cold_cr` is added to M. It never activates in heat but is kept for correctness.
 
 **HR → met** (live HR from WS3, not used for planning):
 `%HRR = (HR − HR_rest)/(HR_max − HR_rest)`; %HRR ≈ %VO₂R (Swain & Leutholtz 1997);
 `VO₂ = VO₂_rest + %HRR·(VO₂max − VO₂_rest)`; `met = VO₂ / 3.5`.
 `HR_max = 208 − 0.7·age` (Tanaka et al. 2001) unless the roster has `hr_max_bpm`.
-VO₂max default by population → `constants.hr_met` (**TODO until sourced**).
+VO₂max default by position group → `constants.hr_met` (Boden et al. 2022). %HRR ≈ %VO₂R and Tanaka were derived in adults.
 *Caveat:* cardiovascular drift in heat raises HR at fixed VO₂, so HR-derived met is biased high late in
 hot sessions. WS3 should treat it as an observation with inflated error. We don't correct it here.
 
@@ -112,9 +133,28 @@ hot sessions. WS3 should treat it as an observation with inflated error. We don'
 
 ## 5. Clothing / gear (clothing.py)
 
-Each `GearLevel` (`none | helmet | helmet_shoulder_pads | full_pads`) maps to
-`(I_cl [clo], R_e,cl [m²·kPa/W], f_cl)` in `constants.gear_clothing` — football-uniform sweating-manikin
-data (McCullough & Kenney 2003), **TODO until sourced**.
+Each `GearLevel` maps to a measured ensemble in `constants.gear_clothing` (McCullough & Kenney 2003, Tables 1–3,
+VERIFIED). The ensembles: `none` = reference T-shirt and shorts; `helmet_shoulder_pads` = P2 practice; `full_pads` = G1
+warm-weather game uniform (a judgement call). `helmet` has **no measured ensemble**, so it conservatively reuses P2 (DESIGN, flagged).
+Values per level: total insulation I_T (clo), intrinsic I_cl (clo), f_cl, intrinsic R_e,cl (m²·kPa/W), permeability index i_m.
+
+**Default — ISO 7933 dynamic correction** (`constants.iso7933_dynamic`, read from pythermalcomfort `phs.py`):
+```
+w_a      = min(0.0052·(M − 58), 0.7)                     walking speed from metabolic rate [m/s] (ISO default)
+corr_cl  = min(1.044·exp((0.066·v′ − 0.398)·v′ + (0.094·w′ − 0.378)·w′), 1)     v′ = min(v,3), w′ = min(w_a,1.5)
+corr_ia  = min(exp((0.047·v − 0.472)·v + (0.117·w′ − 0.342)·w′), 1)
+corr_tot = corr_cl  (I_cl > 0.6 clo), else blended ((0.6 − I_cl)·corr_ia + I_cl·corr_cl)/0.6
+I_T,dyn  = I_T · corr_tot                                                       [m²K/W]
+i_m,dyn  = min(i_m · ((2.6·corr_tot − 6.5)·corr_tot + 4.9), 0.9)
+R_e,T    = I_T,dyn / (i_m,dyn · 16.7)  [m²·kPa/W] → × 7.50062 → m²·mmHg/W       total evaporative resistance
+R_cl     = I_T,dyn − 0.111·corr_ia / f_cl                                        dynamic intrinsic dry insulation
+```
+These enter the Gagge exchange as follows. Dry heat uses `R_cl` (dynamic) with Gagge's air layer (§7.1). Evaporation uses
+`E_max = (p_sk,s − p_a)/R_e,T` in place of Gagge's `R_e,a + R_e,cl` (§7.3). Both depend on M, so they're
+computed per athlete and per ensemble member every step. ISO's walking-speed default caps at 0.7 m/s, which
+under-represents running and is the conservative direction.
+
+**Static mode** (`gagge_static`):
 
 * Dry: `R_cl = 0.155 · I_cl`  [m²·K/W]  (1 clo = 0.155 m²·K/W)
 * Area factor: `f_cl` from the manikin data if reported, otherwise Gagge's `f_cl = 1 + 0.15·I_cl`
@@ -139,8 +179,9 @@ and solar are **linearly interpolated** to each step time. Values are held const
   → `constants.solar_position` (status per entry). When WS1's `engine/wbgt.py` lands, we can share its
   solar geometry.
 * Global horizontal irradiance `I_TH = weather.solar_w_m2`. If that's missing, we call
-  `engine.wbgt.solar_from_cloud` when it exists, otherwise a fallback: Haurwitz clear-sky × Kasten–Czeplak
-  cloud factor (`constants.clear_sky_fallback`, **TODO/SECONDARY**). Any fallback use is labelled in the output.
+  `engine.wbgt.solar_from_cloud` when it exists, otherwise a fallback: Haurwitz clear-sky
+  `1098·cos z·exp(−0.059/cos z)` × Kasten–Czeplak `(1 − 0.75·(N/8)^3.4)` (`constants.clear_sky_fallback`, SECONDARY).
+  The NWS WBGT algorithm uses the same Kasten–Czeplak cloud reduction. Any fallback use is labelled in the output.
 * Direct/diffuse split: Erbs et al. (1982) diffuse fraction from clearness index
   `k_t = I_TH / (I_0 · sin β)` → `I_diff = f_d(k_t)·I_TH`, direct normal `I_dir = (I_TH − I_diff)/sin β`
   → `constants.irradiance_split`.
@@ -160,8 +201,9 @@ T_r     = T_a + ΔMRT
 ```
 `f_p(β)` is the projected-area factor for a standing person (ASHRAE 55 table, as in pythermalcomfort
 `solar_gain`), **averaged over body azimuth** because players face every direction during practice.
-f_eff, α_sw, α_lw, h_r and the f_p table → `constants.solarcal`. Ground reflectance ρ (grass/turf) →
-`constants.solarcal.ground_reflectance_*`, **TODO until sourced**.
+f_eff = 0.725, α_sw = 0.7, α_lw = 0.95, h_r = 6.012 and the f_p table are in `constants.solarcal`. Ground reflectance ρ is
+0.23 for grass (FAO-56) and 0.11 for synthetic turf (Singh 2024 review) → `constants.solarcal_ground`.
+A test checks this against pythermalcomfort `solar_gain` (fed its fixed 0.2·I_dir diffuse) to within 1e-6.
 
 **Shade** (drill `shade: true`, or a non-participant in the cooling area): `T_r = T_a`.
 *Assumption:* the canopy blocks direct, diffuse and reflected shortwave. The model ignores extra longwave from
@@ -172,9 +214,9 @@ low. → `constants.shade_model` (DESIGN assumption).
 low too, worst on artificial turf. Listed in §10.
 
 ### 6.4 Wind at body height
-`v = max( v₁₀ · ln(z_body/z₀) / ln(z_ref/z₀),  v_min )`, with z_ref = 10 m (forecast height),
-z_body = 1.1 m (ISO 7726 standing reference height), z₀ = open-grass roughness length, and v_min = 0.1 m/s (Gagge's floor)
-→ `constants.wind_profile`, **TODO until sourced**. Self-generated air movement from running comes from
+`v = max( v₁₀ · ln(z_body/z₀) / ln(z_ref/z₀),  v_min )`, with z_ref = 10 m (forecast height), z_body = 1.1 m (standing
+abdomen height used with ISO 7243), z₀ = 0.03 m (WMO Davenport "open"), and v_min = 0.1 m/s (Gagge's floor). The NWS WBGT
+algorithm also uses the log law to bring 10 m wind down → `constants.wind_profile` (SECONDARY). Self-generated air movement from running comes from
 Gagge's activity term in h_c (§7.1), not from v.
 
 ---
@@ -210,7 +252,9 @@ E_rsw  = 0.68 · m_rsw                                   [W/m²]     0.68 W·h/g
 w      = 0.06 + 0.94 · E_rsw / E_max                    wettedness incl. 6 % diffusion
 E_sk   = w · E_max = E_rsw + E_diff
 ```
-**Cap:** `w ≤ w_crit`, where `w_crit = 0.59 · v^−0.08` (clothed) or `0.38 · v^−0.29` (nude) (Gagge).
+In the default ISO mode `E_max = (p_sk,s − p_a)/R_e,T` (§5).
+**Cap:** `w ≤ w_crit`. In ISO mode w_crit = ISO 7933 w_max = 0.85 + a·(1.0 − 0.85), with a the acclimatization fraction (§8;
+the interpolation is DESIGN). In static mode `w_crit = 0.59 · v^−0.08` (clothed) or `0.38 · v^−0.29` (nude) (Gagge).
 When the cap binds, sweating beyond what can evaporate drips and is lost, and **E_sk can't exceed the
 cap**. This is the mechanism behind uncompensable heat stress in pads and humidity.
 * `cap_mode: consistent` (default): `p_rsw = (w_crit − 0.06)/0.94`, `E_rsw = p_rsw·E_max`,
@@ -247,12 +291,16 @@ SKBF_n = 6.3, c_dil = 120, c_str = 0.5, c_sw = 170, SKBF_max = 90, m_rsw,max = 5
 
 **Individualization** (θ multipliers, defaults 1):
 * `θ_sw = θ_dil = thermo_scale` (CONTRACTS `AthleteCalibration.thermo_scale`: "scales sweating/vasomotor effectiveness").
-* **Acclimatization** (`athlete.acclimatization_day`), with a(d) ∈ [0, 1] the adaptation fraction on day d:
-  `θ_sw ← θ_sw · (1 + a(d)·Δ_sw_gain)`, a sweat-onset threshold shift `T_b,n ← T_b,n − a(d)·Δ_threshold`,
-  and a resting core shift `T_cr(0) ← T_cr(0) − a(d)·Δ_rest`. a(d), Δ_sw_gain, Δ_threshold and Δ_rest come from
-  `constants.acclimatization`, **TODO until sourced**. Until they're sourced, the code sets every Δ to 0, so all
-  athletes run as Gagge's unacclimatized reference man, and the output labels say so.
-  `days_since_last_heat_session` (decay) isn't modelled in v1.
+* **Acclimatization** (`constants.acclimatization`, block DESIGN; each magnitude VERIFIED). The adaptation fraction is
+  `a(d) = interp(d; days [1, 6, 14] → [0, 0.75, 1])`. That follows Périard 2015 ("75–80% of the adaptations occur in the first
+  4–7 days", complete by 10–14) and the NATA 14-day period. It's reduced by 2.5 % for each day beyond the first since the last
+  heat session (Daanen 2018). Effects at full adaptation:
+  - **Set-point shift** of −0.3 °C on T_cr,n, so T_b,n, resting core and sweating onset all move. Buono 1998: resting Tre
+    37.0 → 36.7 °C. Mee 2018: resting −0.28, sweat-onset Tre −0.29 °C. The two move together, so one shift is used.
+  - **Sweat gain** × (1 + 0.11) (Poirier 2015: whole-body evaporative heat loss up to ~11 % by day 14).
+  - **w_max** 0.85 → 1.0 (ISO 7933 unacclimatized/acclimatized; interpolation DESIGN).
+  These magnitudes come mostly from laboratory heat acclimation in adults. Transferring them to adolescent field
+  acclimatization is an assumption.
 
 ---
 
@@ -271,10 +319,9 @@ For each step k with inputs u_k (drill/gear/shade/weather at the step start):
 Initial state: `T_cr = T_cr,n (− acclimatization shift)`, `T_sk = T_sk,n`, `SKBF = SKBF_n`, `α = α₀`,
 `E_sk = 0.1·met_A` (the reference's initial guess).
 
-**Step size:** `step_min` sets dt. A test checks that `step_min = 0.25` (15 s) gives core temperatures within a
-stated tolerance of `step_min = 1`. If plain 1-min Euler fails that test, the integrator sub-steps internally
-(`dt_internal ≤ max_internal_dt_s`) and reports on the `step_min` grid. The skin node's time constant at high
-blood flow is about 1–2 min, so this needs checking.
+**Step size:** `step_min` sets dt. On constant scenarios, 1-min Euler core stays within 0.017 °C of a 5 s run. The test
+requires 15 s vs 1 min to agree within 0.05 °C (p50 and p95) on the fixture, so no sub-stepping is needed. Skin
+temperature differs by up to about 0.07 °C between 1 min and 5 s steps.
 
 ### 9.2 Ensemble (uncertainty, never invented)
 For each athlete i and member e (common random numbers from `seed`; the same draws are reused for every
@@ -283,9 +330,13 @@ candidate plan in the optimizer):
 met_scale[e,i]    ~ N(μ_m,i, σ_m,i²)   μ, σ from athlete.calib, else prior (1, constants.ensemble_priors.met_scale_sd)
 thermo_scale[e,i] ~ N(μ_θ,i, σ_θ,i²)   μ, σ from athlete.calib, else prior (1, constants.ensemble_priors.thermo_scale_sd)
 ```
-Draws are truncated to `[μ − k·σ, μ + k·σ]` and floored above 0 (k → `ensemble_priors.truncate_sd`).
-The prior SDs are **TODO until sourced**. Until then, the uncertainty band reflects only those placeholder
-SDs, and the labels say so. Forecast-weather uncertainty isn't in v1's ensemble (a listed limitation).
+Draws are truncated at ±3 SD and floored above 0 (`ensemble_defaults`, DESIGN). Prior SDs (`ensemble_priors`, DESIGN,
+derived from verified tables) are met_scale 0.20 and thermo_scale 0.15:
+* met_scale: Kozey 2010, between-person CV of measured METs, median ~20 %.
+* thermo_scale: Armstrong 2010, linemen sweat-rate CV 13–17 % under lab control. Field CVs of 22–47 % also include body size and
+  intensity, which the model already represents.
+
+Forecast-weather uncertainty isn't in v1's ensemble (a listed limitation).
 `core_c_p50`, `core_c_p95` = 50th/95th percentile over the ensemble axis (numpy linear interpolation). With
 n = 30, p95 sits between the 29th and 30th order statistics, so it's noisy at the ±0.05 °C level.
 
@@ -294,7 +345,7 @@ n = 30, p95 sits between the 29th and 30th order statistics, so it's noisy at th
 * Per athlete: `core_c_p50[T]`, `core_c_p95[T]`, `peak_core_c_p95`, `first_cross_min` (minutes from start
   to the end of the first step where p95 ≥ limit), and `status`: `over_limit` if peak p95 ≥ limit, `near_limit` if
   peak p95 ≥ limit − `near_limit_margin_c` (DESIGN), otherwise `below_limit`. Never "safe".
-* `limit_core_c = constants.planning_limit_core_c.value` (**TODO until sourced**; presented as an
+* `limit_core_c = constants.planning_limit_core_c.value` (39.0 °C, NIOSH 2016 "reason to terminate exposure"; presented as an
   AT-owned illustrative threshold).
 * `training_load_met_min` = team mean over athletes of Σ (MET × minutes) over non-break drill minutes the athlete
   takes part in.
@@ -309,7 +360,8 @@ n = 30, p95 sits between the 29th and 30th order statistics, so it's noisy at th
    WS7 (published football-uniform study and JOS-3 cross-check) has to show how far off it is.
 2. No dehydration effect on core temperature, no plasma-volume changes, no cardiovascular drift.
 3. Activity is a per-drill average MET. Intermittent sprints within a drill aren't resolved.
-4. Clothing has no heat or moisture storage. Sweat-soaked pads aren't modelled.
+4. Clothing has no heat or moisture storage. Sweat-soaked pads aren't modelled. The `helmet` gear level has no measured
+   ensemble. ISO 7933's walking-speed default (≤ 0.7 m/s) under-represents running.
 5. Radiation: no extra longwave from hot ground or turf, and shade is treated as complete. Both bias predictions low.
 6. Wind at body height uses a neutral log profile. Stadium sheltering is ignored.
 7. Weather uncertainty isn't sampled, and prior SDs are placeholders until sourced.
@@ -323,14 +375,17 @@ n = 30, p95 sits between the 29th and 30th order statistics, so it's noisy at th
 | `gagge_1986.*` | every thermoregulation coefficient | SECONDARY (read from pythermalcomfort source) |
 | `physical.*` | σ, 273.15, mmHg/kPa, kcal→J | VERIFIED (CODATA/NIST definitions) |
 | `body_surface_area` | DuBois A_D | SECONDARY |
-| `metabolic.w_per_kg_per_met` | MET → W | pending source-checker |
-| `drill_met` | intensity → MET | pending source-checker |
-| `gear_clothing` | clo, R_e,cl, f_cl | pending source-checker |
-| `solarcal`, `irradiance_split`, `solar_position`, `wind_profile` | radiation & wind | pending source-checker |
-| `acclimatization` | sweat gain / threshold shifts | pending source-checker (zero-effect until sourced) |
-| `ensemble_priors` | met/thermo SD | pending source-checker |
-| `planning_limit_core_c` | limit line | pending source-checker |
-| `non_participant`, `shade_model`, `near_limit_margin_c` | modelling/product assumptions | DESIGN (owned by the AT/coach, not a sourced fact) |
+| `metabolic` | 1 MET = 1 kcal·kg⁻¹·h⁻¹ | VERIFIED |
+| `drill_met` | intensity → MET | DESIGN mapping of VERIFIED Compendium values |
+| `gear_clothing` | I_T, I_cl, f_cl, R_e,cl, i_m | VERIFIED (McCullough & Kenney 2003); `helmet` level TODO (uses P2) |
+| `iso7933_dynamic` | wind/motion clothing correction, w_max | SECONDARY (pythermalcomfort phs.py; ISO text paywalled) |
+| `solar_position` | sun elevation | VERIFIED (NOAA) |
+| `solarcal`, `solarcal_ground`, `irradiance_split`, `wind_profile`, `clear_sky_fallback` | radiation & wind | SECONDARY |
+| `hr_met`, `hr_max_formula` | VO₂max ceiling, HR → met | VERIFIED (adult-derived) |
+| `acclimatization` | set point, sweat gain, w_max | DESIGN curve over VERIFIED magnitudes |
+| `ensemble_priors` | met/thermo SD | DESIGN (derived from VERIFIED tables) |
+| `planning_limit_core_c` | 39.0 °C limit line (alternatives 38.0, 38.5) | VERIFIED (NIOSH 2016); AT-owned |
+| `non_participant`, `shade_model`, `near_limit_margin_c`, `model_options`, `ensemble_defaults` | modelling/product assumptions | DESIGN |
 
 ## 12. How it is checked
 
@@ -340,3 +395,7 @@ n = 30, p95 sits between the 29th and 30th order statistics, so it's noisy at th
   stability; performance (16 athletes × 113 min × 30 draws < 50 ms).
 * `jos3_ref.py`: the same scenario through JOS-3 (Takahashi et al. 2021), changing `par/clo/tdb/tr/rh/v` between
   `simulate()` calls. The report gives the core-temperature gap. JOS-3 pelvis core stands in for rectal temperature.
+  On the fixture practice (deterministic, all 16 athletes), JOS-3 peaks run **2.2 °C hotter** than twonode-v1's ISO mode
+  (RMSE 1.4 °C) and **2.8 °C cooler** than its static mode. JOS-3 takes clo only, with no wind/motion correction of vapour
+  resistance and no activity-driven convection, so it sits between our two clothing treatments. This is reported as a
+  finding, not tuned away.
