@@ -59,6 +59,18 @@ def met_from_hr(hr_bpm, hr_rest_bpm, hr_max_bpm_, vo2max_ml_kg_min: float | None
     return vo2 / ml_per_met
 
 
+def acsm_walking_met(speed_km_h: float, grade: float) -> dict[str, float]:
+    """ACSM walking equation (constants.acsm_walking): VO₂ = 0.1·v + 1.8·v·grade + 3.5 [mL/kg/min], v in m/min.
+    Returns the arithmetic so callers can show it."""
+    a = consts.get("acsm_walking")
+    v = speed_km_h * 1000.0 / 60.0
+    horiz, vert = a["horizontal_ml_kg_per_m"] * v, a["vertical_ml_kg_per_m"] * v * grade
+    vo2 = horiz + vert + a["resting_ml_kg_min"]
+    met = vo2 / consts.get("hr_met.ml_o2_per_kg_min_per_met")
+    return {"speed_m_min": v, "horizontal": horiz, "vertical": vert, "resting": a["resting_ml_kg_min"],
+            "vo2_ml_kg_min": vo2, "met": met}
+
+
 def body_surface_area_m2(mass_kg, height_m):
     """DuBois & DuBois (1916)."""
     b = consts.get("body_surface_area")

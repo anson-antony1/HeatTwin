@@ -35,8 +35,18 @@ MODES = ("conservative", "iso7933_dynamic", "gagge_static")
 REFERENCE_MODELS = ("jos3",)
 
 
+def treadmill_met() -> float:
+    """Treadmill MET per constants.armstrong_2010_reproduction.treadmill_met_method ('acsm' or 'compendium')."""
+    S = consts.get("armstrong_2010_reproduction")
+    if S.get("treadmill_met_method", "compendium") == "acsm":
+        t = consts.get("armstrong_2010.treadmill")
+        return metabolic.acsm_walking_met(t["speed_km_h"], t["grade"])["met"]
+    return float(S["met"]["treadmill"])
+
+
 def simulate(condition: str, clothing_mode: str, air_speed: float | None = None,
-             surcharge: float | None = None) -> dict[str, float]:
+             surcharge: float | None = None, walk_credit: float | None = None,
+             treadmill: float | None = None) -> dict[str, float]:
     """Deterministic twonode-v1 run of the protocol for the mean participant → rates (°C/min) and end core."""
     A = consts.get("armstrong_2010")
     S = consts.get("armstrong_2010_reproduction")
@@ -50,7 +60,7 @@ def simulate(condition: str, clothing_mode: str, air_speed: float | None = None,
     tread = int(round(A["exposure_min"][condition] - pre))
     mets = np.r_[np.full(A["protocol_min"]["box_lifting"], S["met"]["box_lifting"]),
                  np.full(A["protocol_min"]["seated"], S["met"]["seated"]),
-                 np.full(tread, S["met"]["treadmill"])]
+                 np.full(tread, treadmill_met() if treadmill is None else treadmill)]
     sub = max(1, int(np.ceil(60.0 / float(consts.get("model_options.max_internal_dt_s")) - 1e-9)))
     mets = np.repeat(mets, sub)            # same internal sub-step as field simulations
     n = len(mets)
@@ -75,7 +85,7 @@ def simulate(condition: str, clothing_mode: str, air_speed: float | None = None,
         w_max = d["w_max_unacclimatized"] + R.accl_frac * (d["w_max_acclimatized"] - d["w_max_unacclimatized"])
         iso = twonode.IsoClothing(i_t=gt["i_t"][gi] * one, i_m=gt["i_m"][gi] * one, i_cl_clo=gt["i_cl_clo"][gi] * one,
                                   w_max=w_max, fraction=twonode.iso_fraction(clothing_mode),
-                                  walk_credit=twonode.walk_credit(clothing_mode))
+                                  walk_credit=twonode.walk_credit(clothing_mode) if walk_credit is None else walk_credit)
     out = twonode.integrate(
         met_wm2=met_wm2, met_scale=np.ones((1, 1)),
         ta=ta, pa=pa, v=np.full(n, v), tr=ta[None, :],
@@ -114,7 +124,7 @@ def simulate_jos3(condition: str, air_speed: float | None = None) -> dict[str, f
     pre = A["protocol_min"]["box_lifting"] + A["protocol_min"]["seated"]
     tread = int(round(A["exposure_min"][condition] - pre))
     mets = ([S["met"]["box_lifting"]] * A["protocol_min"]["box_lifting"] + [S["met"]["seated"]] * A["protocol_min"]["seated"]
-            + [S["met"]["treadmill"]] * tread)
+            + [treadmill_met()] * tread)
     core = []
     for met in mets:
         model.par = max(met * metabolic.w_per_kg_per_met() * pt["mass_kg"] / bmr_w, 1.0)
@@ -163,6 +173,37 @@ def calibrate(target: str = "whole_rise", tol: float = 1e-5) -> float:
         else:
             hi = mid
     return round(0.5 * (lo + hi), 4)
+
+
+def walk_credit_check() -> dict:
+    """Owner decision 2 (Oct 3): with the ACSM treadmill MET, keep the walking-ventilation credit only if it reproduces
+    Armstrong's control-clothing (CON) treadmill rate better than dropping it. CON has no surcharge (w = 0), so δ
+    does not enter this comparison."""
+    A = consts.get("armstrong_2010")
+    t = A["treadmill"]
+    ar = metabolic.acsm_walking_met(t["speed_km_h"], t["grade"])
+    meas, sd = A["treadmill_rate_c_per_min"]["CON"]
+    rmeas, rsd = A["rise_c"]["CON"]
+    out = {"acsm_arithmetic": (f"speed {t['speed_km_h']} km/h = {ar['speed_m_min']:.3f} m/min; VO2 = 0.1×{ar['speed_m_min']:.3f}"
+                               f" + 1.8×{ar['speed_m_min']:.3f}×{t['grade']} + 3.5 = {ar['horizontal']:.3f} + {ar['vertical']:.3f}"
+                               f" + {ar['resting']} = {ar['vo2_ml_kg_min']:.3f} mL/kg/min = {ar['met']:.3f} MET"),
+           "treadmill_met_acsm": round(ar["met"], 3),
+           "treadmill_met_compendium_17034": consts.get("armstrong_2010_reproduction.met.treadmill"),
+           "measured_CON_treadmill_rate": [meas, sd], "measured_CON_rise": [rmeas, rsd], "options": []}
+    for credit in (1.0, 0.0):
+        for met_label, met in (("acsm", ar["met"]), ("compendium", consts.get("armstrong_2010_reproduction.met.treadmill"))):
+            sim = simulate("CON", "conservative", walk_credit=credit, treadmill=met)
+            out["options"].append({
+                "walk_credit": credit, "treadmill_met": met_label,
+                "CON_treadmill_rate_c_per_min": round(sim["treadmill_rate_c_per_min"], 4),
+                "error_in_sd": round((sim["treadmill_rate_c_per_min"] - meas) / sd, 2),
+                "CON_rise_c": round(sim["rise_c"], 2), "rise_error_in_sd": round((sim["rise_c"] - rmeas) / rsd, 2)})
+    acsm = [o for o in out["options"] if o["treadmill_met"] == "acsm"]
+    best = min(acsm, key=lambda o: abs(o["error_in_sd"]))
+    out["decision_rule"] = "with the ACSM MET, choose the walk_credit whose CON treadmill rate is closer to the measured mean"
+    out["chosen_walk_credit"] = best["walk_credit"]
+    out["in_constants"] = consts.get("clothing_conservative.walk_credit_fraction")
+    return out
 
 
 def fits() -> list[dict]:
@@ -226,6 +267,7 @@ def run() -> dict:
         "study": "Armstrong et al. 2010, J Athl Train 45:117 (PMC2838463)",
         "comparison_basis": "summary values only (Table 3 whole-protocol rise and rate, Table 4 treadmill rate); Figure 2's time course is not tabulated and was not digitized, so no time-point RMSE is reported",
         "summary_at_reference_air_speed": summary,
+        "walk_credit_check": walk_credit_check(),
         "calibration_fits": fits(),
         "calibration_in_use": consts.get("clothing_conservative.calibration_metric"),
         "computed_by": "validation/armstrong_2010.py",

@@ -209,3 +209,12 @@ def test_rotated_out_athletes_capped_at_their_gear_limit():
              "is_break": False, "priority": 1, "movable": True, "participants": ["a14"]}
     tl = twonode.build_timeline([drill], [a["id"] for a in roster], 1.0, gear_cap=twonode.gear_caps(roster))
     assert clothing.GEAR_LEVELS[tl.gear[0, 0]] == "helmet" and clothing.GEAR_LEVELS[tl.gear[1, 0]] == "full_pads"
+
+
+def test_walk_credit_choice_matches_validation():
+    """Owner decision 2: the walking-ventilation credit in constants is the one that better reproduces Armstrong CON
+    with the ACSM treadmill MET."""
+    from validation.armstrong_2010 import walk_credit_check
+    chk = walk_credit_check()
+    assert chk["in_constants"] == chk["chosen_walk_credit"]
+    assert chk["treadmill_met_acsm"] == pytest.approx(6.067, abs=1e-3)

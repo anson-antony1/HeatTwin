@@ -440,6 +440,7 @@ armstrong_2010:
   participants: {age_yr: 23.8, height_m: 1.839, mass_kg: 117.41, body_fat_pct: 30.1, sex: male}
   chamber: {air_temp_c: 33.0, rh_pct: 48.5}
   protocol_min: {box_lifting: 10, seated: 10, treadmill_max: 60}
+  treadmill: {speed_km_h: 5.6, grade: 0.05}   # Methods: "walked briskly on a treadmill (5.6 km/h, 5% grade)"
   start_rectal_c: 37.2
   exposure_min: {CON: 71.7, PART: 63.1, FULL: 56.2}
   treadmill_rate_c_per_min: {CON: [0.037, 0.015], PART: [0.052, 0.012], FULL: [0.071, 0.032]}   # [mean, SD]
@@ -450,7 +451,8 @@ armstrong_2010:
 armstrong_2010_reproduction:
   status: DESIGN
   note: "Assumptions needed to simulate Armstrong 2010 (validation/armstrong_2010.py). MET values VERIFIED on pacompendium.com (2024 Adult Compendium); the task→code mapping and the air speed are judgement calls."
-  met: {box_lifting: 4.0, seated: 1.0, treadmill: 5.3}
+  met: {box_lifting: 4.0, seated: 1.0, treadmill: 5.3}   # treadmill 5.3 = Compendium 17034 (alternative; not used)
+  treadmill_met_method: acsm         # ACSM walking equation at the reported 5.6 km/h, 5 % grade → 6.067 MET (constants.acsm_walking)
   met_codes: {box_lifting: "11820 Walking or walk downstairs or standing, carrying objects about 25 to 49 lbs", seated: "07021 Sitting quietly, general", treadmill: "17034 Climbing hills, no load, 1 to 5% grade, moderate-to-brisk pace"}
   air_speed_m_s: 0.1                 # not reported → Gagge's still-air floor
   air_speed_sensitivity_m_s: [0.1, 0.5, 1.0]
@@ -459,19 +461,19 @@ armstrong_2010_reproduction:
 
 clothing_conservative:
   status: DESIGN
-  note: "Conservative clothing mode (planning default), ISO 7933 structure with two changes, each constrained by Armstrong et al. 2010 (validation/armstrong_2010.py): (1) no credit for walking-induced clothing ventilation (ISO's walking-speed term off) — with it, the model under-predicts Armstrong CON by ~1 SD (0.022 vs 0.037 °C/min); the wind term is kept (still-air chamber data cannot test it). (2) A gear load surcharge on metabolic heat, M × (1 + δ·w(gear)), with δ calibrated so full pads reproduce Armstrong's mean FULL whole-protocol rise (2.37 °C; the treadmill-rate fit δ = 0.1673 is kept as an alternative); w per gear level is listed below (DESIGN). The surcharge is metabolic: it is applied before the VO2max ceiling and inside the live-HR observation model. Armstrong and Hitchcock 2007 both attribute extra metabolic cost to the uniform (Hitchcock: recovery 61.4 % VO2max with shoulder pads + helmet vs 40.1 % in shorts). δ lumps uniform weight, pad coverage and sweat-soaking; it is a calibration, not a measured quantity. Because CON informed (1) and FULL fixes (2), only the whole-protocol rates are unfitted checks."
+  note: "Planning-default clothing mode ('conservative' is the historical name; it is now the Armstrong-calibrated mode). ISO 7933 dynamic structure (wind and walking-ventilation credit both kept: with the ACSM treadmill MET the credit reproduces Armstrong CON better than dropping it) plus a gear load surcharge on metabolic heat, M × (1 + δ·w(gear)), δ fitted to Armstrong 2010's mean FULL whole-protocol rise (2.37 °C). The surcharge is metabolic: applied before the VO2max ceiling and inside the live-HR observation model. δ lumps uniform weight, pad coverage and sweat-soaking (Armstrong and Hitchcock 2007 attribute extra metabolic cost to the uniform); it is a calibration, not a measured quantity. Safety margin lives in p95 + the AT-owned limit, not in the median physics."
   calibrated_by: "validation/armstrong_2010.py --calibrate"
   calibration_metric: whole_rise    # owner decision Oct 3: fit Table 3 whole-protocol FULL rise (2.37 °C); safety margin lives in p95 + the AT limit, not in median physics
   calibration_target: "armstrong_2010.rise_c.FULL (mean, 2.37 °C over 56.2 min)"
-  alternative_fit_treadmill_rate: 0.1673   # δ fitted to Table 4 FULL treadmill rate 0.071 °C/min (mean of individual rates; early terminations bias it high) — reported, not used
+  alternative_fit_treadmill_rate: 0.2011   # δ fitted to Table 4 FULL treadmill rate 0.071 °C/min (mean of individual rates; early terminations bias it high) — reported, not used
   iso_correction_fraction: 1.0
-  walk_credit_fraction: 0.0
+  walk_credit_fraction: 1.0          # owner decision Oct 3: kept — with the ACSM treadmill MET (6.067) it reproduces Armstrong CON (−0.50 SD) better than dropping it (+0.65 SD); see validation results walk_credit_check
   surcharge_weight_by_gear:        # DESIGN: share of the full-pads surcharge per gear level
     none: 0.0
     helmet: 0.0                    # helmet-only already borrows the helmet + shoulder-pads clothing values (TODO); no extra surcharge until a helmet-only ensemble is measured
     helmet_shoulder_pads: 0.636    # intrinsic-insulation interpolation (0.63 − 0.35)/(0.79 − 0.35)
     full_pads: 1.0
-  gear_met_surcharge_full_pads: 0.0645   # computed by validation/armstrong_2010.py --calibrate (FULL whole-protocol rise 2.37 °C)
+  gear_met_surcharge_full_pads: 0.1151   # computed by validation/armstrong_2010.py --calibrate (FULL whole-protocol rise 2.37 °C)
 
 demo_mode:
   status: DESIGN
@@ -500,3 +502,12 @@ calibration:
   persistence_min: 3              # gate (b): p95 must stay at/above the limit this many consecutive minutes
   plausible_hr_bpm: [30, 230]     # readings outside are dropped as artefacts
   replay_speed: 10
+
+acsm_walking:
+  status: SECONDARY
+  source: "ACSM metabolic equation for walking (ACSM's Guidelines for Exercise Testing and Prescription; book not read) as quoted in Moore CC et al. (2021) Development of a Cadence-Based Metabolic Equation for Walking. Med Sci Sports Exerc 53(1):165-173, Eq. [1] (PMC7896743, read)"
+  url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC7896743/"
+  quote_or_location: "Moore 2021 Introduction: 'VO2 = [0.1 • Speed] + [1.8 • Speed • Grade] + 3.5', Speed in m/min, Grade in decimal form, VO2 in mL/kg/min"
+  horizontal_ml_kg_per_m: 0.1
+  vertical_ml_kg_per_m: 1.8
+  resting_ml_kg_min: 3.5
