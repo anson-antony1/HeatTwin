@@ -184,6 +184,13 @@ def _forecast_for(plan: dict, labels: list[str], demo: bool = False) -> list[dic
     return hours
 
 
+def _plan_roster(req: SimulateRequest) -> tuple[dict, list[dict]]:
+    """Plan and roster only (no forecast needed), with the same fixture fallbacks as _inputs."""
+    plan = _dump(req.plan) if req.plan is not None else fixtures.plan()
+    roster = [_dump(a) for a in req.roster] if req.roster is not None else fixtures.roster()
+    return plan, roster
+
+
 def _demo_req(req: SimulateRequest, demo: bool) -> SimulateRequest:
     """Demo mode: the fixed seed and ensemble size from constants.demo_mode."""
     if not demo:
@@ -314,38 +321,156 @@ class WhatIfRequest(SimulateRequest):
     change: dict[str, Any]
 
 
+class AthleteStatusRequest(SimulateRequest):
+    athlete: str = Field(min_length=1, description="v1.3: athlete id or name on the roster")
+
+
+class VoiceIntentRequest(SimulateRequest):
+    text: Optional[str] = Field(default=None, max_length=2000)
+    audio_b64: Optional[str] = None
+    mime_type: str = "audio/wav"
+
+
+class VoiceAnswerRequest(SimulateRequest):
+    intent: Literal["plan_summary", "optimize", "what_if", "athlete_status", "field_conditions", "unknown"]
+    slots: dict[str, Any] = Field(default_factory=dict)
+
+
+class TtsRequest(_Model):
+    text: str = Field(min_length=1, max_length=2000)
+
+
 @app.post("/what_if")
-def what_if(req: WhatIfRequest) -> dict[str, Any]:
+def what_if(req: WhatIfRequest, demo: bool = Query(False, description="fixed seed (demo mode)")) -> dict[str, Any]:
     """v1.2 voice tool: one plan edit → before/after team summary (numbers only + a guarded sentence)."""
     from engine import voice_tools
-    plan, roster, weather, labels = _inputs(req)
+    req = _demo_req(req, demo)
+    plan, roster, weather, labels = _inputs(req, demo)
     try:
-        return voice_tools.what_if(roster, plan, weather, req.change, settings=_settings(req), seed=req.seed)
+        return voice_tools.what_if(roster, plan, weather, req.change, settings=_settings(req), seed=req.seed,
+                                   n_ensemble=req.n_ensemble, extra_labels=labels)
     except KeyError as e:
         raise HTTPException(404, str(e)) from e
+
+
+def _athlete_status(req: SimulateRequest, athlete: str, demo: bool) -> dict[str, Any]:
+    from engine import voice_tools
+    req = _demo_req(req, demo)
+    plan, roster, weather, labels = _inputs(req, demo)
+    res = twonode.simulate_roster(roster, plan, weather, n_ensemble=req.n_ensemble, seed=req.seed, extra_labels=labels,
+                                  settings=_settings(req))
+    try:
+        return voice_tools.athlete_status(res, roster, athlete)
+    except KeyError as e:
+        raise HTTPException(404, str(e)) from e
+
+
+def _field_conditions(req: SimulateRequest, demo: bool) -> dict[str, Any]:
+    from engine import voice_tools
+    req = _demo_req(req, demo)
+    plan, roster, weather, labels = _inputs(req, demo)
+    res = twonode.simulate_roster(roster[:1], plan, weather, n_ensemble=req.n_ensemble, seed=req.seed,
+                                  extra_labels=labels, settings=_settings(req))
+    return voice_tools.field_conditions(res)
 
 
 @app.get("/athlete_status")
 def athlete_status(athlete_id: str, demo: bool = Query(True)) -> dict[str, Any]:
-    """v1.2 voice tool: one athlete's estimate on the current (fixture) plan."""
-    from engine import voice_tools
-    req = SimulateRequest()
-    plan, roster, weather, labels = _inputs(req)
-    res = twonode.simulate_roster(roster, plan, weather, extra_labels=labels, settings=_settings(req))
-    try:
-        return voice_tools.athlete_status(res, roster, athlete_id)
-    except KeyError as e:
-        raise HTTPException(404, str(e)) from e
+    """v1.2 voice tool: one athlete's estimate on the fixture plan (use POST to send the plan on screen)."""
+    return _athlete_status(SimulateRequest(), athlete_id, demo)
+
+
+@app.post("/athlete_status")
+def athlete_status_post(req: AthleteStatusRequest, demo: bool = Query(False)) -> dict[str, Any]:
+    """v1.3: one athlete's estimate on the plan sent (the plan on screen)."""
+    return _athlete_status(req, req.athlete, demo)
 
 
 @app.get("/field_conditions")
-def field_conditions() -> dict[str, Any]:
-    """v1.2 voice tool: hourly WBGT / FHSAA zone over the practice window."""
-    from engine import voice_tools
-    req = SimulateRequest()
-    plan, roster, weather, labels = _inputs(req)
-    res = twonode.simulate_roster(roster[:1], plan, weather, n_ensemble=5, extra_labels=labels)
-    return voice_tools.field_conditions(res)
+def field_conditions(demo: bool = Query(True)) -> dict[str, Any]:
+    """v1.2 voice tool: hourly WBGT / FHSAA zone over the fixture plan's window (use POST for the plan on screen)."""
+    return _field_conditions(SimulateRequest(), demo)
+
+
+@app.post("/field_conditions")
+def field_conditions_post(req: SimulateRequest | None = None, demo: bool = Query(False)) -> dict[str, Any]:
+    """v1.3: hourly WBGT / FHSAA zone over the window of the plan sent."""
+    return _field_conditions(req or SimulateRequest(), demo)
+
+
+# ── voice Q&A (v1.3): Gemini routes, the engine answers ──
+
+@app.post("/voice/intent")
+def voice_intent(req: VoiceIntentRequest) -> dict[str, Any]:
+    """Gemini → {transcript, intent, slots} only (schema-validated); names resolved against the plan sent."""
+    import base64
+    import binascii
+    from engine import llm_plan, voice
+    plan, roster = _plan_roster(req)
+    audio = None
+    if req.audio_b64:
+        try:
+            audio = base64.b64decode(req.audio_b64, validate=True)
+        except (binascii.Error, ValueError) as e:
+            raise HTTPException(422, "audio_b64 is not valid base64") from e
+    try:
+        return voice.parse_intent(text=req.text, audio=audio, mime_type=req.mime_type, plan=plan, roster=roster)
+    except llm_plan.LLMNotConfigured as e:
+        raise HTTPException(503, str(e)) from e
+    except llm_plan.LLMError as e:
+        raise HTTPException(502, str(e)) from e
+    except ValueError as e:
+        raise HTTPException(422, str(e)) from e
+
+
+@app.post("/voice/answer")
+def voice_answer(req: VoiceAnswerRequest, demo: bool = Query(False, description="fixed seed (demo mode)")
+                 ) -> dict[str, Any]:
+    """The engine runs the tool for an intent and writes the (guarded) sentence; `numbers` = every number in it."""
+    from engine import voice, voice_tools
+    s = req.slots or {}
+    base = SimulateRequest(**req.model_dump(include={"plan", "roster", "weather", "step_min", "n_ensemble", "seed",
+                                                     "settings"}, exclude_none=True))
+    if req.intent == "plan_summary":
+        out = voice_tools.plan_summary(simulate(base, demo=demo))
+    elif req.intent == "optimize":
+        preset = s.get("preset") if s.get("preset") in ("max_load", "fewest_changes") else "max_load"
+        out = voice_tools.optimize_summary(optimize(OptimizeRequest(**base.model_dump(exclude_none=True)), demo=demo,
+                                                    preset=preset))
+    elif req.intent == "athlete_status":
+        if not s.get("athlete_id"):
+            return voice.finish("athlete_status", voice.ask_back(["athlete"]), {}, [twonode.ESTIMATE_LABEL])
+        out = _athlete_status(base, s["athlete_id"], demo)
+    elif req.intent == "field_conditions":
+        out = _field_conditions(base, demo)
+    elif req.intent == "what_if":
+        missing = [k for k in ("drill_id", "change") if not s.get(k)]
+        try:
+            change = voice.change_from_slots(s) if not missing else None
+        except KeyError as e:
+            missing.append(str(e).strip("'"))
+            change = None
+        if change is None:
+            return voice.finish("what_if", voice.ask_back(missing), {}, [twonode.ESTIMATE_LABEL])
+        out = what_if(WhatIfRequest(**base.model_dump(exclude_none=True), change=change), demo=demo)
+    else:
+        return voice.finish("unknown", voice.UNKNOWN_SAY, {}, [twonode.ESTIMATE_LABEL])
+    data = {k: v for k, v in out.items() if k not in ("say", "labels")}
+    return voice.finish(req.intent, out["say"], data, out.get("labels", [twonode.ESTIMATE_LABEL]))
+
+
+@app.post("/voice/tts")
+def voice_tts(req: TtsRequest):
+    """ElevenLabs TTS for an approved sentence. Re-guarded here: 422 on a guard hit; 503 when TTS is unavailable."""
+    from fastapi.responses import Response
+    from engine import guard, voice
+    g = guard.check(req.text, source="voice.tts")
+    if not g["ok"]:
+        raise HTTPException(422, "text did not pass the language guard")
+    try:
+        return Response(content=voice.tts(req.text), media_type="audio/mpeg")
+    except voice.TTSUnavailable as e:
+        raise HTTPException(503, str(e)) from e
 
 
 @app.get("/demo/inputs")

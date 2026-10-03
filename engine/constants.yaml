@@ -718,3 +718,8 @@ live_replay:
   status: DESIGN
   note: "Display only (CONTRACTS v1.3 LiveReplay.hr_series): keep one HR point per this many seconds for the chart. Calibration uses every reading; not physiology."
   hr_series_every_s: 10
+
+voice:
+  status: DESIGN
+  note: "Voice Q&A (engine/voice.py): Gemini returns only {transcript, intent, slots}; this caps tokens per routing call. Not physiology."
+  max_output_tokens: 512
