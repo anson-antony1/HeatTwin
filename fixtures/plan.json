@@ -1,0 +1,114 @@
+{
+  "synthetic": true,
+  "plan": {
+    "id": "plan-demo-1",
+    "site": {
+      "name": "Demo HS practice field, Gainesville FL",
+      "lat": 29.6516,
+      "lon": -82.3248,
+      "surface": "grass"
+    },
+    "start": "2026-10-04T15:30:00-04:00",
+    "drills": [
+      {
+        "id": "d1",
+        "name": "Dynamic warmup",
+        "duration_min": 10,
+        "intensity": "light",
+        "gear": "helmet",
+        "shade": false,
+        "is_break": false,
+        "priority": 1,
+        "movable": false
+      },
+      {
+        "id": "d2",
+        "name": "Individual period",
+        "duration_min": 20,
+        "intensity": "moderate",
+        "gear": "full_pads",
+        "shade": false,
+        "is_break": false,
+        "priority": 1,
+        "movable": true
+      },
+      {
+        "id": "b1",
+        "name": "Water break",
+        "duration_min": 4,
+        "intensity": "rest",
+        "gear": "full_pads",
+        "shade": true,
+        "is_break": true,
+        "priority": 1,
+        "movable": true
+      },
+      {
+        "id": "d3",
+        "name": "Inside run",
+        "duration_min": 15,
+        "intensity": "hard",
+        "gear": "full_pads",
+        "shade": false,
+        "is_break": false,
+        "priority": 2,
+        "movable": true
+      },
+      {
+        "id": "d4",
+        "name": "Team period",
+        "duration_min": 25,
+        "intensity": "hard",
+        "gear": "full_pads",
+        "shade": false,
+        "is_break": false,
+        "priority": 1,
+        "movable": true
+      },
+      {
+        "id": "b2",
+        "name": "Water break",
+        "duration_min": 4,
+        "intensity": "rest",
+        "gear": "full_pads",
+        "shade": true,
+        "is_break": true,
+        "priority": 1,
+        "movable": true
+      },
+      {
+        "id": "d5",
+        "name": "Special teams",
+        "duration_min": 15,
+        "intensity": "moderate",
+        "gear": "full_pads",
+        "shade": false,
+        "is_break": false,
+        "priority": 2,
+        "movable": true
+      },
+      {
+        "id": "d6",
+        "name": "Conditioning (gassers)",
+        "duration_min": 12,
+        "intensity": "max",
+        "gear": "helmet",
+        "shade": false,
+        "is_break": false,
+        "priority": 3,
+        "movable": true
+      },
+      {
+        "id": "d7",
+        "name": "Cooldown",
+        "duration_min": 8,
+        "intensity": "light",
+        "gear": "none",
+        "shade": true,
+        "is_break": false,
+        "priority": 1,
+        "movable": false
+      }
+    ]
+  }
+}

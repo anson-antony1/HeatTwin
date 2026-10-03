@@ -1,0 +1,88 @@
+# Every constant the engine uses. Logic reads from here; nothing is hard-coded.
+# status: VERIFIED  = checked against the cited source
+#         SECONDARY = from a secondary summary; confirm against the primary source before quoting on a slide
+#         TODO      = placeholder; a sub-agent must find and cite a source before the demo uses it
+
+fhsaa_wbgt_zones:   # Florida statewide WBGT chart, practices
+  status: SECONDARY
+  source: "Perry Weather, '2026 Heat Stress Playbook: Florida' summarizing FHSAA policy — confirm with FHSAA Sports Medicine heat policy PDF"
+  url: "https://perryweather.com/resources/2026-heat-stress-playbook-florida/"
+  zones:
+    - {zone: 1, wbgt_f_max: 82.0, activity: "normal", breaks_per_hour: 0, break_min: 0, max_duration_min: null, gear: "any"}
+    - {zone: 2, wbgt_f_max: 87.0, activity: "unrestricted", breaks_per_hour: 3, break_min: 4, max_duration_min: null, gear: "any"}
+    - {zone: 3, wbgt_f_max: 90.0, activity: "max 2 h", breaks_per_hour: 4, break_min: 4, max_duration_min: 120, gear: "football: helmet, shoulder pads, shorts only"}
+    - {zone: 4, wbgt_f_max: 92.0, activity: "max 1 h", breaks_per_hour: 5, break_min: 4, max_duration_min: 60, gear: "no protective gear, no conditioning"}
+    - {zone: 5, wbgt_f_max: 999, activity: "no outdoor activity", breaks_per_hour: null, break_min: null, max_duration_min: 0, gear: "n/a"}
+  measurement: "15–20 min before activity, then every 30 min"
+  cooling_zone_required_above_wbgt_f: 82.1
+
+ksi_cwi:
+  status: VERIFIED
+  source: "Korey Stringer Institute, Cold Water Immersion Guide (2024 resource update)"
+  url: "https://koreystringer-institute.media.uconn.edu/wp-content/uploads/sites/3814/2024/08/ColdWaterImmersionGuide_ResourceUpdate_8.pdf"
+  water_temp_c_max: 15            # "under 15C (under 60°F)"
+  cooling_rate_c_per_5min: 1      # "approximately 1ºC for every five minutes ... if the water is aggressively stirred"
+  no_rectal_thermometer_cool_min: [10, 15]   # "Cool for 10-15 minutes and then transport"
+  remove_at_rectal_c: 39.0        # "only after rectal temperature reaches 39ºC (102ºF)"
+  tub_within_min_of_field: [5, 10]
+
+mhsaa_cwi_2026:
+  status: VERIFIED
+  source: "MHSAA SMAC Cold Water Immersion Update 2026"
+  url: "https://www.misshsaa.com/2026/08/10/smac-cold-water-immersion-update-2026/"
+  water_temp_f_range: [35, 58]
+  do_not_use_alternate_temp_methods: true   # oral, tympanic, axillary, forehead
+  ehs_rectal_f: 105
+
+nata_ehs:
+  status: VERIFIED
+  source: "NATA Exertional Heat Illnesses position statement, executive summary"
+  url: "https://www.nata.org/sites/default/files/heat-illness-executive-summary.pdf"
+  ehs_core_f: 105
+  goal_below_f_within_30min: 102.5
+  acclimatization_days: [7, 14]
+
+planning_limit_core_c:
+  status: TODO
+  note: "Planning threshold for p95 predicted core temp (e.g. 39.0–39.5 °C). Must cite a source (e.g. occupational heat-strain limits, PSI scale anchor 39.5 °C) and be presented as an illustrative threshold an AT would own."
+
+psi:
+  status: VERIFIED
+  source: "Moran et al. 1998 PSI formula as presented in Buller, 'Real-Time PSI Assessment' (NRT slides)"
+  url: "https://nrt.org/sites/58/files/RT%20PSI%20Assessment%20-%20M.%20Buller.pdf"
+  formula: "5*(CT_t-CT_rest)/(39.5-CT_rest) + 5*(HR_t-HR_rest)/(180-HR_rest)"
+
+ect_buller_2013:     # OPTIONAL MODULE — method appears patented
+  status: TODO
+  note: "Coefficients below are from memory of Buller et al. 2013 (Physiol Meas 34:781). Verify against the paper/MATLAB code before use."
+  a: 1.0
+  gamma: 0.000484        # 0.022^2
+  b0: -7887.1
+  b1: 384.4286
+  b2: -4.5714
+  sigma: 356.4544        # 18.88^2
+  ct0_c: 37.1
+  v0: 0.0
+  validation_ncaa: "CCC 0.643 all; 78% within ±1.0 °F (PMC7739355)"
+  patent: "Method and System for Indirectly Determining Core Body Temperature Using Heart Rate (priority 61/739,765, Dec 2012)"
+
+drill_met:
+  status: TODO
+  note: "Map intensity → MET using the Compendium of Physical Activities (cite activity codes). Football practice values needed for rest/light/moderate/hard/max."
+
+gear_clothing:
+  status: TODO
+  note: "clo and evaporative resistance for: shorts+tee, helmet only, helmet+shoulder pads, full pads. Search manikin studies of American football uniforms; Armstrong et al. 2010 (J Athl Train, PMC2838463) for physiological comparison."
+
+hr_max_formula:
+  status: TODO
+  note: "Pick one (e.g. Tanaka 208 − 0.7×age) and cite."
+
+wbgt_model:
+  status: VERIFIED
+  source: "Liljegren et al. 2008 model; open implementation PyWBGT (Kong & Huber 2022)"
+  url: "https://github.com/QINQINKONG/PyWBGT"
+
+wbgt_globe_height_m:
+  status: TODO
+  note: "Confirm standard measurement height for standing subjects (ISO 7243)."
