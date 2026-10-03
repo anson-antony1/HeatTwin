@@ -2,7 +2,7 @@ import { useId, useMemo, useRef, type KeyboardEvent, type PointerEvent } from 'r
 import { motion, useReducedMotion } from 'motion/react'
 import type { ContractDrill } from '../data/llmPlan'
 import { bandPath, downsample, splinePath, type Pt } from '../lib/spline'
-import { clockLabel, HEAT_STOPS, heatColor } from '../lib/heat'
+import { chartDomain, clockLabel, heatColor, heatStops, niceTicks, type HeatScale } from '../lib/heat'
 import { ease } from '../lib/motion'
 import { useSize } from '../lib/useSize'
 import './TempChart.css'
@@ -26,8 +26,12 @@ interface Props {
   compact?: boolean
   reveal?: boolean
   drills?: ContractDrill[]
-  /** Planning line (the result's `limit_core_c`); null hides it. */
+  /** Planning line (the result's `limit_core_c`, AT-owned); null hides it. */
   limit: number | null
+  /** Start of the near band (limit − GET /settings near_limit_margin_c); null hides it. */
+  near?: number | null
+  /** Colour boundaries from the engine (lib/useHeatScale). */
+  scale: HeatScale | null
   domain?: [number, number]
   /** Optional comparison series (e.g. original plan) drawn faint. */
   ghost?: number[]
@@ -49,7 +53,9 @@ export function TempChart({
   reveal = false,
   drills,
   limit,
-  domain = [36.8, 39.6],
+  near = null,
+  scale,
+  domain: domainProp,
   ghost,
   view,
   startHour,
@@ -69,6 +75,11 @@ export function TempChart({
   const x = (m: number) => pad.l + ((m - v0) / span) * w
   const minuteAt = (px: number) => Math.max(0, Math.min(total, Math.round(v0 + ((px - pad.l) / (w || 1)) * span)))
   const pressed = useRef(false)
+  // y-range from the data and the planning line unless the caller shares one across rows.
+  const domain = useMemo(
+    () => domainProp ?? chartDomain([...history, ...forecast.map((v, i) => v + (band[i] ?? 0)), ...forecast.map((v, i) => v - (band[i] ?? 0))], [limit, near]),
+    [domainProp, history, forecast, band, limit, near],
+  )
   const y = (c: number) => pad.t + (1 - (c - domain[0]) / (domain[1] - domain[0])) * h
 
   const paths = useMemo(() => {
@@ -104,11 +115,12 @@ export function TempChart({
     }
     // x/y are pure functions of the inputs listed here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [history, forecast, band, now, live, w, h, total, compact, ghost, v0, v1])
+  }, [history, forecast, band, now, live, w, h, total, compact, ghost, v0, v1, domain])
 
-  const gradTop = y(HEAT_STOPS[HEAT_STOPS.length - 1][0])
-  const gradBottom = y(HEAT_STOPS[0][0])
-  const ticks = compact ? [] : [37, 37.5, 38, 38.5, 39, 39.5].filter((t) => t > domain[0] && t < domain[1])
+  const stops = scale ? heatStops(scale) : null
+  const gradTop = stops ? y(stops[stops.length - 1][0]) : 0
+  const gradBottom = stops ? y(stops[0][0]) : 1
+  const ticks = compact ? [] : niceTicks(domain).filter((t) => t > domain[0] && t < domain[1])
   const tickStep = span <= 32 ? 5 : span <= 64 ? 10 : 15
   const timeTicks = compact
     ? []
@@ -154,11 +166,11 @@ export function TempChart({
     <>
       <defs>
         <linearGradient id={`heat-${uid}`} gradientUnits="userSpaceOnUse" x1="0" y1={gradBottom} x2="0" y2={gradTop}>
-          {HEAT_STOPS.map(([c]) => (
+          {stops?.map(([c], i) => (
             <stop
-              key={c}
-              offset={(c - HEAT_STOPS[0][0]) / (HEAT_STOPS[HEAT_STOPS.length - 1][0] - HEAT_STOPS[0][0])}
-              stopColor={heatColor(c)}
+              key={i}
+              offset={(c - stops[0][0]) / (stops[stops.length - 1][0] - stops[0][0] || 1)}
+              stopColor={heatColor(c, scale)}
             />
           ))}
         </linearGradient>
@@ -217,13 +229,23 @@ export function TempChart({
         </g>
       )}
 
-      {/* Planning line (result limit_core_c, AT-owned) */}
+      {/* Planning line (result limit_core_c) and near band (GET /settings) — AT-owned illustrative defaults */}
+      {near != null && limit != null && near < limit && (
+        <>
+          <line className="chart__near" x1={pad.l} x2={pad.l + w} y1={y(near)} y2={y(near)} />
+          {!compact && (
+            <text className="chart__near-label" x={pad.l + w} y={y(near) + 13} textAnchor="end">
+              near band from {near.toFixed(1)}°
+            </text>
+          )}
+        </>
+      )}
       {limit != null && (
         <>
           <line className="chart__threshold" x1={pad.l} x2={pad.l + w} y1={y(limit)} y2={y(limit)} />
           {!compact && (
             <text className="chart__threshold-label" x={pad.l + w} y={y(limit) - 7} textAnchor="end">
-              {limit.toFixed(1)}° planning line (AT-owned)
+              {limit.toFixed(1)}° planning line (AT-owned default)
             </text>
           )}
         </>
@@ -249,8 +271,8 @@ export function TempChart({
       {now > 0 && now < total && now >= v0 && now <= v1 && (
         <>
           {!compact && <line className="chart__now" x1={x(now)} x2={x(now)} y1={pad.t} y2={pad.t + h} />}
-          <circle className="chart__head-glow" cx={x(now)} cy={y(live)} r={compact ? 6 : 10} fill={heatColor(live, 0.28)} />
-          <circle cx={x(now)} cy={y(live)} r={compact ? 2.6 : 4} fill={heatColor(live)} stroke="white" strokeWidth={compact ? 1.2 : 2} />
+          <circle className="chart__head-glow" cx={x(now)} cy={y(live)} r={compact ? 6 : 10} fill={heatColor(live, scale, 0.28)} />
+          <circle cx={x(now)} cy={y(live)} r={compact ? 2.6 : 4} fill={heatColor(live, scale)} stroke="white" strokeWidth={compact ? 1.2 : 2} />
         </>
       )}
 
@@ -266,7 +288,7 @@ export function TempChart({
               y2={y(scrubRead.c - scrubRead.band)}
             />
           )}
-          <circle cx={x(scrub)} cy={y(scrubRead.c)} r={5.5} fill={heatColor(scrubRead.c)} stroke="white" strokeWidth={2.5} />
+          <circle cx={x(scrub)} cy={y(scrubRead.c)} r={5.5} fill={heatColor(scrubRead.c, scale)} stroke="white" strokeWidth={2.5} />
         </g>
       )}
 
@@ -330,7 +352,7 @@ export function TempChart({
           <div className="chart__tip-time num">
             {startHour != null ? clockLabel(startHour, scrub) : ''} · {scrub}′
           </div>
-          <div className="chart__tip-temp num" style={{ color: heatColor(scrubRead.c) }}>
+          <div className="chart__tip-temp num" style={{ color: heatColor(scrubRead.c, scale) }}>
             {scrubRead.c.toFixed(2)}°C
             {scrubRead.band > 0 && <span className="chart__tip-band"> ±{scrubRead.band.toFixed(2)}</span>}
           </div>

@@ -22,7 +22,8 @@ import { PlanEditor } from '../components/PlanEditor'
 import { NumberTicker } from '../components/NumberTicker'
 import { OfflineBadge, OfflineBanner } from '../components/OfflineBadge'
 import { IconCheck, IconClose, IconSpark } from '../components/Icons'
-import { clockLabel, heatColor } from '../lib/heat'
+import { clockLabel, heatColor, type HeatScale } from '../lib/heat'
+import { useHeatScale, useNearMargin } from '../lib/useHeatScale'
 import { AI_NAME } from '../lib/brand'
 import { ease, spring } from '../lib/motion'
 import './PlanView.css'
@@ -95,6 +96,8 @@ export function PlanView() {
   const roster = useRoster()
   const meta = useEngineMeta()
   const zoneRules = meta.sources?.fhsaa_wbgt_zones?.zones
+  const scale = useHeatScale()
+  const margin = useNearMargin()
   const reduce = useReducedMotion()
   const [editing, setEditing] = useState(false)
   const [editFrom, setEditFrom] = useState<string | null>(null)
@@ -222,6 +225,14 @@ export function PlanView() {
         />
       </div>
 
+      {now && (
+        <p className="faint plan__line-note">
+          Planning line {now.limit.toFixed(1)} °C{margin != null ? `, near band ${margin.toFixed(1)} °C below it` : ''} —
+          illustrative defaults an athletic trainer owns{offline ? ' (stand-in placeholders while offline)' : ' (engine GET /settings)'}. Counts use
+          each athlete’s p95 estimate.
+        </p>
+      )}
+
       <section className="glass plan__board">
         <AnimatePresence mode="popLayout" initial={false}>
           {editing ? (
@@ -314,6 +325,7 @@ export function PlanView() {
                           total={minutes}
                           startHour={startHour}
                           f={now}
+                          scale={scale}
                           onClose={() => setOpenDrill(null)}
                           onEdit={() => startEdit(openDrill)}
                         />
@@ -369,7 +381,7 @@ export function PlanView() {
                               key={c}
                               className={v >= now.limit ? 'is-over' : ''}
                               // Column-wise sweep, 6ms apart — the change reads as one wave through the session.
-                              style={{ background: heatColor(v), transitionDelay: reduce ? '0ms' : `${c * 6}ms` }}
+                              style={{ background: heatColor(v, scale), transitionDelay: reduce ? '0ms' : `${c * 6}ms` }}
                             />
                           )
                         })}
@@ -499,6 +511,7 @@ function DrillPopover({
   total,
   startHour,
   f,
+  scale,
   onClose,
   onEdit,
 }: {
@@ -507,6 +520,7 @@ function DrillPopover({
   total: number
   startHour: number
   f: Forecasts
+  scale: HeatScale | null
   onClose: () => void
   onEdit: () => void
 }) {
@@ -591,7 +605,7 @@ function DrillPopover({
           <ul>
             {inBlock.slice(0, 3).map(({ r, peak }) => (
               <li key={r.id}>
-                <span className="pop__dot" style={{ background: heatColor(peak) }} />
+                <span className="pop__dot" style={{ background: heatColor(peak, scale) }} />
                 <span>{r.name}</span>
                 <span className={`num ${peak >= f.limit ? 'is-over' : ''}`}>{peak.toFixed(1)}°</span>
               </li>
