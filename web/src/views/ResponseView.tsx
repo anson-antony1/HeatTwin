@@ -49,8 +49,8 @@ export function ResponseView({ onStart }: { onStart: () => void }) {
       <div className="resp__grid">
         <section className="glass resp__start">
           <p className="muted">
-            If an athlete collapses or seems confused, start the response. The clock starts immediately and the voice
-            walks you through each step.
+            If an athlete collapses or you are worried about an athlete, follow your school's emergency action plan and
+            start the response. The clock starts immediately and the voice reads each step; review it with your athletic trainer.
           </p>
           <button className="resp__big pressable" onClick={onStart}>
             <IconResponse width={28} height={28} />

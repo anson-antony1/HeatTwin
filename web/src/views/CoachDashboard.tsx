@@ -352,8 +352,8 @@ function GuidanceCard({ onCollapse }: { onCollapse: () => void }) {
     >
       <div className="eyebrow">What this means</div>
       <p className="guide__text">
-        Estimate over the AT-owned planning line — review with your athletic trainer. If an athlete shows signs of heat
-        illness, follow your school’s emergency action plan.
+        Estimate over the AT-owned planning line — review with your athletic trainer. If you are worried about an
+        athlete, follow your school’s emergency action plan.
       </p>
       <div className="guide__foot">
         <button className="linkbtn" onClick={onCollapse}>

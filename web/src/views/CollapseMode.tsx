@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { ROSTER } from '../data/fixtures'
-import { useSession } from '../data/engine'
 import { HoldButton } from '../components/HoldButton'
 import { IconCheck, IconPhone, IconVolume } from '../components/Icons'
 import { mmss } from '../lib/heat'
@@ -35,16 +34,14 @@ function speak(text: string) {
 
 export function CollapseMode({ athleteId, onClose }: { athleteId: string; onClose: () => void }) {
   const reduce = useReducedMotion()
-  const s = useSession()
   const athlete = ROSTER.find((a) => a.id === athleteId)!
-  const live = s.athletes[athleteId]
   const [startedAt] = useState(() => Date.now())
   const [now, setNow] = useState(startedAt)
   const [done, setDone] = useState<Record<string, number>>({})
   const [voice, setVoice] = useState(true)
   const [log, setLog] = useState<LogEntry[]>(() => [
-    { t: 0, text: `Collapse mode started — ${athlete.name} #${athlete.number}` },
-    { t: 0, text: `Last est. core ${live.coreC.toFixed(1)} °C (estimate — planning only; not a measurement)` },
+    // No planning estimate in the emergency log: only a rectal temperature informs care (KSI).
+    { t: 0, text: `Collapse mode started — ${athlete.name}` },
   ])
   const [copied, setCopied] = useState(false)
   const targets = useCwiTargets()
