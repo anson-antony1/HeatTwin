@@ -1,21 +1,35 @@
 import { useMemo } from 'react'
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'motion/react'
-import type { Athlete, AthleteLive, SessionState } from '../data/types'
-import { useSession, usePlan } from '../data/engine'
-import { usePlanState } from '../data/planStore'
-import { useTimelineScrub } from '../lib/useTimelineScrub'
-import { ROSTER, SCHOOL } from '../data/fixtures'
-import { THRESHOLDS, ZONE_COLOR } from '../data/constants'
-import { drillAt } from '../data/model'
+import type { RosterAthlete } from '../data/engineApi'
+import { replayLabel, useSession, type SessionState } from '../data/engine'
+import { useEngineMeta } from '../data/engineMeta'
+import { useRoster } from '../data/roster'
+import { ESTIMATE_LABEL, zoneColor } from '../data/constants'
+import { SCHOOL } from '../data/fixtures'
+import { drillAtMinute, FHSAA_CITATION, noHrLabel, statusCounts, zoneRule, zoneRuleText, type AthleteLive } from '../data/selectors'
 import { NumberTicker } from '../components/NumberTicker'
 import { StatusPill } from '../components/StatusPill'
 import { TempChart } from '../components/TempChart'
+import { OfflineBadge, OfflineBanner } from '../components/OfflineBadge'
+import { ProvenanceLabels } from '../components/ProvenanceLabels'
 import { IconArrow, IconDrop, IconHeart, IconResponse } from '../components/Icons'
-import { clockLabel, gearLabel } from '../lib/heat'
+import { chartDomain, clockLabel, type HeatScale } from '../lib/heat'
+import { useHeatScale } from '../lib/useHeatScale'
 import { ease, spring } from '../lib/motion'
 import './CoachDashboard.css'
 
-const RANK = { alert: 0, watch: 1, steady: 2 } as const
+// Live roster. Every number is the engine's, read at the demo playback minute
+// (data/engine.ts → selectors.ts). Status is the engine's (below / near / over
+// the AT-owned planning line, by p95). The red alert row and card appear only
+// when the engine's HR-calibration gates raise a flag.
+
+const GEAR: Record<string, string> = { none: 'No pads', helmet: 'Helmet', helmet_shoulder_pads: 'Shells', full_pads: 'Full pads' }
+
+/** Sort bucket: engine flag first, then over / near / below the line. Re-ranks only when a bucket changes. */
+function bucket(a: AthleteLive) {
+  if (a.flag) return 0
+  return a.status === 'over_limit' ? 1 : a.status === 'near_limit' ? 2 : 3
+}
 
 interface Props {
   acked: Set<string>
@@ -26,28 +40,41 @@ interface Props {
 
 export function CoachDashboard({ acked, onAck, onOpenAthlete, onCollapse }: Props) {
   const s = useSession()
+  const roster = useRoster()
   const reduce = useReducedMotion()
+  const offline = s.source === 'offline'
 
-  // Re-rank only by status bucket, never by the live number — rows that
-  // shuffle every second would make the roster unreadable. Status changes are
-  // rare, so when a row does move it's news, and the spring shows where it went.
-  const statusKey = ROSTER.map((a) => s.athletes[a.id].status).join()
+  const live = roster.athletes.filter((a) => s.athletes[a.id])
+  // Re-rank only by bucket, never by the live number — rows that shuffle every
+  // second would make the roster unreadable.
+  const bucketKey = live.map((a) => `${a.id}:${bucket(s.athletes[a.id])}`).join()
   const order = useMemo(
-    () => [...ROSTER].sort((a, b) => RANK[s.athletes[a.id].status] - RANK[s.athletes[b.id].status]),
-    // Only re-rank when a status flips.
-    [statusKey], // eslint-disable-line react-hooks/exhaustive-deps
+    () => [...live].sort((a, b) => bucket(s.athletes[a.id]) - bucket(s.athletes[b.id])),
+    [bucketKey], // eslint-disable-line react-hooks/exhaustive-deps
   )
 
-  const alerts = order.filter((a) => s.athletes[a.id].status === 'alert' && !acked.has(a.id))
+  const scale = useHeatScale()
+  // One y-range for every sparkline, so rows compare at a glance: all engine values plus the line.
+  const sparkDomain = useMemo(
+    () =>
+      chartDomain(
+        live.flatMap((a) => {
+          const x = s.athletes[a.id]
+          return [...x.forecast.map((v, i) => v + (x.band[i] ?? 0)), ...x.history]
+        }),
+        [s.limitC],
+      ),
+    // Recompute when the plan/replay changes, not every frame.
+    [s.session, s.replay.status, s.limitC, live.length], // eslint-disable-line react-hooks/exhaustive-deps
+  )
+
+  const alerts = order.filter((a) => s.athletes[a.id].flag && !acked.has(a.id))
   const lead = alerts[0]
-
-  const counts = ROSTER.reduce(
-    (c, a) => ({ ...c, [s.athletes[a.id].status]: c[s.athletes[a.id].status] + 1 }),
-    { steady: 0, watch: 0, alert: 0 },
-  )
+  const counts = statusCounts(live.map((a) => s.athletes[a.id]))
 
   return (
     <div className="coach">
+      {offline && <OfflineBanner />}
       <LayoutGroup>
         <div className={`coach__top ${lead ? 'has-alert' : ''}`}>
           <AnimatePresence mode="popLayout">
@@ -55,6 +82,7 @@ export function CoachDashboard({ acked, onAck, onOpenAthlete, onCollapse }: Prop
               <AlertCard
                 key={`alert-${lead.id}`}
                 athlete={lead}
+                name={roster.name(lead.id)}
                 live={s.athletes[lead.id]}
                 more={alerts.length - 1}
                 onAck={() => onAck(lead.id)}
@@ -67,22 +95,25 @@ export function CoachDashboard({ acked, onAck, onOpenAthlete, onCollapse }: Prop
           <SessionHeader s={s} compact={!!lead} counts={counts} />
 
           <AnimatePresence mode="popLayout">
-            {lead && <GuidanceCard key="guide" />}
+            {lead && <GuidanceCard key="guide" onCollapse={() => onCollapse(lead.id)} />}
           </AnimatePresence>
         </div>
       </LayoutGroup>
+
+      <ProvenanceLabels labels={s.labels} title={s.source === 'offline' ? 'Offline' : s.replay.status === 'ready' ? 'Engine /live/replay' : 'Engine /simulate'} />
 
       <div className="roster" role="table" aria-label="Roster heat status">
         <div className="roster__head" role="row">
           <span role="columnheader">Athlete</span>
           <span role="columnheader">Acclimatization</span>
           <span role="columnheader">Heart rate</span>
-          <span role="columnheader">Est. core</span>
+          <span role="columnheader">Est. core (p50)</span>
           <span role="columnheader">Session · forecast</span>
           <span role="columnheader" className="roster__head-status">
-            Status
+            Status (p95)
           </span>
         </div>
+        {s.source === 'loading' && <p className="faint coach__foot">Loading the engine’s forecast…</p>}
         {order.map((a, i) => (
           <motion.div
             key={a.id}
@@ -94,9 +125,12 @@ export function CoachDashboard({ acked, onAck, onOpenAthlete, onCollapse }: Prop
           >
             <RosterRow
               athlete={a}
+              name={roster.name(a.id)}
               live={s.athletes[a.id]}
               s={s}
               index={i}
+              scale={scale}
+              domain={sparkDomain}
               onOpen={() => onOpenAthlete(a.id)}
             />
           </motion.div>
@@ -104,8 +138,8 @@ export function CoachDashboard({ acked, onAck, onOpenAthlete, onCollapse }: Prop
       </div>
 
       <p className="coach__foot faint">
-        {SCHOOL} · Estimates are for planning and early warning only — never a diagnosis. Rows without a strap show
-        the plan forecast alone.
+        {SCHOOL} · Core temperatures are an {ESTIMATE_LABEL} — never a diagnosis. Athletes without HR show the plan
+        forecast only. The planning line is an illustrative default an athletic trainer owns.
       </p>
     </div>
   )
@@ -118,46 +152,54 @@ function SessionHeader({
 }: {
   s: SessionState
   compact: boolean
-  counts: Record<'steady' | 'watch' | 'alert', number>
+  counts: Record<'below_limit' | 'near_limit' | 'over_limit', number>
 }) {
-  const plan = usePlan()
-  const planState = usePlanState()
-  const scrub = useTimelineScrub(s.totalMinutes)
-  const { drill } = drillAt(plan, s.minute)
-  const progress = s.minute / s.totalMinutes
-  const starts = plan.map((_, i) => plan.slice(0, i).reduce((sum, d) => sum + d.minutes, 0))
+  const drills = s.plan?.drills ?? []
+  const at = drillAtMinute(drills, s.minute)
+  const drill = at?.drill
+  const total = Math.max(1, s.totalMinutes)
+  const progress = s.minute / total
+  const starts = drills.map((_, i) => drills.slice(0, i).reduce((sum, d) => sum + d.duration_min, 0))
+  const w = s.weather
+  const meta = useEngineMeta()
+  const rule = zoneRule(meta.sources?.fhsaa_wbgt_zones?.zones, w?.fhsaa_zone)
 
   return (
     <motion.section layout transition={spring.move} className="session glass" aria-label="Practice session">
       <motion.div layout="position" transition={spring.move} className="session__inner">
         <div className="session__now">
           <div className="session__eyebrow">
-            <span className="eyebrow">Now · {clockLabel(s.startHour, s.minute)}</span>
-            {planState.source !== 'fixture' && (
-              <span className={`session__src session__src--${planState.source}`}>
-                {{ voice: 'Voice plan', optimized: 'Optimized', edited: 'Edited plan' }[planState.source]} · engine forecast
+            <span className="eyebrow">Demo clock · {clockLabel(s.startHour, s.minute)}</span>
+            <span className="session__src">demo playback — not live</span>
+            {replayLabel(s.replay) && <span className="session__src session__src--replay">{replayLabel(s.replay)}</span>}
+            {s.replay.status === 'loading' && <span className="session__src">loading HR replay…</span>}
+            {s.replay.status === 'error' && (
+              <span className="session__src" title={s.replay.error ?? undefined}>
+                HR replay unavailable — plan forecast only
               </span>
             )}
           </div>
           <div className="session__drill">
             <AnimatePresence mode="popLayout" initial={false}>
               <motion.h2
-                key={drill.id}
+                key={drill?.id ?? 'none'}
                 className="display-md"
                 initial={{ opacity: 0, filter: 'blur(4px)', transform: 'translateY(30%)' }}
                 animate={{ opacity: 1, filter: 'blur(0px)', transform: 'translateY(0%)' }}
                 exit={{ opacity: 0, filter: 'blur(4px)', transform: 'translateY(-30%)' }}
                 transition={{ duration: 0.28, ease: ease.out }}
               >
-                {drill.name}
+                {drill ? drill.name.charAt(0).toUpperCase() + drill.name.slice(1) : '—'}
               </motion.h2>
             </AnimatePresence>
           </div>
-          <div className="session__meta muted">
-            <span className="num">{Math.ceil(s.drillMinuteLeft)} min left</span>
-            <span aria-hidden="true">·</span>
-            <span>{gearLabel(drill.gear)}</span>
-          </div>
+          {drill && (
+            <div className="session__meta muted">
+              <span className="num">{Math.ceil(s.drillMinuteLeft)} min left</span>
+              <span aria-hidden="true">·</span>
+              <span>{GEAR[drill.gear]}</span>
+            </div>
+          )}
         </div>
 
         {!compact && (
@@ -173,37 +215,48 @@ function SessionHeader({
                 <NumberTicker value={Math.ceil(s.nextBreakIn)} suffix="min" />
               )}
             </Stat>
-            <Stat label="FHSAA zone">
-              <span className="session__zone">
-                <span className="session__zone-dot" style={{ background: ZONE_COLOR[s.zone.id] }} />
-                {s.zone.id[0].toUpperCase() + s.zone.id.slice(1)}
-              </span>
+            <Stat label="FHSAA (forecast)">
+              {w ? (
+                <span
+                  className="session__zone"
+                  title={rule ? `Zone ${w.fhsaa_zone}: ${zoneRuleText(rule)} — ${FHSAA_CITATION}` : undefined}
+                >
+                  <span className="session__zone-dot" style={{ background: zoneColor(w.fhsaa_zone) }} />
+                  <span className="num">
+                    FHSAA zone {w.fhsaa_zone} · WBGT {w.wbgt_f.toFixed(1)} °F (forecast)
+                  </span>
+                  {s.source === 'offline' && <OfflineBadge compact />}
+                </span>
+              ) : (
+                '—'
+              )}
             </Stat>
-            <Stat label="Roster">
+            <Stat label="Roster · below / near / over">
               <span className="session__counts num">
-                <span style={{ color: 'var(--steady)' }}>{counts.steady}</span>
-                <span style={{ color: 'var(--watch)' }}>{counts.watch}</span>
-                <span style={{ color: 'var(--alert)' }}>{counts.alert}</span>
+                <span style={{ color: 'var(--steady)' }} title="Below line">
+                  {counts.below_limit}
+                </span>
+                <span style={{ color: 'var(--watch)' }} title="Near line">
+                  {counts.near_limit}
+                </span>
+                <span style={{ color: 'var(--alert)' }} title="Over line">
+                  {counts.over_limit}
+                </span>
               </span>
             </Stat>
           </div>
         )}
       </motion.div>
 
-      <div
-        className={`session__timeline ${scrub.scrubbing ? 'is-scrubbing' : ''}`}
-        {...scrub.bind}
-        aria-label="Practice timeline — drag or click to jump to any minute"
-        aria-valuenow={Math.round(s.minute)}
-        aria-valuetext={`${clockLabel(s.startHour, s.minute)}, ${drill.name}`}
-      >
-        {plan.map((d, i) => {
-          const left = (starts[i] / s.totalMinutes) * 100
+      <div className="session__timeline" aria-hidden="true">
+        {drills.map((d, i) => {
+          const left = (starts[i] / total) * 100
+          const kind = d.is_break ? 'break' : d.intensity === 'max' ? 'conditioning' : 'work'
           return (
             <span
               key={d.id}
-              className={`session__seg session__seg--${d.kind} ${d.id === drill.id ? 'is-now' : ''}`}
-              style={{ left: `${left}%`, width: `calc(${(d.minutes / s.totalMinutes) * 100}% - 3px)` }}
+              className={`session__seg session__seg--${kind} ${d.id === drill?.id ? 'is-now' : ''}`}
+              style={{ left: `${left}%`, width: `calc(${(d.duration_min / total) * 100}% - 3px)` }}
             />
           )
         })}
@@ -226,13 +279,15 @@ function Stat({ label, children }: { label: string; children: React.ReactNode })
 
 function AlertCard({
   athlete,
+  name,
   live,
   more,
   onAck,
   onOpen,
   onCollapse,
 }: {
-  athlete: Athlete
+  athlete: RosterAthlete
+  name: string
   live: AthleteLive
   more: number
   onAck: () => void
@@ -240,8 +295,6 @@ function AlertCard({
   onCollapse: () => void
 }) {
   const reduce = useReducedMotion()
-  const h = live.history
-  const rate = h.length > 5 ? (h[h.length - 1] - h[h.length - 6]) / 5 : 0
   return (
     <motion.section
       layout
@@ -256,24 +309,23 @@ function AlertCard({
     >
       <div className="alertcard__top">
         <span className="alertcard__beacon" aria-hidden="true" />
-        <span className="eyebrow alertcard__eyebrow">Over the alert line</span>
+        <span className="eyebrow alertcard__eyebrow">Engine flag · {live.gates?.message ?? 'estimate over the line'}</span>
         {more > 0 && <span className="alertcard__more num">+{more} more</span>}
       </div>
       <button className="alertcard__who pressable" onClick={onOpen}>
-        <span className="display-sm">{athlete.name}</span>
+        <span className="display-sm">{name}</span>
         <span className="faint">
-          #{athlete.number} · {athlete.position} · Day {athlete.acclimDay}
+          {athlete.position ?? '—'} · Day {athlete.acclimatization_day}
         </span>
       </button>
       <div className="alertcard__temp display-lg">
         <NumberTicker value={live.coreC} decimals={1} suffix="°C" />
       </div>
       <div className="alertcard__meta muted">
-        Est. over {THRESHOLDS.alertC.toFixed(1)}° for{' '}
-        <span className="num">{live.minutesOverLine}</span> min
-        {rate > 0.005 && (
+        {ESTIMATE_LABEL} · peak p95 <span className="num">{live.peakP95C.toFixed(1)}°</span>
+        {live.firstCrossMin != null && (
           <>
-            {' '}· rising <span className="num">{rate.toFixed(2)}</span>°/min
+            {' '}· crosses at <span className="num">{Math.round(live.firstCrossMin)}′</span>
           </>
         )}
       </div>
@@ -282,14 +334,14 @@ function AlertCard({
           <IconResponse width={18} height={18} /> Collapse response
         </button>
         <button className="btn btn--quiet pressable" onClick={onAck}>
-          Pulled & checked
+          Acknowledge
         </button>
       </div>
     </motion.section>
   )
 }
 
-function GuidanceCard() {
+function GuidanceCard({ onCollapse }: { onCollapse: () => void }) {
   const reduce = useReducedMotion()
   return (
     <motion.section
@@ -300,14 +352,15 @@ function GuidanceCard() {
       exit={reduce ? { opacity: 0 } : { opacity: 0, transform: 'translateX(24px)', filter: 'blur(6px)', transition: { duration: 0.18 } }}
       transition={{ duration: 0.36, ease: ease.out, delay: reduce ? 0 : 0.06, layout: spring.move }}
     >
-      <div className="eyebrow">Do this now</div>
-      <ol className="guide__steps">
-        <li>Pull from activity, into shade</li>
-        <li>Remove helmet and pads</li>
-        <li>Check: confused, stumbling, collapsed?</li>
-      </ol>
+      <div className="eyebrow">What this means</div>
+      <p className="guide__text">
+        Estimate over the AT-owned planning line — review with your athletic trainer. If you are worried about an
+        athlete, follow your school’s emergency action plan.
+      </p>
       <div className="guide__foot">
-        Any “yes” → <strong>Collapse response</strong>. Cool first, transport second.
+        <button className="linkbtn" onClick={onCollapse}>
+          Open Collapse mode
+        </button>
       </div>
     </motion.section>
   )
@@ -315,62 +368,79 @@ function GuidanceCard() {
 
 function RosterRow({
   athlete,
+  name,
   live,
   s,
   index,
+  scale,
+  domain,
   onOpen,
 }: {
-  athlete: Athlete
+  athlete: RosterAthlete
+  name: string
   live: AthleteLive
   s: SessionState
   index: number
+  scale: HeatScale | null
+  domain: [number, number]
   onOpen: () => void
 }) {
+  const meta = useEngineMeta()
+  const acclimDays = meta.sources?.nata_ehs?.acclimatization_days
+  const ticks = acclimDays?.length ? Math.max(...acclimDays) : 0
+  const offline = live.basis === 'offline'
+  const tone = live.flag ? 'alert' : live.status === 'below_limit' ? 'steady' : 'watch'
   return (
     <button
-      className={`row row--${live.status}`}
+      className={`row row--${tone}`}
       role="row"
       onClick={onOpen}
       style={{ ['--i' as string]: index }}
-      aria-label={`${athlete.name}, estimated core ${live.coreC.toFixed(1)} degrees, ${live.status}`}
+      aria-label={`${name}, estimated core ${live.coreC.toFixed(1)} degrees, ${live.status.replace('_', ' ')}`}
     >
       <span className="row__who" role="cell">
-        <span className="row__num num">{athlete.number}</span>
+        <span className="row__num num">{athlete.position ?? '—'}</span>
         <span>
-          <span className="row__name">{athlete.name}</span>
+          <span className="row__name">{name}</span>
           <span className="row__sub">
-            {athlete.position} · {athlete.massKg} kg
+            {athlete.mass_kg} kg · {athlete.height_m} m
           </span>
         </span>
       </span>
 
       <span className="row__acclim" role="cell">
-        <span className="row__acclim-label num">Day {athlete.acclimDay}</span>
-        <span className="row__ticks" aria-hidden="true">
-          {Array.from({ length: 14 }, (_, i) => (
-            <span key={i} className={i < athlete.acclimDay ? 'is-on' : ''} />
-          ))}
-        </span>
+        <span className="row__acclim-label num">Day {athlete.acclimatization_day}</span>
+        {ticks > 0 && (
+          <span className="row__ticks" aria-hidden="true" title={`NATA: acclimatization over ${acclimDays?.join('–')} days`}>
+            {Array.from({ length: ticks }, (_, i) => (
+              <span key={i} className={i < athlete.acclimatization_day ? 'is-on' : ''} />
+            ))}
+          </span>
+        )}
       </span>
 
       <span className="row__hr" role="cell">
         {live.hr != null ? (
-          <>
-            <IconHeart width={15} height={15} className="row__heart" />
-            <NumberTicker value={live.hr} />
-            <span className="row__unit">bpm</span>
-          </>
+          <span className="row__hr-stack" title={noHrLabel(live)}>
+            <span className="row__hr-line">
+              <IconHeart width={15} height={15} className="row__heart" />
+              <NumberTicker value={live.hr} />
+              <span className="row__unit">bpm</span>
+            </span>
+            <span className="row__nostrap">HR replay</span>
+          </span>
         ) : (
-          <span className="row__nostrap">No strap · model</span>
+          <span className="row__nostrap">{noHrLabel(live)}</span>
         )}
       </span>
 
       <span className="row__core" role="cell">
         <span className="row__core-val display-sm">
           <NumberTicker value={live.coreC} decimals={1} suffix="°" />
+          {offline && <OfflineBadge compact />}
         </span>
         <span className="row__peak num">
-          peak {live.predictedPeakC.toFixed(1)}° @ {live.predictedPeakMin}′
+          peak p95 {live.peakP95C.toFixed(1)}°{live.peakMin != null ? ` @ ${Math.round(live.peakMin)}′` : ''}
         </span>
       </span>
 
@@ -383,6 +453,9 @@ function RosterRow({
           total={s.totalMinutes}
           now={s.minute}
           live={live.coreC}
+          limit={s.limitC}
+          scale={scale}
+          domain={domain}
         />
       </span>
 

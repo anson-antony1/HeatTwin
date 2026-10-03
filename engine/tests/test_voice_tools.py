@@ -1,4 +1,4 @@
-"""Engine side of "Talk to the Twin": the endpoints the ElevenLabs client tools wrap. Numbers only + guarded sentences."""
+"""Engine voice tools (what_if, athlete_status, field_conditions): numbers + engine-written, guarded sentences."""
 from __future__ import annotations
 
 from fastapi.testclient import TestClient

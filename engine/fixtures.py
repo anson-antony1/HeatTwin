@@ -23,6 +23,10 @@ def roster_is_synthetic() -> bool:
     return bool(_load("roster.json").get("synthetic", False))
 
 
+def plan_is_synthetic() -> bool:
+    return bool(_load("plan.json").get("synthetic", False))
+
+
 def plan() -> dict[str, Any]:
     p = _load("plan.json")["plan"]
     return json.loads(json.dumps(p))  # deep copy

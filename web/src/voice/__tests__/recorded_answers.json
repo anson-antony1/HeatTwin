@@ -1,0 +1,317 @@
+{
+ "note": "Real engine responses recorded 2026-10-03 from POST /voice/answer?demo=1 (engine at audit-fixes 2238936) with fixtures/plan.json and the default fixture roster. Inputs are synthetic (fictional roster, fixture forecast). Used only as mocked /voice/answer replies in voice.scripted.test.ts.",
+ "replay": true,
+ "synthetic_inputs": true,
+ "answers": [
+  {
+   "intent": "plan_summary",
+   "slots": {},
+   "answer": {
+    "intent": "plan_summary",
+    "say": "16 of 16 athletes are estimated over the 39.0 °C planning line at the 95th percentile; the highest estimate is 41.65 °C. First estimated over: Caleb from minute 46. 2 FHSAA issues in the plan. Estimate, planning only.",
+    "numbers": [
+     "16",
+     "16",
+     "39.0",
+     "95",
+     "41.65",
+     "46",
+     "2"
+    ],
+    "labels": [
+     "estimate — planning only",
+     "solar irradiance estimated from cloud cover (wbgt.solar_from_cloud)",
+     "forecast is fixture",
+     "synthetic roster",
+     "demo mode: forecast pinned to the cached NWS fixture",
+     "AT-owned settings — planning limit 39.0 °C (default; default from NIOSH 2016), near-limit band 0.3 °C (default), clothing mode conservative (default), rotated-out athletes rest in shade (default), NATA gear phasing enforced (default)",
+     "uses unverified constants: acclimatization (DESIGN), body_surface_area (SECONDARY), clothing_conservative (DESIGN), drill_met (DESIGN), ensemble_priors (DESIGN), gagge_1986 (SECONDARY), gear_clothing.levels.helmet (TODO), irradiance_split (SECONDARY), iso7933_dynamic (SECONDARY), model_options (DESIGN), non_participant (DESIGN), shade_model (DESIGN), solarcal (SECONDARY), solarcal_ground (SECONDARY), wind_profile (SECONDARY)"
+    ]
+   }
+  },
+  {
+   "intent": "field_conditions",
+   "slots": {},
+   "answer": {
+    "intent": "field_conditions",
+    "say": "Practice hours: 15:00 WBGT 86 °F, zone 2; 16:00 WBGT 83 °F, zone 2; 17:00 WBGT 82 °F, zone 1. Source: fixture.",
+    "numbers": [
+     "15:00",
+     "86",
+     "2",
+     "16:00",
+     "83",
+     "2",
+     "17:00",
+     "82",
+     "1"
+    ],
+    "labels": [
+     "estimate — planning only",
+     "solar irradiance estimated from cloud cover (wbgt.solar_from_cloud)",
+     "forecast is fixture",
+     "synthetic roster",
+     "demo mode: forecast pinned to the cached NWS fixture",
+     "AT-owned settings — planning limit 39.0 °C (default; default from NIOSH 2016), near-limit band 0.3 °C (default), clothing mode conservative (default), rotated-out athletes rest in shade (default), NATA gear phasing enforced (default)",
+     "uses unverified constants: acclimatization (DESIGN), body_surface_area (SECONDARY), clothing_conservative (DESIGN), drill_met (DESIGN), ensemble_priors (DESIGN), gagge_1986 (SECONDARY), gear_clothing.levels.helmet (TODO), irradiance_split (SECONDARY), iso7933_dynamic (SECONDARY), model_options (DESIGN), non_participant (DESIGN), shade_model (DESIGN), solarcal (SECONDARY), solarcal_ground (SECONDARY), wind_profile (SECONDARY)"
+    ]
+   }
+  },
+  {
+   "intent": "athlete_status",
+   "slots": {
+    "athlete_id": "a07"
+   },
+   "answer": {
+    "intent": "athlete_status",
+    "say": "Isaiah: estimated peak 40.28 °C typical and 41.53 °C at the 95th percentile; above the 39.0 °C planning line from minute 46. Estimate, planning only.",
+    "numbers": [
+     "40.28",
+     "41.53",
+     "95",
+     "39.0",
+     "46"
+    ],
+    "labels": [
+     "estimate — planning only",
+     "solar irradiance estimated from cloud cover (wbgt.solar_from_cloud)",
+     "forecast is fixture",
+     "synthetic roster",
+     "demo mode: forecast pinned to the cached NWS fixture",
+     "AT-owned settings — planning limit 39.0 °C (default; default from NIOSH 2016), near-limit band 0.3 °C (default), clothing mode conservative (default), rotated-out athletes rest in shade (default), NATA gear phasing enforced (default)",
+     "uses unverified constants: acclimatization (DESIGN), body_surface_area (SECONDARY), clothing_conservative (DESIGN), drill_met (DESIGN), ensemble_priors (DESIGN), gagge_1986 (SECONDARY), gear_clothing.levels.helmet (TODO), irradiance_split (SECONDARY), iso7933_dynamic (SECONDARY), model_options (DESIGN), non_participant (DESIGN), shade_model (DESIGN), solarcal (SECONDARY), solarcal_ground (SECONDARY), wind_profile (SECONDARY)"
+    ]
+   }
+  },
+  {
+   "intent": "what_if",
+   "slots": {
+    "drill_id": "d6",
+    "change": "remove"
+   },
+   "answer": {
+    "intent": "what_if",
+    "say": "With that change the estimated team-average peak goes from 41.09 to 40.87 °C, and 16 of 16 athletes are over the 39.0 °C planning line, versus 16 before. Estimate, planning only.",
+    "numbers": [
+     "41.09",
+     "40.87",
+     "16",
+     "16",
+     "39.0",
+     "16"
+    ],
+    "labels": [
+     "estimate — planning only",
+     "solar irradiance estimated from cloud cover (wbgt.solar_from_cloud)",
+     "forecast is fixture",
+     "synthetic roster",
+     "demo mode: forecast pinned to the cached NWS fixture",
+     "AT-owned settings — planning limit 39.0 °C (default; default from NIOSH 2016), near-limit band 0.3 °C (default), clothing mode conservative (default), rotated-out athletes rest in shade (default), NATA gear phasing enforced (default)",
+     "uses unverified constants: acclimatization (DESIGN), body_surface_area (SECONDARY), clothing_conservative (DESIGN), drill_met (DESIGN), ensemble_priors (DESIGN), gagge_1986 (SECONDARY), gear_clothing.levels.helmet (TODO), irradiance_split (SECONDARY), iso7933_dynamic (SECONDARY), model_options (DESIGN), non_participant (DESIGN), shade_model (DESIGN), solarcal (SECONDARY), solarcal_ground (SECONDARY), wind_profile (SECONDARY)"
+    ]
+   }
+  },
+  {
+   "intent": "what_if",
+   "slots": {
+    "drill_id": "d4",
+    "change": "gear",
+    "gear": "helmet"
+   },
+   "answer": {
+    "intent": "what_if",
+    "say": "With that change the estimated team-average peak goes from 41.09 to 41.01 °C, and 16 of 16 athletes are over the 39.0 °C planning line, versus 16 before. Estimate, planning only.",
+    "numbers": [
+     "41.09",
+     "41.01",
+     "16",
+     "16",
+     "39.0",
+     "16"
+    ],
+    "labels": [
+     "estimate — planning only",
+     "solar irradiance estimated from cloud cover (wbgt.solar_from_cloud)",
+     "forecast is fixture",
+     "synthetic roster",
+     "demo mode: forecast pinned to the cached NWS fixture",
+     "AT-owned settings — planning limit 39.0 °C (default; default from NIOSH 2016), near-limit band 0.3 °C (default), clothing mode conservative (default), rotated-out athletes rest in shade (default), NATA gear phasing enforced (default)",
+     "uses unverified constants: acclimatization (DESIGN), body_surface_area (SECONDARY), clothing_conservative (DESIGN), drill_met (DESIGN), ensemble_priors (DESIGN), gagge_1986 (SECONDARY), gear_clothing.levels.helmet (TODO), irradiance_split (SECONDARY), iso7933_dynamic (SECONDARY), model_options (DESIGN), non_participant (DESIGN), shade_model (DESIGN), solarcal (SECONDARY), solarcal_ground (SECONDARY), wind_profile (SECONDARY)"
+    ]
+   }
+  },
+  {
+   "intent": "optimize",
+   "slots": {
+    "preset": "max_load"
+   },
+   "answer": {
+    "intent": "optimize",
+    "say": "Biggest heat reductions: 1) Ran 'Team period' in 2 platoons (8 athletes × 12 min, 8 athletes × 13 min); the resting platoon waits in the shaded cooling area (team peak estimate 1.0 °C lower); 2) Added a 8-min shaded water break after 'Inside run (part 2 of 2)' at 16:08 (team peak estimate 0.3 °C lower); 3) Moved 'Inside run (part 1 of 2)' to 15:40 (was 16:04) (team peak estimate 0.2 °C lower). Estimate — planning only. The rewritten plan keeps 70.7% of the training load with 21 changes; 0 of 16 athletes are estimated over the 39.0 °C planning line and it has 0 FHSAA issues.",
+    "numbers": [
+     "1",
+     "2",
+     "8",
+     "12",
+     "8",
+     "13",
+     "1.0",
+     "2",
+     "8",
+     "2",
+     "2",
+     "16:08",
+     "0.3",
+     "3",
+     "1",
+     "2",
+     "15:40",
+     "16:04",
+     "0.2",
+     "70.7",
+     "21",
+     "0",
+     "16",
+     "39.0",
+     "0"
+    ],
+    "labels": [
+     "estimate — planning only",
+     "synthetic roster",
+     "demo mode: forecast pinned to the cached NWS fixture",
+     "demo mode: seed 0, 600 annealing iterations (reproducible)",
+     "AT-owned settings — planning limit 39.0 °C (default; default from NIOSH 2016), near-limit band 0.3 °C (default), clothing mode conservative (default), rotated-out athletes rest in shade (default), NATA gear phasing enforced (default)"
+    ]
+   }
+  },
+  {
+   "intent": "optimize",
+   "slots": {
+    "preset": "fewest_changes"
+   },
+   "answer": {
+    "intent": "optimize",
+    "say": "fewest_changes: no plan within 6 changes met every constraint — showing the max_load plan (21 changes) Biggest heat reductions: 1) Ran 'Team period' in 2 platoons (8 athletes × 12 min, 8 athletes × 13 min); the resting platoon waits in the shaded cooling area (team peak estimate 1.0 °C lower); 2) Added a 8-min shaded water break after 'Inside run (part 2 of 2)' at 16:08 (team peak estimate 0.3 °C lower); 3) Moved 'Inside run (part 1 of 2)' to 15:40 (was 16:04) (team peak estimate 0.2 °C lower). Estimate — planning only. The rewritten plan keeps 70.7% of the training load with 21 changes; 0 of 16 athletes are estimated over the 39.0 °C planning line and it has 0 FHSAA issues.",
+    "numbers": [
+     "6",
+     "21",
+     "1",
+     "2",
+     "8",
+     "12",
+     "8",
+     "13",
+     "1.0",
+     "2",
+     "8",
+     "2",
+     "2",
+     "16:08",
+     "0.3",
+     "3",
+     "1",
+     "2",
+     "15:40",
+     "16:04",
+     "0.2",
+     "70.7",
+     "21",
+     "0",
+     "16",
+     "39.0",
+     "0"
+    ],
+    "labels": [
+     "estimate — planning only",
+     "synthetic roster",
+     "demo mode: forecast pinned to the cached NWS fixture",
+     "demo mode: seed 0, 600 annealing iterations (reproducible)",
+     "preset fewest_changes: at most 6 changes",
+     "demo mode: seed 0, 600 annealing iterations (reproducible)",
+     "AT-owned settings — planning limit 39.0 °C (default; default from NIOSH 2016), near-limit band 0.3 °C (default), clothing mode conservative (default), rotated-out athletes rest in shade (default), NATA gear phasing enforced (default)",
+     "fewest_changes: no plan within 6 changes met every constraint — showing the max_load plan (21 changes)"
+    ]
+   }
+  },
+  {
+   "intent": "athlete_status",
+   "slots": {
+    "athlete_id": "a02"
+   },
+   "answer": {
+    "intent": "athlete_status",
+    "say": "Devin: estimated peak 40.57 °C typical and 40.93 °C at the 95th percentile; above the 39.0 °C planning line from minute 49. Estimate, planning only.",
+    "numbers": [
+     "40.57",
+     "40.93",
+     "95",
+     "39.0",
+     "49"
+    ],
+    "labels": [
+     "estimate — planning only",
+     "solar irradiance estimated from cloud cover (wbgt.solar_from_cloud)",
+     "forecast is fixture",
+     "synthetic roster",
+     "demo mode: forecast pinned to the cached NWS fixture",
+     "AT-owned settings — planning limit 39.0 °C (default; default from NIOSH 2016), near-limit band 0.3 °C (default), clothing mode conservative (default), rotated-out athletes rest in shade (default), NATA gear phasing enforced (default)",
+     "uses unverified constants: acclimatization (DESIGN), body_surface_area (SECONDARY), clothing_conservative (DESIGN), drill_met (DESIGN), ensemble_priors (DESIGN), gagge_1986 (SECONDARY), gear_clothing.levels.helmet (TODO), irradiance_split (SECONDARY), iso7933_dynamic (SECONDARY), model_options (DESIGN), non_participant (DESIGN), shade_model (DESIGN), solarcal (SECONDARY), solarcal_ground (SECONDARY), wind_profile (SECONDARY)"
+    ]
+   }
+  },
+  {
+   "intent": "what_if",
+   "slots": {
+    "drill_id": "d4",
+    "change": "add_break"
+   },
+   "answer": {
+    "intent": "what_if",
+    "say": "With that change the estimated team-average peak goes from 41.09 to 40.94 °C, and 16 of 16 athletes are over the 39.0 °C planning line, versus 16 before. Estimate, planning only.",
+    "numbers": [
+     "41.09",
+     "40.94",
+     "16",
+     "16",
+     "39.0",
+     "16"
+    ],
+    "labels": [
+     "estimate — planning only",
+     "solar irradiance estimated from cloud cover (wbgt.solar_from_cloud)",
+     "forecast is fixture",
+     "synthetic roster",
+     "demo mode: forecast pinned to the cached NWS fixture",
+     "AT-owned settings — planning limit 39.0 °C (default; default from NIOSH 2016), near-limit band 0.3 °C (default), clothing mode conservative (default), rotated-out athletes rest in shade (default), NATA gear phasing enforced (default)",
+     "uses unverified constants: acclimatization (DESIGN), body_surface_area (SECONDARY), clothing_conservative (DESIGN), drill_met (DESIGN), ensemble_priors (DESIGN), gagge_1986 (SECONDARY), gear_clothing.levels.helmet (TODO), irradiance_split (SECONDARY), iso7933_dynamic (SECONDARY), model_options (DESIGN), non_participant (DESIGN), shade_model (DESIGN), solarcal (SECONDARY), solarcal_ground (SECONDARY), wind_profile (SECONDARY)"
+    ]
+   }
+  },
+  {
+   "intent": "unknown",
+   "slots": {},
+   "answer": {
+    "intent": "unknown",
+    "say": "I can answer about the whole plan, one athlete, the field conditions, or a what-if change to one drill. Estimate, planning only.",
+    "numbers": [],
+    "labels": [
+     "estimate — planning only"
+    ]
+   }
+  },
+  {
+   "intent": "what_if",
+   "slots": {
+    "change": "remove"
+   },
+   "answer": {
+    "intent": "what_if",
+    "say": "I need the drill to answer that — which one do you mean? Estimate, planning only.",
+    "numbers": [],
+    "labels": [
+     "estimate — planning only"
+    ]
+   }
+  }
+ ]
+}

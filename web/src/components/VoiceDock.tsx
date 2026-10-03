@@ -25,7 +25,7 @@ import './VoiceDock.css'
 // The AI only structures the coach's words; every heat number is the engine's.
 
 type Bar = 'idle' | 'recording' | 'busy' | 'done'
-type SheetView = 'review' | 'result' | 'error' | 'typing'
+type SheetView = 'review' | 'confirm' | 'result' | 'error' | 'typing'
 
 const BARS = 22
 const DONE_HOLD_MS = 1700
@@ -48,15 +48,14 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
   const recording = v.state === 'recording'
   const captions = useLiveCaptions(recording)
   const { containerRef } = useMicLevels(recording, BARS)
-  const appliedDraft = useRef<PlanDraft | null>(null)
+  const [appliedDraft, setAppliedDraft] = useState<PlanDraft | null>(null)
   const flashTimer = useRef<number | null>(null)
 
-  // A finished draft goes straight to the engine; the check mark confirms it
-  // landed. A draft with no usable drills stops for the coach instead.
-  useEffect(() => {
-    const d = v.draft
-    if (!d || appliedDraft.current === d || d.plan.drills.length === 0) return
-    appliedDraft.current = d
+  // The AI's draft is only a draft (needs_confirmation): the coach sees every drill, assumption and unclear item and
+  // presses Confirm before the engine runs. A draft with no usable drills stops for the coach instead.
+  const confirmDraft = (d: PlanDraft) => {
+    if (appliedDraft === d) return
+    setAppliedDraft(d)
     planStore.confirm(d).then(() => {
       if (planStore.get().phase !== 'ready') return
       setFlash(true)
@@ -65,7 +64,7 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
         v.reset()
       }, DONE_HOLD_MS)
     })
-  }, [v.draft, v])
+  }
 
   useEffect(() => () => {
     if (flashTimer.current != null) window.clearTimeout(flashTimer.current)
@@ -78,6 +77,7 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
   let sheet: SheetView | null = null
   if (errorMsg) sheet = 'error'
   else if (v.draft && v.draft.plan.drills.length === 0) sheet = 'review'
+  else if (v.draft && appliedDraft !== v.draft) sheet = 'confirm'
   else if (opened === 'typing') sheet = 'typing'
   else if (opened === 'result' && p.sim) sheet = 'result'
 
@@ -146,6 +146,14 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
               >
                 {sheet === 'review' && v.draft && (
                   <Review draft={v.draft} onRedo={startRecording} onType={() => openTyping(v.draft?.transcript ?? '')} />
+                )}
+                {sheet === 'confirm' && v.draft && (
+                  <Confirm
+                    draft={v.draft}
+                    onConfirm={() => v.draft && confirmDraft(v.draft)}
+                    onRedo={startRecording}
+                    onType={() => openTyping(v.draft?.transcript ?? '')}
+                  />
                 )}
                 {sheet === 'result' && (
                   <Result
@@ -368,6 +376,35 @@ function Review({ draft, onRedo, onType }: { draft: PlanDraft; onRedo: () => voi
   )
 }
 
+function Confirm({ draft, onConfirm, onRedo, onType }: {
+  draft: PlanDraft
+  onConfirm: () => void
+  onRedo: () => void
+  onType: () => void
+}) {
+  return (
+    <div className="review">
+      <div className="review__head">
+        <div className="eyebrow">Check this draft</div>
+        <span className="review__label">{draft.labels[0] ?? 'parsed by AI — coach must confirm'}</span>
+      </div>
+      {draft.transcript && <blockquote className="review__quote">“{draft.transcript}”</blockquote>}
+      <Drills draft={draft} />
+      <div className="dock__actions">
+        <button className="btn btn--ink pressable" onClick={onConfirm}>
+          Confirm and run the twin
+        </button>
+        <button className="btn btn--quiet pressable" onClick={onRedo}>
+          Try again
+        </button>
+        <button className="btn btn--quiet pressable" onClick={onType}>
+          Edit as text
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function Drills({ draft }: { draft: PlanDraft }) {
   const reduce = useReducedMotion()
   return (
@@ -390,14 +427,14 @@ function Drills({ draft }: { draft: PlanDraft }) {
           </motion.li>
         ))}
       </ol>
-      {draft.assumptions.length > 0 && (
+      {(draft.assumptions.length > 0 || draft.unclear.length > 0) && (
         <ul className="review__notes">
           {draft.unclear.map((u) => (
             <li key={u} className="is-unclear">
               <strong>Needs input</strong> {u}
             </li>
           ))}
-          {draft.assumptions.slice(0, 3).map((a) => (
+          {draft.assumptions.map((a) => (
             <li key={a}>
               <strong>Check</strong> {a}
             </li>

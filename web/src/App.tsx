@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { engine, useSession } from './data/engine'
-import { ROSTER } from './data/fixtures'
+import { useRoster } from './data/roster'
 import { Background, type Tone } from './components/Background'
 import { Sidebar, type View } from './components/Sidebar'
 import { DemoBar } from './components/DemoBar'
@@ -20,55 +20,28 @@ import './App.css'
 
 export default function App() {
   const s = useSession()
+  const roster = useRoster()
   const reduce = useReducedMotion()
   const [view, setView] = useState<View>('live')
-  const [athleteId, setAthleteId] = useState(ROSTER[0].id)
+  const [picked, setAthleteId] = useState<string | null>(null)
+  const athleteId = picked ?? roster.athletes[0]?.id ?? ''
   // Acknowledgements belong to one replay run; a reset starts clean.
   const [ackState, setAckState] = useState<{ session: number; ids: Set<string> }>({ session: 0, ids: new Set() })
   const [collapseFor, setCollapseFor] = useState<string | null>(null)
 
-  // Live weather + location: the chosen site is where plans are modeled, and
-  // the plan day's live forecast drives the replay's WBGT and zones.
+  // App start: the engine's demo inputs → /simulate for the current plan → every view.
   useEffect(() => {
-    const applySite = () => {
-      const l = settingsStore.get().location
-      const site = planStore.get().plan.site
-      planStore.setSite({ ...site, name: l.name, lat: l.lat, lon: l.lon })
-    }
-    const offDay = weatherStore.onDayForecast((hours) => engine.setForecast(hours))
-    const offPlan = planStore.subscribe(() => weatherStore.setPlanDate(planStore.get().plan.start.slice(0, 10)))
-    const offSettings = settingsStore.subscribe(applySite)
-    // Once live weather tells us the site's UTC offset, keep practice at the same local clock time there.
-    const offTz = weatherStore.subscribe(() => {
-      const w = weatherStore.get()
-      if (w.source !== 'nws_forecast' || !w.now) return
-      const l = settingsStore.get().location
-      if (w.location.lat !== l.lat || w.location.lon !== l.lon) return
-      planStore.setSite({ ...planStore.get().plan.site, name: l.name, lat: l.lat, lon: l.lon }, w.now.time.slice(19))
-    })
-    const stopWeather = weatherStore.start()
-    return () => {
-      offDay()
-      offPlan()
-      offSettings()
-      offTz()
-      stopWeather()
-    }
-  }, [])
-
-  useEffect(() => {
-    planStore.restore()
-    const l = settingsStore.get().location
-    planStore.setSite({ ...planStore.get().plan.site, name: l.name, lat: l.lat, lon: l.lon })
-    engine.play()
+    void planStore.boot().then(() => engine.play())
     return () => engine.pause()
   }, [])
 
   const acked = ackState.session === s.session ? ackState.ids : new Set<string>()
 
-  const alertIds = ROSTER.filter((a) => s.athletes[a.id].status === 'alert').map((a) => a.id)
+  // Alerts are the engine's HR-calibration gate flags (gates.flag), nothing computed here.
+  const live = Object.values(s.athletes)
+  const alertIds = live.filter((a) => a.flag).map((a) => a.id)
   const unacked = alertIds.filter((id) => !acked.has(id))
-  const hottest = [...ROSTER].sort((a, b) => s.athletes[b.id].coreC - s.athletes[a.id].coreC)[0].id
+  const hottest = live.length ? [...live].sort((a, b) => b.coreC - a.coreC)[0].id : null
 
   const tone: Tone = unacked.length && view === 'live' ? 'alert' : view === 'athlete' ? 'athlete' : 'coach'
 

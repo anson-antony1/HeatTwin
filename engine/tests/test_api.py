@@ -96,3 +96,68 @@ def test_demo_mode_is_reproducible():
     s1 = client.post("/simulate?demo=1", json=body).json()
     s2 = client.post("/simulate?demo=1", json=body).json()
     assert s1["athletes"] == s2["athletes"]
+
+
+def test_demo_mode_pins_the_cached_forecast_even_with_live_weather_on(monkeypatch):
+    """Item 7 (docs/AUDIT.md): ?demo=1 never fetches live NWS, so demo numbers are reproducible offline."""
+    from engine import api
+    monkeypatch.setenv("HEATTWIN_WEATHER", "live")
+    calls = []
+    import engine.weather as ws1
+    monkeypatch.setattr(ws1, "get_forecast", lambda *a, **k: calls.append(a) or [])
+    r = client.post("/simulate?demo=1", json={})
+    assert r.status_code == 200
+    assert calls == []
+    labels = r.json()["labels"]
+    assert "forecast is fixture" in labels
+    assert "demo mode: forecast pinned to the cached NWS fixture" in labels
+    assert api.weather_mode(demo=True) == "fixture" and api.weather_mode() == "live"
+
+
+def test_demo_inputs_match_what_demo_simulate_uses():
+    """v1.3 /demo/inputs: the web shows the same plan/roster/weather the engine simulates."""
+    d = client.get("/demo/inputs").json()
+    sim = client.post("/simulate?demo=1", json={}).json()
+    assert d["plan"]["id"] == sim["plan_id"]
+    assert [a["id"] for a in d["roster"]] == [a["id"] for a in sim["athletes"]]
+    assert d["synthetic"] == {"plan": True, "roster": True, "weather": False}   # cached real NWS forecast
+    assert "forecast is fixture" in d["labels"] and "synthetic roster" in d["labels"]
+    sim2 = client.post("/simulate?demo=1", json={"plan": d["plan"], "roster": d["roster"], "weather": d["weather"]}).json()
+    assert [a["peak_core_c_p95"] for a in sim2["athletes"]] == [a["peak_core_c_p95"] for a in sim["athletes"]]
+
+
+def test_live_replay_synthetic_fixture_is_labelled_and_deterministic():
+    r = client.post("/live/replay?demo=1", json={})
+    assert r.status_code == 200
+    j = r.json()
+    assert j["source"]["synthetic"] is True and j["source"]["file"].endswith("hr_a07_synthetic.csv")
+    assert "replay" in j["labels"] and "synthetic HR (not a real athlete)" in j["labels"]
+    assert j["frames"] and all(f["athlete_id"] == "a07" for f in j["frames"])
+    assert [f["minute"] for f in j["frames"]] == sorted(f["minute"] for f in j["frames"])
+    assert j["plan_forecast"]["plan_id"] == "plan-demo-1"
+    assert client.post("/live/replay?demo=1", json={}).json()["frames"] == j["frames"]
+
+
+def test_node_latest_without_recording_has_no_numbers(monkeypatch, tmp_path):
+    from engine import demo_data
+    monkeypatch.setattr(demo_data, "DATA", tmp_path)
+    demo_data._clear_posted()
+    j = client.get("/node/latest").json()
+    assert j == {"reading": None, "series": [], "file": None, "labels": ["no field recording yet"]}
+
+
+def test_node_latest_reads_newest_node_csv(monkeypatch, tmp_path):
+    from engine import demo_data, node_bridge
+    monkeypatch.setattr(demo_data, "DATA", tmp_path)
+    demo_data._clear_posted()
+    rows = [{"ts": "2026-10-04T15:30:05-04:00", "globe_c": 45.0, "globe_ohm": 1, "air_c": 31.0, "rh_pct": 60, "wind_m_s": "",
+             "air_source": "KGNV", "node_wbgt_f": 88.1, "forecast_wbgt_f": 86.0, "field_minus_forecast_f": 2.1,
+             "fhsaa_zone": 3, "solar_inferred_w_m2": 700, "globe_calibrated": "false", "mode": "live"}]
+    import csv
+    with open(tmp_path / "node_2026-10-04.csv", "w", newline="") as f:
+        w = csv.DictWriter(f, node_bridge.FIELDS)
+        w.writeheader()
+        w.writerows(rows)
+    j = client.get("/node/latest").json()
+    assert j["reading"]["node_wbgt_f"] == 88.1 and j["reading"]["field_minus_forecast_f"] == 2.1
+    assert "globe thermistor uncalibrated" in j["labels"] and j["file"] == "data/node_2026-10-04.csv"

@@ -170,11 +170,21 @@
 }
 
 .demobar__tag {
+  display: flex;
+  flex-direction: column;
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ink-3);
   padding-right: 6px;
+}
+
+.demobar__replay {
+  max-width: 220px;
+  font-size: 10.5px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--watch);
 }
 
 @media (max-width: 1280px) {

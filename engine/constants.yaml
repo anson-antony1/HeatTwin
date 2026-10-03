@@ -713,3 +713,13 @@ assimilation:
   note: "engine/weather.py assimilate_env: bias-correct the remaining forecast from sideline-node readings. Bias = mean(node − forecast) over the last window_min of readings, applied to later hours with weight falling linearly from 1 at the last reading to 0 after decay_h (WS1 brief: 'rolling mean of node−forecast WBGT, decayed over 3 h'). Corrects wbgt_f and air_temp_c (the physiology model reads air temperature, not WBGT). A modelling choice, not a sourced method; field validation (WS7) reports how well it does."
   window_min: 60
   decay_h: 3.0
+
+live_replay:
+  status: DESIGN
+  note: "Display only (CONTRACTS v1.3 LiveReplay.hr_series): keep one HR point per this many seconds for the chart. Calibration uses every reading; not physiology."
+  hr_series_every_s: 10
+
+voice:
+  status: DESIGN
+  note: "Voice Q&A (engine/voice.py): Gemini returns only {transcript, intent, slots}; this caps tokens per routing call. Not physiology."
+  max_output_tokens: 512
