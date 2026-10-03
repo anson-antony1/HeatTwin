@@ -6,7 +6,7 @@
 //   show draft.transcript, draft.plan.drills, draft.assumptions, draft.unclear → coach edits/confirms →
 //   POST draft.plan to /simulate or /optimize (CONTRACTS.md PracticePlan, unchanged).
 
-const ENGINE = (import.meta.env.VITE_ENGINE_URL as string | undefined) ?? 'http://localhost:8000'
+const ENGINE = (import.meta.env?.VITE_ENGINE_URL as string | undefined) ?? 'http://localhost:8000'
 
 // ── CONTRACTS.md shapes (engine side) ──
 export type ContractGear = 'none' | 'helmet' | 'helmet_shoulder_pads' | 'full_pads'
@@ -17,7 +17,9 @@ export interface ContractDrill {
   name: string
   duration_min: number
   intensity: ContractIntensity
+  met_override?: number
   gear: ContractGear
+  gear_by_athlete?: Record<string, ContractGear>
   shade: boolean
   is_break: boolean
   priority: 1 | 2 | 3

@@ -5,7 +5,8 @@
   flex-direction: column;
   gap: 16px;
   height: 100vh;
-  padding: 36px 0 24px 36px;
+  /* Bottom padding leaves room for the floating voice dock (Figma 9:65). */
+  padding: 36px 0 132px 36px;
   width: 248px;
   flex: none;
 }

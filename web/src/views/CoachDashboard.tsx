@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'motion/react'
 import type { Athlete, AthleteLive, SessionState } from '../data/types'
 import { useSession, usePlan } from '../data/engine'
+import { usePlanState } from '../data/planStore'
 import { ROSTER, SCHOOL } from '../data/fixtures'
 import { THRESHOLDS, ZONE_COLOR } from '../data/constants'
 import { drillAt } from '../data/model'
@@ -9,7 +10,7 @@ import { NumberTicker } from '../components/NumberTicker'
 import { StatusPill } from '../components/StatusPill'
 import { TempChart } from '../components/TempChart'
 import { IconArrow, IconDrop, IconHeart, IconResponse } from '../components/Icons'
-import { clockLabel } from '../lib/heat'
+import { clockLabel, gearLabel } from '../lib/heat'
 import { ease, spring } from '../lib/motion'
 import './CoachDashboard.css'
 
@@ -119,6 +120,7 @@ function SessionHeader({
   counts: Record<'steady' | 'watch' | 'alert', number>
 }) {
   const plan = usePlan()
+  const planState = usePlanState()
   const { drill } = drillAt(plan, s.minute)
   const progress = s.minute / s.totalMinutes
   const starts = plan.map((_, i) => plan.slice(0, i).reduce((sum, d) => sum + d.minutes, 0))
@@ -127,8 +129,13 @@ function SessionHeader({
     <motion.section layout transition={spring.move} className="session glass" aria-label="Practice session">
       <motion.div layout="position" transition={spring.move} className="session__inner">
         <div className="session__now">
-          <div className="eyebrow">
-            Now · {clockLabel(s.startHour, s.minute)}
+          <div className="session__eyebrow">
+            <span className="eyebrow">Now · {clockLabel(s.startHour, s.minute)}</span>
+            {planState.source !== 'fixture' && (
+              <span className={`session__src session__src--${planState.source}`}>
+                {planState.source === 'voice' ? 'Voice plan · engine forecast' : 'Optimized · engine forecast'}
+              </span>
+            )}
           </div>
           <div className="session__drill">
             <AnimatePresence mode="popLayout" initial={false}>
@@ -147,7 +154,7 @@ function SessionHeader({
           <div className="session__meta muted">
             <span className="num">{Math.ceil(s.drillMinuteLeft)} min left</span>
             <span aria-hidden="true">·</span>
-            <span>{drill.gear === 'full' ? 'Full pads' : drill.gear === 'shells' ? 'Shells' : 'Helmets'}</span>
+            <span>{gearLabel(drill.gear)}</span>
           </div>
         </div>
 

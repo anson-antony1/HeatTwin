@@ -8,7 +8,7 @@ import { peakOf, totalMinutes, wbgtAt } from '../data/model'
 import { checkRules, forecastRoster, optimize, type PlanResult } from '../data/optimizer'
 import { NumberTicker } from '../components/NumberTicker'
 import { IconCheck, IconSpark } from '../components/Icons'
-import { clockLabel, heatColor } from '../lib/heat'
+import { clockLabel, gearLabel, heatColor } from '../lib/heat'
 import { ease, spring } from '../lib/motion'
 import './PlanView.css'
 
@@ -237,7 +237,7 @@ function DrillBlock({ d, total, reduce }: { d: Drill; total: number; reduce: boo
         <motion.span layout="position" className="block__text">
           <span className="block__name">{d.name}</span>
           <span className="block__min num">
-            {d.minutes}′ · {d.gear === 'full' ? 'pads' : d.gear}
+            {d.minutes}′ · {gearLabel(d.gear).toLowerCase()}
           </span>
         </motion.span>
       )}

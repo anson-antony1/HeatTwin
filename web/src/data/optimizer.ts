@@ -9,8 +9,8 @@ import { peakOf, simulate, totalMinutes, wbgtAt } from './model'
 
 /** Per-athlete heat factor learned from previous sessions (what the plan uses). */
 export const PRIOR_FACTOR: Record<string, number> = {
-  a01: 1.31, a02: 1.1, a03: 1.0, a04: 0.97, a05: 1.04, a06: 0.95,
-  a07: 0.92, a08: 0.98, a09: 1.05, a10: 0.96, a11: 1.02, a12: 0.93,
+  a01: 1.27, a02: 1.06, a03: 1.03, a04: 1.01, a05: 0.97, a06: 1.0, a07: 1.02, a08: 0.98,
+  a09: 0.96, a10: 0.98, a11: 0.95, a12: 1.0, a13: 0.98, a14: 0.96, a15: 0.93, a16: 1.05,
 }
 
 export type ChangeKind = 'reorder' | 'break' | 'gear' | 'trim' | 'sit-out'

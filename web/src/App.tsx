@@ -5,6 +5,8 @@ import { ROSTER } from './data/fixtures'
 import { Background, type Tone } from './components/Background'
 import { Sidebar, type View } from './components/Sidebar'
 import { DemoBar } from './components/DemoBar'
+import { VoiceDock } from './components/VoiceDock'
+import { planStore } from './data/planStore'
 import { CoachDashboard } from './views/CoachDashboard'
 import { AthleteView } from './views/AthleteView'
 import { PlanView } from './views/PlanView'
@@ -23,6 +25,7 @@ export default function App() {
   const [collapseFor, setCollapseFor] = useState<string | null>(null)
 
   useEffect(() => {
+    planStore.restore()
     engine.play()
     return () => engine.pause()
   }, [])
@@ -74,6 +77,7 @@ export default function App() {
           </motion.main>
         </AnimatePresence>
       </div>
+      <VoiceDock onSeePlayers={() => setView('athlete')} />
       <DemoBar />
       <AnimatePresence>
         {collapseFor && (

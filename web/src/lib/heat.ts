@@ -45,3 +45,9 @@ export function mmss(totalSeconds: number) {
   const s = Math.max(0, Math.floor(totalSeconds))
   return `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`
 }
+
+const GEAR_LABEL = { none: 'No pads', helmet: 'Helmet', shells: 'Shells', full: 'Full pads' } as const
+
+export function gearLabel(g: keyof typeof GEAR_LABEL) {
+  return GEAR_LABEL[g]
+}

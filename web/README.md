@@ -19,6 +19,20 @@ npm run lint
 | **Response** | Pre-practice readiness checklist and a one-tap way into Collapse mode. | — |
 | **Collapse mode** | Full-screen cold-water-immersion flow: wall-clock timer, voice-guided steps, tub probe, immersion timer, and a copyable EMS handoff timeline. Ending it takes a hold, so it can't be closed by accident. | — |
 
+### Talk to the Twin (voice → plan → engine)
+
+The mic dock at the bottom left (Figma `9:65`) is the coach's way in:
+
+1. **Record.** Tap the mic and describe practice. You get a live waveform, plus instant captions from the browser's speech recognizer (Chrome, Edge and Safari), for display only.
+2. **Transcribe and structure.** The audio goes to the engine's `POST /plan/parse_audio` (Jack's Gemini bridge, `engine/llm_plan.py`). Gemini returns the verbatim transcript and a draft `PracticePlan`. The keyboard button sends typed text to `/plan/parse` instead.
+3. **Confirm.** The coach checks the drills, the AI's assumptions, and anything unclear. Nothing is modelled until they confirm.
+4. **Model.** `POST /simulate` runs the engine's two-node model for every athlete. The result drives the live roster, each athlete's twin page (the *Today's plan* card shows their gear and their p95 peak per block), and the session header.
+5. **Optimize** (optional). `POST /optimize` rewrites the plan to keep everyone under the line, and the dock shows the engine's top changes.
+
+The confirmed plan is saved in `localStorage`, so a reload keeps it.
+
+**Setup:** the Gemini key lives only on the engine, in the repo-root `.env` (gitignored; see `.env.example`). Run the engine with `.venv/bin/uvicorn engine.api:app --port 8000`. The web app calls `VITE_ENGINE_URL`, which defaults to `http://localhost:8000`.
+
 The floating **Replay** bar runs the session at 1×/4×/10× (practice minutes per real second). **Skip to heat** jumps to just before the demo lineman crosses the line.
 
 ## Where the engine plugs in
@@ -30,7 +44,9 @@ Everything under `src/data/` is a stand-in that matches the shapes the UI needs:
 - `model.ts` — a single-node heat balance tuned by eye. Replace `simulate()` with `/simulate`.
 - `optimizer.ts` — a greedy pass. Replace `optimize()` with `/optimize`.
 - `engine.ts` — the live loop: fake HR → estimate corrected each minute → re-forecast. Replace `advanceMinute()` with a websocket / Web Bluetooth feed.
-- `fixtures.ts` — fictional roster, plan, and forecast.
+- `fixtures.ts` — reads the engine's shared `fixtures/roster.json` and `fixtures/plan.json`, so athlete ids match the engine.
+- `engineApi.ts` — typed `/simulate` and `/optimize` client. `planStore.ts` holds the confirmed plan and its engine result.
+- `llmPlan.ts`, `lib/useVoicePlan.ts` — Jack's Gemini bridge client and recorder hook (from `llm-bridge`).
 
 ## Motion system
 

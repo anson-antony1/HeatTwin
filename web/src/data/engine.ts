@@ -4,11 +4,17 @@ import { THRESHOLDS, zoneFor } from './constants'
 import { FORECAST, PLAN, PRACTICE_START_HOUR, ROSTER, TRUE_HEAT_FACTOR } from './fixtures'
 import { bandFor, drillAt, heartRate, nextBreakIn, peakOf, simulate, stepCore, totalMinutes, wbgtAt } from './model'
 import { PRIOR_FACTOR } from './optimizer'
+import { perMinute, type SimulationResult } from './engineApi'
 
 // The live loop. Stands in for the Watch layer: a strap broadcasts HR once a
 // second, the estimate is corrected toward what HR implies, and the rest of the
 // session is re-forecast. Demo time runs faster than wall time (`speed` practice
 // minutes per real second). Swap `advanceMinute` for a websocket feed later.
+//
+// Two forecast sources:
+//   'engine' — a confirmed plan's /simulate result. Each athlete's p50 curve is
+//              the plan forecast; live HR corrects around it; p95 − p50 is the band.
+//   'replay' — no engine result yet: the browser-side stand-in model (model.ts).
 
 interface Track {
   athlete: Athlete
@@ -27,6 +33,12 @@ interface Track {
 }
 
 const EMIT_HZ = 12
+const BASE = THRESHOLDS.baselineC
+
+interface EngineSeries {
+  p50: number[]
+  p95: number[]
+}
 
 function noise(seed: number) {
   const x = Math.sin(seed * 12.9898) * 43758.5453
@@ -45,6 +57,7 @@ class Engine {
   private listeners = new Set<() => void>()
   private snapshot!: SessionState
   private session = 0
+  private ext: Record<string, EngineSeries> | null = null
 
   constructor() {
     this.reset()
@@ -65,7 +78,8 @@ class Engine {
         athlete,
         est: THRESHOLDS.baselineC,
         truth: THRESHOLDS.baselineC,
-        factor: PRIOR_FACTOR[athlete.id] ?? 1,
+        // Engine curves are already per-athlete calibrated; the replay model needs its prior.
+        factor: this.ext ? 1 : (PRIOR_FACTOR[athlete.id] ?? 1),
         history: [THRESHOLDS.baselineC],
         hrHistory: [athlete.hrRest],
         pending: THRESHOLDS.baselineC,
@@ -78,8 +92,18 @@ class Engine {
     this.publish()
   }
 
-  setPlan(plan: Drill[]) {
+  /** Swap today's plan. Pass the plan's /simulate result to drive forecasts from the engine. */
+  setPlan(plan: Drill[], sim?: SimulationResult | null) {
     this.plan = plan
+    const minutes = totalMinutes(plan)
+    this.ext = sim
+      ? Object.fromEntries(
+          sim.athletes.map((a) => [
+            a.id,
+            { p50: perMinute(a.core_c_p50, sim.step_min, minutes), p95: perMinute(a.core_c_p95, sim.step_min, minutes) },
+          ]),
+        )
+      : null
     this.reset()
   }
 
@@ -134,6 +158,8 @@ class Engine {
 
   /** Next-minute estimate from physics alone (the time update). */
   private project(t: Track, m: number) {
+    const e = this.ext?.[t.athlete.id]
+    if (e) return t.est + (at(e.p50, m + 1) - at(e.p50, m)) * t.factor
     const { drill } = drillAt(this.plan, m)
     return stepCore(t.est, t.athlete, drill, wbgtAt(FORECAST, PRACTICE_START_HOUR + m / 60), t.factor)
   }
@@ -143,7 +169,14 @@ class Engine {
     const { drill } = drillAt(this.plan, m)
     const wbgt = wbgtAt(FORECAST, PRACTICE_START_HOUR + m / 60)
     for (const t of this.tracks) {
-      t.truth = stepCore(t.truth, t.athlete, drill, wbgt, TRUE_HEAT_FACTOR[t.athlete.id] ?? 1)
+      const e = this.ext?.[t.athlete.id]
+      if (e) {
+        // How far this athlete's body runs from the engine's plan forecast.
+        const dev = (TRUE_HEAT_FACTOR[t.athlete.id] ?? 1) / (PRIOR_FACTOR[t.athlete.id] ?? 1)
+        t.truth = BASE + (at(e.p50, m + 1) - BASE) * dev
+      } else {
+        t.truth = stepCore(t.truth, t.athlete, drill, wbgt, TRUE_HEAT_FACTOR[t.athlete.id] ?? 1)
+      }
       const physics = t.pending
       if (t.athlete.hasStrap) {
         // Observation update: HR says the body is at `truth` (+ sensor noise).
@@ -151,7 +184,7 @@ class Engine {
         const innovation = observed - physics
         t.est = physics + 0.45 * innovation
         // Slowly learn this athlete's heat factor from the gap.
-        t.factor += 0.9 * innovation
+        t.factor += (this.ext ? 1.2 : 0.9) * innovation
         t.factor = Math.max(0.8, Math.min(1.6, t.factor))
         t.hrHistory.push(heartRate(t.athlete, drill, t.truth, noise(m * 3.3 + t.athlete.number) * 2))
       } else {
@@ -175,9 +208,22 @@ class Engine {
     const athletes: Record<string, AthleteLive> = {}
     for (const t of this.tracks) {
       const coreC = k >= total ? t.est : t.est + (t.pending - t.est) * frac
-      const rest = simulate(t.athlete, this.plan, FORECAST, PRACTICE_START_HOUR, t.factor, k, t.est)
+      const calibrated = t.athlete.hasStrap && k > 5
+      const e = this.ext?.[t.athlete.id]
+      let rest: number[]
+      let band: number[]
+      if (e) {
+        // Re-forecast: the engine's remaining curve, re-anchored on the live estimate.
+        rest = e.p50.slice(k).map((v) => t.est + (v - at(e.p50, k)) * t.factor)
+        band = [
+          ...Array<number>(k).fill(0),
+          ...e.p95.slice(k).map((v, i) => (i === 0 ? 0 : (v - e.p50[k + i]) * (calibrated ? 0.6 : 1))),
+        ]
+      } else {
+        rest = simulate(t.athlete, this.plan, FORECAST, PRACTICE_START_HOUR, t.factor, k, t.est)
+        band = Array.from({ length: k + rest.length }, (_, i) => (i <= k ? 0 : bandFor(i - k, calibrated)))
+      }
       const forecast = [...t.history.slice(0, k), ...rest]
-      const band = forecast.map((_, i) => (i <= k ? 0 : bandFor(i - k, t.athlete.hasStrap && k > 5)))
       const peak = peakOf(forecast)
       let status: Status = 'steady'
       if (coreC >= THRESHOLDS.watchC || peak.value >= THRESHOLDS.alertC) status = 'watch'
@@ -209,6 +255,7 @@ class Engine {
       athletes,
       running: this.running,
       speed: this.speed,
+      forecastSource: this.ext ? 'engine' : 'replay',
     }
     this.listeners.forEach((fn) => fn())
   }
@@ -216,6 +263,10 @@ class Engine {
   get currentPlan() {
     return this.plan
   }
+}
+
+function at(arr: number[], i: number) {
+  return arr[Math.max(0, Math.min(arr.length - 1, i))]
 }
 
 export const engine = new Engine()

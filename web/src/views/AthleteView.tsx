@@ -8,8 +8,10 @@ import { NumberTicker } from '../components/NumberTicker'
 import { StatusPill } from '../components/StatusPill'
 import { TempChart } from '../components/TempChart'
 import { IconDrop, IconHeart, IconResponse } from '../components/Icons'
-import { clockLabel, cToF, heatColor } from '../lib/heat'
+import { clockLabel, cToF, gearLabel, heatColor } from '../lib/heat'
 import { ease, spring } from '../lib/motion'
+import { gearFor, usePlanState } from '../data/planStore'
+import { perMinute } from '../data/engineApi'
 import './AthleteView.css'
 
 interface Props {
@@ -128,7 +130,10 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
           </div>
           <div>
             <dt>Model</dt>
-            <dd>{calibrated ? 'Calibrated from live HR' : a.hasStrap ? 'Calibrating…' : 'Plan forecast only'}</dd>
+            <dd>
+              {s.forecastSource === 'engine' ? 'Engine · ' : ''}
+              {calibrated ? 'calibrated from live HR' : a.hasStrap ? 'calibrating…' : 'plan forecast only'}
+            </dd>
           </div>
         </dl>
 
@@ -160,7 +165,7 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
           <div className="eyebrow">Now</div>
           <div className="display-sm">{drill.name}</div>
           <div className="muted" style={{ fontSize: 13.5 }}>
-            {drill.gear === 'full' ? 'Full pads' : drill.gear === 'shells' ? 'Shells' : 'Helmet'} ·{' '}
+            {gearLabel(drill.gear)} ·{' '}
             <span className="num">{Math.ceil(s.drillMinuteLeft)}</span> min left
           </div>
         </div>
@@ -223,6 +228,8 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
         </p>
       </section>
 
+      <AthletePlanCard athleteId={a.id} minute={s.minute} />
+
       <p className="twin__safety faint">{SAFETY_LINE}</p>
     </div>
   )
@@ -259,5 +266,98 @@ function BreakRing({ minutes }: { minutes: number | null }) {
       </div>
       <div className="ring__cap faint">{onBreak ? 'Water break' : 'to water'}</div>
     </div>
+  )
+}
+
+const PLAN_GEAR: Record<string, string> = { none: 'No pads', helmet: 'Helmet', helmet_shoulder_pads: 'Shells', full_pads: 'Full pads' }
+
+/** Today's plan as this athlete will live it: their gear, their engine forecast per block. */
+function AthletePlanCard({ athleteId, minute }: { athleteId: string; minute: number }) {
+  const p = usePlanState()
+  const reduce = useReducedMotion()
+  const drills = p.plan.drills
+  const total = drills.reduce((sum, d) => sum + d.duration_min, 0)
+  const simA = p.sim?.athletes.find((x) => x.id === athleteId)
+  const p95 = simA && p.sim ? perMinute(simA.core_c_p95, p.sim.step_min, Math.round(total)) : null
+  const limit = p.sim?.limit_core_c ?? THRESHOLDS.alertC
+
+  const source =
+    p.source === 'voice'
+      ? `Described by voice${p.confirmedAt ? ` · ${new Date(p.confirmedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}`
+      : p.source === 'optimized'
+        ? 'Optimized by the twin'
+        : 'Default plan'
+
+  const starts = drills.map((_, i) => drills.slice(0, i).reduce((sum, d) => sum + d.duration_min, 0))
+  const blocks = drills.map((d, i) => {
+    const start = starts[i]
+    const end = start + d.duration_min
+    const seg = p95 ? p95.slice(Math.round(start), Math.round(end) + 1) : []
+    const peak = seg.length ? Math.max(...seg) : null
+    const sitsOut = d.participants != null && !d.participants.includes(athleteId)
+    return { d, peak, sitsOut, gear: gearFor(d, athleteId) }
+  })
+
+  return (
+    <section className="glass card dayplan" aria-label="Today's plan">
+      <div className="dayplan__head">
+        <div>
+          <div className="eyebrow">Today’s plan · from Coach Reyes</div>
+          <div className="display-sm">
+            {simA
+              ? simA.first_cross_min != null
+                ? `Forecast crosses ${limit.toFixed(1)}° at minute ${Math.round(simA.first_cross_min)}`
+                : `Forecast stays under ${limit.toFixed(1)}° · peak ${simA.peak_core_c_p95.toFixed(1)}°`
+              : `${drills.length} blocks · ${Math.round(total)} min`}
+          </div>
+        </div>
+        <span className={`dayplan__source dayplan__source--${p.source}`}>{source}</span>
+      </div>
+
+      <AnimatePresence mode="popLayout" initial={false}>
+        <motion.div
+          key={`${p.plan.id}-${p.source}-${p.confirmedAt ?? 0}`}
+          className="dayplan__track"
+          initial={reduce ? { opacity: 0 } : { opacity: 0, filter: 'blur(6px)' }}
+          animate={{ opacity: 1, filter: 'blur(0px)' }}
+          exit={{ opacity: 0, filter: 'blur(4px)', transition: { duration: 0.12 } }}
+          transition={{ duration: 0.3, ease: ease.out }}
+        >
+          {blocks.map(({ d, peak, sitsOut, gear }, i) => (
+            <motion.div
+              key={d.id}
+              className={`dayblock ${d.is_break ? 'is-break' : ''} ${sitsOut ? 'is-out' : ''}`}
+              style={{ flexGrow: d.duration_min, flexBasis: 0, ['--heat' as string]: peak != null && !d.is_break ? heatColor(peak) : undefined }}
+              initial={reduce ? { opacity: 0 } : { opacity: 0, transform: 'translateY(6px)' }}
+              animate={{ opacity: 1, transform: 'translateY(0px)' }}
+              transition={{ duration: 0.28, ease: ease.out, delay: i * 0.035 }}
+              title={`${d.name} · ${d.duration_min} min · ${PLAN_GEAR[gear]}${peak != null ? ` · peak ${peak.toFixed(1)}°` : ''}`}
+            >
+              {d.duration_min / total > 0.07 && (
+                <span className="dayblock__text">
+                  <span className="dayblock__name">{d.is_break ? 'Water' : d.name.charAt(0).toUpperCase() + d.name.slice(1)}</span>
+                  <span className="dayblock__meta num">
+                    {d.duration_min}′{!d.is_break && ` · ${sitsOut ? 'sits out' : PLAN_GEAR[gear]}`}
+                  </span>
+                </span>
+              )}
+              {peak != null && !d.is_break && d.duration_min / total > 0.07 && (
+                <span className={`dayblock__peak num ${peak >= limit ? 'is-over' : ''}`}>{peak.toFixed(1)}°</span>
+              )}
+            </motion.div>
+          ))}
+          {minute > 0 && minute < total && (
+            <span className="dayplan__now" style={{ left: `${(minute / total) * 100}%` }} aria-hidden="true" />
+          )}
+        </motion.div>
+      </AnimatePresence>
+
+      <div className="dayplan__foot faint">
+        {simA
+          ? 'Peak per block is the engine’s p95 estimate for this athlete — planning only.'
+          : 'Tap the mic and describe today’s practice to model it on the engine.'}
+        {p.draft?.transcript && p.source !== 'fixture' && <span className="dayplan__quote"> “{p.draft.transcript}”</span>}
+      </div>
+    </section>
   )
 }

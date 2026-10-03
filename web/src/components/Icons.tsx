@@ -106,3 +106,20 @@ export const IconArrow = (p: SVGProps<SVGSVGElement>) => (
     <path d="M5 12h14M13 6l6 6-6 6" />
   </svg>
 )
+export const IconMic = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <rect x="9" y="3" width="6" height="11.5" rx="3" />
+    <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7" />
+  </svg>
+)
+export const IconStop = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)} fill="currentColor" stroke="none">
+    <rect x="6.5" y="6.5" width="11" height="11" rx="2.5" />
+  </svg>
+)
+export const IconKeyboard = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <rect x="3" y="6" width="18" height="12" rx="3" />
+    <path d="M7 10h.01M10.5 10h.01M14 10h.01M17 10h.01M8 14h8" />
+  </svg>
+)

@@ -2,9 +2,9 @@
 // (engine/api.py) is expected to return — when CONTRACTS.md lands, align
 // field names here and the rest of the app follows.
 
-export type Position = 'OL' | 'DL' | 'LB' | 'TE' | 'RB' | 'QB' | 'WR' | 'DB' | 'K'
+export type Position = 'OL' | 'DL' | 'LB' | 'TE' | 'RB' | 'QB' | 'WR' | 'DB' | 'K' | string
 
-export type Gear = 'helmet' | 'shells' | 'full'
+export type Gear = 'none' | 'helmet' | 'shells' | 'full'
 
 export type DrillKind = 'warmup' | 'individual' | 'team' | 'conditioning' | 'break'
 
@@ -90,4 +90,6 @@ export interface SessionState {
   athletes: Record<string, AthleteLive>
   running: boolean
   speed: number
+  /** 'engine' when forecasts come from a confirmed plan's /simulate result. */
+  forecastSource: 'engine' | 'replay'
 }

@@ -8,7 +8,7 @@ import { THRESHOLDS } from './constants'
 const SPECIFIC_HEAT = 3490 // J/(kg·K), body tissue
 const W_PER_MET = 58.2
 
-const GEAR_EVAP: Record<Gear, number> = { helmet: 1.0, shells: 0.84, full: 0.68 }
+const GEAR_EVAP: Record<Gear, number> = { none: 1.08, helmet: 1.0, shells: 0.84, full: 0.68 }
 
 export function bodySurfaceArea(a: Pick<Athlete, 'massKg' | 'heightCm'>): number {
   // DuBois & DuBois (1916)
