@@ -11,6 +11,7 @@ WS1 owns the authoritative implementation; replace by deleting this file once en
 """
 from __future__ import annotations
 
+import bisect
 import math
 from datetime import datetime, timedelta
 from typing import Any, Mapping, Sequence
@@ -39,16 +40,19 @@ def _t(s: str) -> datetime:
     return datetime.fromisoformat(s.replace("Z", "+00:00"))
 
 
-def _hour_zone(weather: Sequence[Mapping[str, Any]], t: datetime) -> int:
-    """Zone of the forecast hour containing t (nearest earlier hour; clamps to the ends)."""
+def _zone_lookup(weather: Sequence[Mapping[str, Any]]):
+    """Sorted (epoch seconds, zone) of forecast hours; a minute takes the zone of the latest hour starting at or before
+    it (clamped to the first hour)."""
     hours = sorted(weather, key=lambda h: _t(h["time"]))
-    chosen = hours[0]
-    for h in hours:
-        if _t(h["time"]) <= t:
-            chosen = h
-    if chosen.get("fhsaa_zone") is not None:
-        return int(chosen["fhsaa_zone"])
-    return zone(float(chosen["wbgt_f"]))
+    ts = [_t(h["time"]).timestamp() for h in hours]
+    zs = [int(h["fhsaa_zone"]) if h.get("fhsaa_zone") is not None else zone(float(h["wbgt_f"])) for h in hours]
+    return ts, zs
+
+
+def _hour_zone(weather: Sequence[Mapping[str, Any]], t: datetime, _lk=None) -> int:
+    ts, zs = _lk or _zone_lookup(weather)
+    i = bisect.bisect_right(ts, t.timestamp()) - 1
+    return zs[max(i, 0)]
 
 
 def _minutes(plan: Mapping[str, Any]):
@@ -63,10 +67,11 @@ def _minutes(plan: Mapping[str, Any]):
 def required_breaks(plan: Mapping[str, Any], weather: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
     """Per clock hour the practice touches: zone, covered minutes, required and scheduled shaded-break minutes."""
     buckets: dict[datetime, dict[str, Any]] = {}
+    lk = _zone_lookup(weather)
     for t, d in _minutes(plan):
         hour = t.replace(minute=0, second=0, microsecond=0)
         b = buckets.setdefault(hour, {"hour": hour.isoformat(), "zone": 1, "covered_min": 0, "break_min": 0})
-        b["zone"] = max(b["zone"], _hour_zone(weather, t))
+        b["zone"] = max(b["zone"], _hour_zone(weather, t, lk))
         b["covered_min"] += 1
         if d.get("is_break") and d.get("shade"):
             b["break_min"] += 1
@@ -82,8 +87,9 @@ def required_breaks(plan: Mapping[str, Any], weather: Sequence[Mapping[str, Any]
 def violations(plan: Mapping[str, Any], weather: Sequence[Mapping[str, Any]]) -> list[dict[str, str]]:
     out: list[dict[str, str]] = []
     drill_zone: dict[str, int] = {}
+    lk = _zone_lookup(weather)
     for t, d in _minutes(plan):
-        drill_zone[d["id"]] = max(drill_zone.get(d["id"], 1), _hour_zone(weather, t))
+        drill_zone[d["id"]] = max(drill_zone.get(d["id"], 1), _hour_zone(weather, t, lk))
     worst = max(drill_zone.values(), default=1)
 
     for d in plan["drills"]:
