@@ -218,7 +218,8 @@ type LiveReplay = {
 
 type NodeLatest = {
   reading: null | { ts: string; globe_c: number; air_c: number; rh_pct: number; air_source: string; node_wbgt_f: number;
-                    forecast_wbgt_f: number; field_minus_forecast_f: number; fhsaa_zone: number; globe_calibrated: boolean };
+                    forecast_wbgt_f: number; field_minus_forecast_f: number; fhsaa_zone: number; globe_calibrated: boolean;
+                    tub_temp_c: number | null };      // null until a tub probe is wired (node_bridge sends null today)
   series: { ts: string; node_wbgt_f: number; forecast_wbgt_f: number }[];   // the recording, one point per minute
   file: string | null;
   labels: string[];                              // "no field recording yet" | "field node recording", "globe thermistor uncalibrated", …
