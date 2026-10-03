@@ -40,8 +40,9 @@
 
 .session__eyebrow {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 6px 10px;
 }
 
 .session__src {
@@ -58,6 +59,12 @@
     opacity: 0;
     transform: scale(0.95);
   }
+}
+
+.session__src--replay {
+  background: var(--watch-bg);
+  color: var(--watch);
+  white-space: normal;
 }
 
 .session__src--optimized {
@@ -500,6 +507,18 @@
 
 .row__heart {
   color: var(--alert);
+}
+
+.row__hr-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.row__hr-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .row--alert .row__heart {

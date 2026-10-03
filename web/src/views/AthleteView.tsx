@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { animate, AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { useSession } from '../data/engine'
+import { replayLabel, useSession } from '../data/engine'
 import { useEngineMeta } from '../data/engineMeta'
 import { useRoster } from '../data/roster'
 import { ESTIMATE_LABEL, SAFETY_LINE } from '../data/constants'
 import {
   basisLabel,
   breakWindow,
+  noHrLabel,
   drillAtMinute,
   nataMaxGear,
   planMinutes,
@@ -50,6 +51,10 @@ export function AthleteView({ athleteId, onSelect, onCollapse }: Props) {
         </div>
         <Picker athleteId={athleteId} onSelect={onSelect} />
       </header>
+      <div className="twin__provenance">
+        <span className="twin__tag">demo playback — not live</span>
+        {replayLabel(s.replay) && <span className="twin__tag twin__tag--replay">{replayLabel(s.replay)}</span>}
+      </div>
 
       <AnimatePresence mode="wait" initial={false}>
         <motion.div
@@ -181,7 +186,7 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
                   <NumberTicker value={live.hr} suffix="bpm" />
                 </span>
               ) : (
-                <span className="faint">no HR</span>
+                <span className="faint">{noHrLabel(live)}</span>
               )}
             </dd>
           </div>

@@ -1,12 +1,12 @@
 import { useMemo } from 'react'
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'motion/react'
 import type { RosterAthlete } from '../data/engineApi'
-import { useSession, type SessionState } from '../data/engine'
+import { replayLabel, useSession, type SessionState } from '../data/engine'
 import { useEngineMeta } from '../data/engineMeta'
 import { useRoster } from '../data/roster'
 import { ESTIMATE_LABEL, zoneColor } from '../data/constants'
 import { SCHOOL } from '../data/fixtures'
-import { basisLabel, drillAtMinute, FHSAA_CITATION, statusCounts, zoneRule, zoneRuleText, type AthleteLive } from '../data/selectors'
+import { drillAtMinute, FHSAA_CITATION, noHrLabel, statusCounts, zoneRule, zoneRuleText, type AthleteLive } from '../data/selectors'
 import { NumberTicker } from '../components/NumberTicker'
 import { StatusPill } from '../components/StatusPill'
 import { TempChart } from '../components/TempChart'
@@ -150,6 +150,13 @@ function SessionHeader({
           <div className="session__eyebrow">
             <span className="eyebrow">Demo clock · {clockLabel(s.startHour, s.minute)}</span>
             <span className="session__src">demo playback — not live</span>
+            {replayLabel(s.replay) && <span className="session__src session__src--replay">{replayLabel(s.replay)}</span>}
+            {s.replay.status === 'loading' && <span className="session__src">loading HR replay…</span>}
+            {s.replay.status === 'error' && (
+              <span className="session__src" title={s.replay.error ?? undefined}>
+                HR replay unavailable — plan forecast only
+              </span>
+            )}
           </div>
           <div className="session__drill">
             <AnimatePresence mode="popLayout" initial={false}>
@@ -387,13 +394,16 @@ function RosterRow({
 
       <span className="row__hr" role="cell">
         {live.hr != null ? (
-          <>
-            <IconHeart width={15} height={15} className="row__heart" />
-            <NumberTicker value={live.hr} />
-            <span className="row__unit">bpm · HR replay</span>
-          </>
+          <span className="row__hr-stack" title={noHrLabel(live)}>
+            <span className="row__hr-line">
+              <IconHeart width={15} height={15} className="row__heart" />
+              <NumberTicker value={live.hr} />
+              <span className="row__unit">bpm</span>
+            </span>
+            <span className="row__nostrap">HR replay</span>
+          </span>
         ) : (
-          <span className="row__nostrap">{basisLabel(live)}</span>
+          <span className="row__nostrap">{noHrLabel(live)}</span>
         )}
       </span>
 

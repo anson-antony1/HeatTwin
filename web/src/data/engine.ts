@@ -1,9 +1,10 @@
 import { useSyncExternalStore } from 'react'
 import type { PracticePlan } from './llmPlan'
-import type { SimulationResult, WeatherHour } from './engineApi'
+import { liveReplay, type LiveReplay, type SimulationResult, type WeatherHour } from './engineApi'
 import {
   athleteAtMinute,
   drillAtMinute,
+  firstFlagMinute,
   hourOf,
   makeCurveCache,
   nextBreakIn,
@@ -15,13 +16,38 @@ import {
 import { offlineAthleteAt, type OfflineResult } from '../offline/standIn'
 
 // The demo session: a playback clock over today's plan. It is NOT live — the
-// clock replays practice minutes faster than wall time so a two-hour session
-// plays in two minutes on stage. At each minute every number is read from the
-// engine's result for the plan (selectors.ts); nothing is modelled here.
+// clock plays practice minutes back faster than wall time so a two-hour
+// session plays in two minutes on stage. At each minute every number is read
+// from the engine (selectors.ts); nothing is modelled here:
+//   - POST /live/replay?demo=1 {plan} runs the HR file (fixtures/hr_*.csv; the
+//     only one today is fixtures/hr_a07_synthetic.csv, labelled synthetic)
+//     through the engine's live calibration. Athletes in the file read the
+//     latest calibration frame at or before the minute (estimate, status,
+//     gates); everyone else reads the plan forecast.
+//   - Until the replay arrives (or if it fails) everyone reads /simulate.
 // When the engine is unreachable the stand-in's curves are used instead and
 // every view badges them OFFLINE FALLBACK.
 
 export type SessionSource = 'loading' | 'engine' | 'offline'
+
+export interface ReplayInfo {
+  status: 'idle' | 'loading' | 'ready' | 'error'
+  /** The HR file is synthetic (not a real athlete). */
+  synthetic: boolean
+  file: string | null
+  /** Athletes with HR in the file. */
+  athletes: string[]
+  error: string | null
+}
+
+/** Plain-words provenance for the HR replay, shown on Coach, Athlete and the demo bar. */
+export function replayLabel(r: ReplayInfo): string | null {
+  if (r.status !== 'ready') return null
+  const who = r.athletes.join(', ')
+  return r.synthetic
+    ? `replay of a synthetic HR file (${who}) — not a real athlete`
+    : `replay of a recorded HR file (${r.file ?? who})`
+}
 
 export interface SessionState {
   /** Increments on every reset / plan change, so UI state can key off a run. */
@@ -43,8 +69,11 @@ export interface SessionState {
   weather: WeatherHour | null
   /** Planning line the numbers are judged against (result `limit_core_c`). */
   limitC: number | null
-  /** Provenance labels of the result the numbers come from. */
+  /** Provenance labels of the result the numbers come from (replay + plan forecast). */
   labels: string[]
+  replay: ReplayInfo
+  /** First minute the engine's gates flag anyone in the replay (for "skip ahead"). */
+  firstFlagMinute: number | null
 }
 
 const EMIT_HZ = 12
@@ -54,6 +83,9 @@ const MAX_FRAME_S = 0.1
 class Session {
   private plan: PracticePlan | null = null
   private sim: SimulationResult | null = null
+  private replay: LiveReplay | null = null
+  private replayInfo: ReplayInfo = { status: 'idle', synthetic: false, file: null, athletes: [], error: null }
+  private replayAbort: AbortController | null = null
   private offline: OfflineResult | null = null
   private curves: CurveCache | null = null
   private minute = 0
@@ -93,7 +125,9 @@ class Session {
     this.sim = sim
     this.offline = null
     this.curves = sim ? makeCurveCache(sim.step_min, planMinutes(plan)) : null
+    this.clearReplay()
     this.reset()
+    if (sim) void this.loadReplay(plan)
   }
 
   /** Engine unreachable: drive the screens from the stand-in (badged OFFLINE FALLBACK). */
@@ -102,7 +136,41 @@ class Session {
     this.sim = null
     this.offline = offline
     this.curves = null
+    this.clearReplay()
     this.reset()
+  }
+
+  private clearReplay() {
+    this.replayAbort?.abort()
+    this.replayAbort = null
+    this.replay = null
+    this.replayInfo = { status: 'idle', synthetic: false, file: null, athletes: [], error: null }
+  }
+
+  /** POST /live/replay?demo=1 for this plan (deterministic and cached on the engine). */
+  private async loadReplay(plan: PracticePlan) {
+    const ctl = new AbortController()
+    this.replayAbort = ctl
+    this.replayInfo = { ...this.replayInfo, status: 'loading' }
+    this.publish()
+    try {
+      const r = await liveReplay(plan, ctl.signal)
+      if (ctl.signal.aborted || this.plan !== plan) return
+      this.replay = r
+      this.curves = makeCurveCache(r.plan_forecast.step_min, planMinutes(plan))
+      this.replayInfo = {
+        status: 'ready',
+        synthetic: r.source.synthetic,
+        file: r.source.file,
+        athletes: r.source.athletes,
+        error: null,
+      }
+    } catch (e) {
+      if ((e as Error).name === 'AbortError' || this.plan !== plan) return
+      this.replay = null
+      this.replayInfo = { status: 'error', synthetic: false, file: null, athletes: [], error: (e as Error).message }
+    }
+    this.publish()
   }
 
   play() {
@@ -161,20 +229,22 @@ class Session {
 
     if (plan && this.sim) {
       source = 'engine'
-      for (const a of this.sim.athletes) {
+      // The replay's plan_forecast is the prior it calibrates from; /simulate until it arrives.
+      const forecast = this.replay?.plan_forecast ?? this.sim
+      for (const a of forecast.athletes) {
         const live = athleteAtMinute({
           id: a.id,
           minute: this.minute,
           totalMin: total,
-          plan: this.sim,
-          replay: null,
+          plan: forecast,
+          replay: this.replay,
           curves: this.curves ?? undefined,
         })
         if (live) athletes[a.id] = live
       }
-      weather = weatherHourAt(this.sim.weather, plan.start, this.minute)
-      limitC = this.sim.limit_core_c
-      labels = this.sim.labels
+      weather = weatherHourAt(forecast.weather, plan.start, this.minute)
+      limitC = forecast.limit_core_c
+      labels = this.replay ? [...new Set([...this.replay.labels, ...forecast.labels])] : forecast.labels
     } else if (plan && this.offline) {
       source = 'offline'
       for (const a of this.offline.athletes) {
@@ -202,6 +272,8 @@ class Session {
       weather,
       limitC,
       labels,
+      replay: this.replayInfo,
+      firstFlagMinute: firstFlagMinute(this.replay),
     }
     this.listeners.forEach((fn) => fn())
   }
