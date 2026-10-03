@@ -16,7 +16,7 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import Any, Literal, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -202,20 +202,26 @@ def health() -> dict[str, Any]:
 
 
 @app.post("/simulate")
-def simulate(req: SimulateRequest | None = None) -> dict[str, Any]:
+def simulate(req: SimulateRequest | None = None, demo: bool = Query(False, description="fixed seed (demo mode)")
+             ) -> dict[str, Any]:
     req = req or SimulateRequest()
+    if demo:
+        dm = consts.get("demo_mode")
+        req = req.model_copy(update={"seed": int(dm["seed"]), "n_ensemble": int(dm["n_ensemble"])})
     plan, roster, weather, labels = _inputs(req)
     return twonode.simulate_roster(roster, plan, weather, step_min=req.step_min, n_ensemble=req.n_ensemble,
                                    seed=req.seed, extra_labels=labels, settings=_settings(req))
 
 
 @app.post("/optimize")
-def optimize(req: OptimizeRequest | None = None) -> dict[str, Any]:
+def optimize(req: OptimizeRequest | None = None,
+             demo: bool = Query(False, description="fixed seed + fixed iteration cap instead of a time budget")
+             ) -> dict[str, Any]:
     req = req or OptimizeRequest()
     plan, roster, weather, labels = _inputs(req)
     res = optimizer.optimize(plan, roster, weather, budget_s=req.budget_s, seed=req.seed,
                              n_ensemble=req.n_ensemble, step_min=req.step_min, extra_labels=labels,
-                             settings=_settings(req))
+                             settings=_settings(req), demo=demo)
     return _guard(res)
 
 

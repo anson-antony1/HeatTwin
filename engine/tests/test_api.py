@@ -72,3 +72,15 @@ def test_settings_endpoint_and_overrides():
     assert any("planning limit 39.0 °C (default" in lab for lab in res["labels"])
     assert client.post("/simulate", json={"settings": {"planning_limit_core_c": 41.0}}).status_code == 422
     assert client.post("/simulate", json={"settings": {"bogus": 1}}).status_code == 422
+
+
+def test_demo_mode_is_reproducible():
+    body = {"roster": fixtures.roster()[:4]}
+    a = client.post("/optimize?demo=1", json=body).json()
+    b = client.post("/optimize?demo=1", json=body).json()
+    assert a["search"]["demo"] is True and a["search"]["stopped_by"] == "iterations"
+    assert a["plan"] == b["plan"] and a["changes"] == b["changes"]
+    assert any(lab.startswith("demo mode:") for lab in a["labels"])
+    s1 = client.post("/simulate?demo=1", json=body).json()
+    s2 = client.post("/simulate?demo=1", json=body).json()
+    assert s1["athletes"] == s2["athletes"]

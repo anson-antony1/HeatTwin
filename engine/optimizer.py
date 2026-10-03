@@ -673,9 +673,12 @@ def _repair_score(P: Problem, cur: Eval, ev: Eval) -> float:
     return gain / (loss_pct + float(_opt("repair_loss_floor_pct"))) - float(_opt("change_penalty")) * (ev.n_changes - cur.n_changes)
 
 
-def beam_search(P: Problem, deadline: float) -> tuple[Eval, int]:
+def beam_search(P: Problem, deadline: float, cfg: Mapping[str, Any] | None = None) -> tuple[Eval, int]:
     """Repair beam: from each state, keep the candidates removing the most infeasibility per unit of load lost."""
-    width, depth, per = int(_opt("beam_width")), int(_opt("beam_depth")), int(_opt("beam_candidates_per_state"))
+    cfg = cfg or {}
+    width = int(cfg.get("beam_width", _opt("beam_width")))
+    depth = int(cfg.get("beam_depth", _opt("beam_depth")))
+    per = int(cfg.get("beam_candidates_per_state", _opt("beam_candidates_per_state")))
     start = P.evaluate(P.orig)
     beam, best, iters = [start], start, 0
     for _ in range(depth):
@@ -782,8 +785,20 @@ def simplify(P: Problem, best: Eval, deadline: float) -> Eval:
 
 def optimize(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weather: Sequence[Mapping[str, Any]],
              budget_s: float | None = None, seed: int = 0, n_ensemble: int = 30, step_min: float = 1.0,
-             max_iterations: int | None = None, extra_labels: Sequence[str] = (), settings=None) -> dict[str, Any]:
-    """CONTRACTS.md ``OptimizeResult`` (dict), plus additive fields ``infeasible_reasons`` and ``labels``."""
+             max_iterations: int | None = None, extra_labels: Sequence[str] = (), settings=None,
+             demo: bool = False) -> dict[str, Any]:
+    """CONTRACTS.md ``OptimizeResult`` (dict), plus additive fields ``infeasible_reasons``, ``labels``, ``settings``.
+
+    ``demo=True``: fixed seed, ensemble size and SA iteration cap from constants.demo_mode; the time budget becomes a
+    safety stop, so the same inputs always give the same plan.
+    """
+    beam_cfg: dict[str, Any] = {}
+    if demo:
+        dm = consts.get("demo_mode")
+        beam_cfg = {k: dm[k] for k in ("beam_width", "beam_depth", "beam_candidates_per_state") if k in dm}
+        seed, n_ensemble = int(dm["seed"]), int(dm["n_ensemble"])
+        max_iterations, budget_s = int(dm["sa_iterations"]), float(dm["safety_budget_s"])
+        extra_labels = [*extra_labels, f"demo mode: seed {seed}, {max_iterations} annealing iterations (reproducible)"]
     t_start = time.perf_counter()
     budget = float(budget_s if budget_s is not None else _opt("default_budget_s"))
     deadline = t_start + budget
@@ -792,7 +807,7 @@ def optimize(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weath
 
     beam_deadline = t_start + budget * float(_opt("beam_time_fraction"))
     sa_deadline = t_start + budget * float(_opt("sa_time_fraction_end"))
-    best, beam_iters = beam_search(P, beam_deadline)
+    best, beam_iters = beam_search(P, beam_deadline, beam_cfg)
     n_max = int(max_iterations if max_iterations is not None else _opt("sa_max_iterations"))
     sa_best, sa_iters, best_it, stopped = anneal(P, best, sa_deadline, rng, n_max)
     if _better(sa_best, best):
@@ -830,6 +845,7 @@ def optimize(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weath
             "stopped_by": stopped,
             "seed": seed,
             "budget_s": budget,
+            "demo": demo,
             "weighted_load_kept_pct": round(100.0 * best.load_w / P.load0, 1),
         },
         "infeasible_reasons": reasons,

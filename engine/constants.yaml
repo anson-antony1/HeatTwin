@@ -463,3 +463,11 @@ clothing_conservative:
   iso_correction_fraction: 1.0
   walk_credit_fraction: 0.0
   gear_met_surcharge_full_pads: 0.1669   # computed by validation/armstrong_2010.py --calibrate (FULL treadmill 0.0710 °C/min)
+
+demo_mode:
+  status: DESIGN
+  note: "?demo=1: reproducible runs for presentations — fixed seed and a fixed iteration cap instead of a time budget (the budget below is only a safety stop well above the expected run time)."
+  seed: 0
+  n_ensemble: 30
+  sa_iterations: 300
+  safety_budget_s: 120.0

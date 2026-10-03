@@ -167,3 +167,21 @@ def test_results_json_is_computed_by_validation_code():
     res = json.loads((Path(__file__).resolve().parents[2] / "validation" / "results.json").read_text())["armstrong_2010"]
     assert res["computed_by"] == "validation/armstrong_2010.py" and res["synthetic"] is False
     assert {r["clothing_mode"] for r in res["rows"]} == {"conservative", "iso7933_dynamic", "gagge_static"}
+
+
+@pytest.mark.parametrize("mode", ["conservative", "iso7933_dynamic", "gagge_static"])
+def test_numba_kernel_matches_numpy(mode, monkeypatch):
+    """The compiled kernel and the numpy reference loop give the same core temperatures (≤ 2e-3 °C)."""
+    from engine.physio import twonode
+    if twonode._numba_kernel() is None:
+        pytest.skip("numba unavailable")
+    roster, plan, w = fixtures.roster(), fixtures.plan(), fixtures.forecast()
+    R = twonode.build_roster(roster)
+    tl = twonode.build_timeline(plan["drills"], R.ids, 1.0)
+    env = twonode.build_environment(w, plan["site"], twonode.parse_time(plan["start"]), 1.0, tl.n_steps)
+    D = twonode.make_draws(8, len(R.ids), 0)
+    fast = twonode.simulate_arrays(tl, env, R, D, clothing_mode=mode).core
+    orig = twonode.integrate
+    monkeypatch.setattr(twonode, "integrate", lambda **kw: orig(**kw, backend="numpy"))
+    ref = twonode.simulate_arrays(tl, env, R, D, clothing_mode=mode).core
+    assert np.max(np.abs(fast - ref)) < 2e-3

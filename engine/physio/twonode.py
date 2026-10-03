@@ -245,6 +245,7 @@ def integrate(
     iso: IsoClothing | None = None,
     max_tcl_iter: int = 150,
     P: GaggeParams | None = None,
+    backend: str = "auto",
 ) -> IntegrateOut:
     """Explicit-Euler two-node integration in the reference's update order (MODEL.md §9.1).
 
@@ -252,6 +253,12 @@ def integrate(
     pythermalcomfort agreement test. ``iso=IsoClothing(...)`` → ISO 7933 dynamic clothing (MODEL.md §5).
     """
     P = P or gagge_params()
+    if backend in ("auto", "numba") and _numba_kernel() is not None:
+        return _integrate_numba(met_wm2, met_scale, ta, pa, v, tr, r_cl, r_ecl, f_cl, clothed, mass_kg, bsa_m2, dt_s,
+                                theta_sw, theta_dil, setpoint_shift, tcr0, met_cap_wm2, record_every, cap_mode, iso,
+                                max_tcl_iter, P)
+    if backend == "numba":
+        raise RuntimeError("numba backend requested but numba is not importable")
     Q = iso_params() if iso is not None else None
     E, N = met_scale.shape
     S = met_wm2.shape[1]
@@ -379,6 +386,85 @@ def integrate(
             skin[:, :, k] = tsk
 
     return IntegrateOut(core=core, skin=skin, tcl_max_residual=worst_res, tcl_iterations_max=worst_it)
+
+
+@lru_cache(maxsize=1)
+def _numba_kernel():
+    try:
+        from engine.physio import _kernel
+        return _kernel
+    except Exception:  # noqa: BLE001 — numba missing or failing to compile → numpy reference path
+        return None
+
+
+@lru_cache(maxsize=1)
+def _pack_gagge(P: GaggeParams) -> np.ndarray:
+    K = _numba_kernel()
+    g = np.empty(K.N_GAGGE)
+    vals = {
+        K.G_TSK_N: P.tsk_n, K.G_SKBF_N: P.skbf_n, K.G_SKBF_MIN: P.skbf_min, K.G_SKBF_MAX: P.skbf_max,
+        K.G_C_DIL: P.c_dil, K.G_C_STR: P.c_str, K.G_C_SW: P.c_sw, K.G_MRSW_MAX: P.mrsw_max,
+        K.G_SWEAT_EXP: P.sweat_skin_exp, K.G_K_CS: P.k_cs, K.G_C_BL: P.c_bl, K.G_LATENT: P.latent,
+        K.G_SHIVER: P.shiver, K.G_A0: P.alpha_a0, K.G_A1: P.alpha_a1, K.G_A2: P.alpha_a2,
+        K.G_MET_FACTOR: P.met_factor, K.G_W_EXT: P.external_work_met * P.met_factor, K.G_LR: P.lr,
+        K.G_RESP_S: P.resp_s, K.G_RESP_S_REF: P.resp_s_ref, K.G_RESP_L: P.resp_l, K.G_RESP_L_REF: P.resp_l_ref,
+        K.G_HC_NAT: P.hc_nat, K.G_HC_FORCED: P.hc_forced, K.G_HC_P_EXP: P.hc_p_exp, K.G_P_ATM: P.p_atm,
+        K.G_HC_ACT: P.hc_act, K.G_HC_ACT_OFF: P.hc_act_off, K.G_HC_ACT_EXP: P.hc_act_exp,
+        K.G_SB4: 4.0 * P.emissivity * P.sigma * P.ar_ad, K.G_KELVIN: P.kelvin,
+        K.G_WC_C_COEFF: P.wcrit_c_coeff, K.G_WC_C_EXP: P.wcrit_c_exp, K.G_WC_N_COEFF: P.wcrit_n_coeff,
+        K.G_WC_N_EXP: P.wcrit_n_exp, K.G_W_DIFF: P.w_diff, K.G_V_MIN: P.v_min, K.G_PSAT_A: P.psat_a,
+        K.G_PSAT_B: P.psat_b, K.G_PSAT_C: P.psat_c, K.G_TCL_TOL: P.tcl_tol, K.G_ESK0: P.esk0_per_met,
+        K.G_HR_INIT: P.hr_init, K.G_ALPHA0: P.alpha0,
+    }
+    for k, val in vals.items():
+        g[k] = val
+    return g
+
+
+@lru_cache(maxsize=1)
+def _pack_iso() -> np.ndarray:
+    K = _numba_kernel()
+    Q = iso_params()
+    q = np.empty(K.N_ISO)
+    vals = {K.Q_WALK_K: Q.walk_k, K.Q_WALK_OFF: Q.walk_off, K.Q_WALK_CAP: Q.walk_cap, K.Q_V_CAP: Q.v_cap,
+            K.Q_W_CAP: Q.w_cap, K.Q_CL_SCALE: Q.cl_scale, K.Q_CL_V2: Q.cl_v2, K.Q_CL_V1: Q.cl_v1, K.Q_CL_W2: Q.cl_w2,
+            K.Q_CL_W1: Q.cl_w1, K.Q_IA_V2: Q.ia_v2, K.Q_IA_V1: Q.ia_v1, K.Q_IA_W2: Q.ia_w2, K.Q_IA_W1: Q.ia_w1,
+            K.Q_BLEND: Q.blend_clo, K.Q_CE_A: Q.ce_a, K.Q_CE_B: Q.ce_b, K.Q_CE_C: Q.ce_c, K.Q_IM_MAX: Q.im_max,
+            K.Q_LEWIS: Q.lewis_kpa, K.Q_IA_ST: Q.ia_st, K.Q_MMHG_PER_KPA: Q.mmhg_per_kpa}
+    for k, val in vals.items():
+        q[k] = val
+    return q
+
+
+def _integrate_numba(met_wm2, met_scale, ta, pa, v, tr, r_cl, r_ecl, f_cl, clothed, mass_kg, bsa_m2, dt_s,
+                     theta_sw, theta_dil, setpoint_shift, tcr0, met_cap_wm2, record_every, cap_mode, iso,
+                     max_tcl_iter, P) -> IntegrateOut:
+    K = _numba_kernel()
+    E, N = met_scale.shape
+    S = met_wm2.shape[1]
+    f64 = lambda x, shape: np.ascontiguousarray(np.broadcast_to(np.asarray(x, dtype=float), shape))  # noqa: E731
+    shift = f64(setpoint_shift, (N,))
+    tcr_n = P.tcr_n - shift
+    tbn = P.alpha0 * P.tsk_n + (1.0 - P.alpha0) * tcr_n
+    t0 = tcr_n.copy() if tcr0 is None else f64(tcr0, (N,))
+    has_cap = met_cap_wm2 is not None
+    cap = f64(met_cap_wm2 if has_cap else 0.0, (N,))
+    use_iso = iso is not None
+    z = np.zeros((N, S))
+    core, skin, res, it = K.run(
+        f64(met_wm2, (N, S)), f64(met_scale, (E, N)), f64(ta, (S,)), f64(pa, (S,)), f64(v, (S,)), f64(tr, (N, S)),
+        f64(r_cl, (N, S)), f64(r_ecl, (N, S)), f64(f_cl, (N, S)),
+        np.ascontiguousarray(np.broadcast_to(np.asarray(clothed, dtype=np.bool_), (N, S))),
+        f64(mass_kg, (N,)), f64(bsa_m2, (N,)), float(dt_s), float(P.s_per_h), float(P.c_body),
+        f64(theta_sw, (E, N)), f64(theta_dil, (E, N)), tcr_n, tbn, t0, cap, has_cap, int(record_every),
+        float(P.w_diff if cap_mode == "consistent" else 0.0),
+        use_iso, f64(iso.i_t, (N, S)) if use_iso else z, f64(iso.i_m, (N, S)) if use_iso else z,
+        f64(iso.i_cl_clo, (N, S)) if use_iso else z, f64(iso.w_max, (N,)) if use_iso else np.zeros(N),
+        float(iso.fraction) if use_iso else 1.0, float(iso.walk_credit) if use_iso else 1.0,
+        int(max_tcl_iter), _pack_gagge(P), _pack_iso())
+    if cap_mode not in ("consistent", "ashrae55_reference"):
+        raise ValueError(cap_mode)
+    return IntegrateOut(core=core, skin=skin, tcl_max_residual=float(res), tcl_iterations_max=int(it))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
