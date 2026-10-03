@@ -5,13 +5,17 @@ import type { AthleteStatus, SimulationResult, WeatherHour } from '../data/engin
 import { zoneColor } from '../data/constants'
 import { planStore, usePlanState } from '../data/planStore'
 import { useRoster } from '../data/roster'
+import { useEngineMeta } from '../data/engineMeta'
 import {
+  FHSAA_CITATION,
   hottestPeakP95,
   hourOf,
   planMinutes,
   seriesByMinute,
   statusCounts,
   weatherHourAt,
+  zoneRule,
+  zoneRuleText,
 } from '../data/selectors'
 import type { OfflineResult } from '../offline/standIn'
 import { PlanEditor } from '../components/PlanEditor'
@@ -89,6 +93,8 @@ function fromOffline(off: OfflineResult, roster: ReturnType<typeof useRoster>): 
 export function PlanView() {
   const p = usePlanState()
   const roster = useRoster()
+  const meta = useEngineMeta()
+  const zoneRules = meta.sources?.fhsaa_wbgt_zones?.zones
   const reduce = useReducedMotion()
   const [editing, setEditing] = useState(false)
   const [editFrom, setEditFrom] = useState<string | null>(null)
@@ -256,7 +262,7 @@ export function PlanView() {
                     {now.violations.length === 0 ? (
                       <motion.span
                         key="ok"
-                        className="rule rule--ok"
+                        className="rule rule--none"
                         initial={{ opacity: 0, transform: 'scale(0.95)' }}
                         animate={{ opacity: 1, transform: 'scale(1)' }}
                         exit={{ opacity: 0, transform: 'scale(0.95)' }}
@@ -265,22 +271,21 @@ export function PlanView() {
                         0 FHSAA issues found by the engine
                       </motion.span>
                     ) : (
-                      now.violations.slice(0, 4).map((v, i) => (
+                      now.violations.map((v, i) => (
                         <motion.span
                           key={`${i}-${v.text}`}
-                          className="rule rule--bad"
-                          title={v.text}
+                          className="rule rule--bad rule--full"
                           initial={{ opacity: 0, transform: 'scale(0.95)' }}
                           animate={{ opacity: 1, transform: 'scale(1)' }}
                           exit={{ opacity: 0, transform: 'scale(0.95)' }}
                           transition={{ duration: 0.2, ease: ease.out }}
                         >
-                          {shorten(v.text)}
+                          {hourLabel(v.text)}
                         </motion.span>
                       ))
                     )}
                   </AnimatePresence>
-                  {now.violations.length > 4 && <span className="rule rule--bad">+{now.violations.length - 4} more</span>}
+                  <span className="rule rule--cite faint">FHSAA issues: engine check · {FHSAA_CITATION}</span>
                 </div>
               )}
 
@@ -322,11 +327,16 @@ export function PlanView() {
                 <div className="wbgt">
                   {Array.from({ length: cols }, (_, c) => {
                     const h = now ? weatherHourAt(now.weather, p.plan.start, c * CELL_MIN) : null
+                    const rule = zoneRule(zoneRules, h?.fhsaa_zone)
                     return (
                       <span
                         key={c}
                         style={{ background: zoneColor(h?.fhsaa_zone) }}
-                        title={h ? `FHSAA zone ${h.fhsaa_zone} · WBGT ${h.wbgt_f.toFixed(1)} °F (forecast)` : 'no forecast hour'}
+                        title={
+                          h
+                            ? `FHSAA zone ${h.fhsaa_zone} · WBGT ${h.wbgt_f.toFixed(1)} °F (forecast)${rule ? ` — ${zoneRuleText(rule)} (${FHSAA_CITATION})` : ''}`
+                            : 'no forecast hour'
+                        }
                       />
                     )
                   })}
@@ -436,12 +446,10 @@ function SourceLabel({ source }: { source: string }) {
   return <span className={`plan__src plan__src--${source}`}>{label[source]}</span>
 }
 
-/** Engine violation details are long; turn "Hour 2026-10-04T15:00:00-04:00: …" into "3 PM hour: …" and trim. */
-function shorten(t: string) {
+/** Engine violation details start "Hour 2026-10-04T15:00:00-04:00: …"; show that as "3 PM hour: …" (text otherwise unchanged). */
+function hourLabel(t: string) {
   const hour = /^Hour \S*T(\d\d):\S*\s+(.*)$/.exec(t)
-  let s = hour ? `${((Number(hour[1]) + 11) % 12) + 1} ${Number(hour[1]) >= 12 ? 'PM' : 'AM'} hour: ${hour[2]}` : t.split(/[:;]/)[0]
-  s = s.trim()
-  return s.length > 64 ? `${s.slice(0, 62)}…` : s
+  return (hour ? `${((Number(hour[1]) + 11) % 12) + 1} ${Number(hour[1]) >= 12 ? 'PM' : 'AM'} hour: ${hour[2]}` : t).trim()
 }
 
 function DrillBlock({
@@ -595,7 +603,7 @@ function DrillPopover({
       {issues.length > 0 && (
         <ul className="pop__issues">
           {issues.map((v, k) => (
-            <li key={k}>{shorten(v.text)}</li>
+            <li key={k}>{hourLabel(v.text)}</li>
           ))}
         </ul>
       )}

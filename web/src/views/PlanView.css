@@ -98,9 +98,24 @@
   color: var(--alert);
 }
 
-.rule--ok {
-  background: var(--steady-bg);
-  color: var(--steady);
+.rule--none {
+  background: var(--ink-4);
+  color: var(--ink-2);
+}
+
+/* Engine violation text, shown in full. */
+.rule--full {
+  height: auto;
+  min-height: 30px;
+  padding: 6px 12px;
+  border-radius: 14px;
+  line-height: 1.35;
+}
+
+.rule--cite {
+  background: none;
+  padding: 0 4px;
+  font-size: 12px;
 }
 
 .plan__grid {
