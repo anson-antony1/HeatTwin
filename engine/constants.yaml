@@ -302,6 +302,7 @@ model_options:
   status: DESIGN
   note: "cap_mode 'consistent' = skin evaporation capped at w_crit·E_max (definition of wettedness); 'ashrae55_reference' reproduces pythermalcomfort/ASHRAE 55 code, which allows (w_crit + 0.06)·E_max. See MODEL.md §7.3."
   cap_mode: consistent
+  max_internal_dt_s: 30           # numerical: integration sub-step; outputs stay on the step_min grid (Euler lag at drill boundaries)
   clothing_mode: conservative      # 'conservative' (default: ISO structure, wind credit kept, no walking-ventilation credit, calibrated gear surcharge) | 'iso7933_dynamic' (alternate) | 'gagge_static' (reference structure)
 
 acclimatization:
@@ -458,9 +459,11 @@ armstrong_2010_reproduction:
 
 clothing_conservative:
   status: DESIGN
-  note: "Conservative clothing mode (planning default), ISO 7933 structure with two changes, each constrained by Armstrong et al. 2010 (validation/armstrong_2010.py): (1) no credit for walking-induced clothing ventilation (ISO's walking-speed term off) — with it, the model under-predicts Armstrong CON by ~1 SD (0.022 vs 0.037 °C/min); the wind term is kept (still-air chamber data cannot test it). (2) A gear load surcharge on metabolic heat, M × (1 + δ·w(gear)), with δ calibrated so full pads reproduce Armstrong's mean FULL treadmill rise (0.071 °C/min); w per gear level is listed below (DESIGN). The surcharge is metabolic: it is applied before the VO2max ceiling and inside the live-HR observation model. Armstrong and Hitchcock 2007 both attribute extra metabolic cost to the uniform (Hitchcock: recovery 61.4 % VO2max with shoulder pads + helmet vs 40.1 % in shorts). δ lumps uniform weight, pad coverage and sweat-soaking; it is a calibration, not a measured quantity. Because CON informed (1) and FULL fixes (2), only the whole-protocol rates are unfitted checks."
+  note: "Conservative clothing mode (planning default), ISO 7933 structure with two changes, each constrained by Armstrong et al. 2010 (validation/armstrong_2010.py): (1) no credit for walking-induced clothing ventilation (ISO's walking-speed term off) — with it, the model under-predicts Armstrong CON by ~1 SD (0.022 vs 0.037 °C/min); the wind term is kept (still-air chamber data cannot test it). (2) A gear load surcharge on metabolic heat, M × (1 + δ·w(gear)), with δ calibrated so full pads reproduce Armstrong's mean FULL whole-protocol rise (2.37 °C; the treadmill-rate fit δ = 0.1673 is kept as an alternative); w per gear level is listed below (DESIGN). The surcharge is metabolic: it is applied before the VO2max ceiling and inside the live-HR observation model. Armstrong and Hitchcock 2007 both attribute extra metabolic cost to the uniform (Hitchcock: recovery 61.4 % VO2max with shoulder pads + helmet vs 40.1 % in shorts). δ lumps uniform weight, pad coverage and sweat-soaking; it is a calibration, not a measured quantity. Because CON informed (1) and FULL fixes (2), only the whole-protocol rates are unfitted checks."
   calibrated_by: "validation/armstrong_2010.py --calibrate"
-  calibration_target: "armstrong_2010.treadmill_rate_c_per_min.FULL (mean, 0.071 °C/min)"
+  calibration_metric: whole_rise    # owner decision Oct 3: fit Table 3 whole-protocol FULL rise (2.37 °C); safety margin lives in p95 + the AT limit, not in median physics
+  calibration_target: "armstrong_2010.rise_c.FULL (mean, 2.37 °C over 56.2 min)"
+  alternative_fit_treadmill_rate: 0.1673   # δ fitted to Table 4 FULL treadmill rate 0.071 °C/min (mean of individual rates; early terminations bias it high) — reported, not used
   iso_correction_fraction: 1.0
   walk_credit_fraction: 0.0
   surcharge_weight_by_gear:        # DESIGN: share of the full-pads surcharge per gear level
@@ -468,7 +471,7 @@ clothing_conservative:
     helmet: 0.0                    # helmet-only already borrows the helmet + shoulder-pads clothing values (TODO); no extra surcharge until a helmet-only ensemble is measured
     helmet_shoulder_pads: 0.636    # intrinsic-insulation interpolation (0.63 − 0.35)/(0.79 − 0.35)
     full_pads: 1.0
-  gear_met_surcharge_full_pads: 0.1669   # computed by validation/armstrong_2010.py --calibrate (FULL treadmill 0.0710 °C/min)
+  gear_met_surcharge_full_pads: 0.0645   # computed by validation/armstrong_2010.py --calibrate (FULL whole-protocol rise 2.37 °C)
 
 demo_mode:
   status: DESIGN

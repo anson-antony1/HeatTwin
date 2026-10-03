@@ -36,12 +36,21 @@ What we change relative to the reference (each change is listed in §10):
 | 11 | No aerobic ceiling | Metabolic rate per athlete clipped at VO₂max (§4) |
 
 Three **clothing modes** (constants `model_options.clothing_mode`):
-* `conservative` (**planning default**): ISO 7933 structure with (1) **no walking-ventilation credit**. ISO's walking-speed
-  term is off; with it, the model under-predicts Armstrong CON by about 1 SD. The **wind** term is kept, because still-air chamber
-  data can't test it. (2) A **gear load surcharge** on metabolic heat, `M × (1 + δ·w(gear))`. δ = 0.1669 is calibrated so
-  full pads reproduce Armstrong 2010's mean FULL treadmill rise (0.071 °C/min). w(gear) runs from 0 for `none` to 1 for `full_pads`,
-  interpolated by intrinsic insulation. Armstrong and Hitchcock 2007 both attribute extra metabolic cost to the uniform; δ
-  lumps uniform weight, pad coverage and sweat-soaking. It's a calibration, not a measurement.
+* `conservative` (**planning default**): ISO 7933 structure with (1) **no walking-ventilation credit**, since with it the
+  model under-predicts Armstrong CON by about 1 SD. The **wind** term is kept, because still-air chamber data can't test it.
+  (2) A **gear load surcharge** on metabolic heat, `M × (1 + δ·w(gear))`. δ = **0.0645** is fitted to Armstrong 2010's
+  FULL whole-protocol rise (2.37 °C over 56.2 min); that was the owner's decision on Oct 3. The safety margin lives in p95 and the
+  AT-owned limit, not in the median physics. w(gear) is 0 for `none` and `helmet`, 0.636 for `helmet_shoulder_pads` and 1 for
+  `full_pads`. δ lumps uniform weight, pad coverage and sweat-soaking; it's a calibration, not a measurement.
+  **Both fits:**
+
+  | Fit target | δ | FULL treadmill rate | FULL rise | CON treadmill rate | CON rise |
+  |---|---|---|---|---|---|
+  | whole_rise (in use) | 0.0645 | 0.0618 (meas 0.071 ± 0.032) | 2.37 (meas 2.37 ± 0.45) | 0.0349 (meas 0.037 ± 0.015) | 1.8 (meas 1.81 ± 0.40) |
+  | treadmill_rate | 0.1673 | 0.071 (meas 0.071 ± 0.032) | 2.78 (meas 2.37 ± 0.45) | 0.0349 (meas 0.037 ± 0.015) | 1.8 (meas 1.81 ± 0.40) |
+
+  Table 4's 0.071 °C/min is a mean of individual rates, and the fast heaters stopped early: 0.071 × 36.2 min = 2.57 °C, more than
+  the 2.37 °C whole-protocol rise. Fitting one mean subject to it therefore overshoots the rise (2.78 °C).
 * `iso7933_dynamic` (alternate): the full ISO 7933 dynamic correction, with no surcharge.
 * `gagge_static`: Gagge's own clothing and w_crit structure with static intrinsic manikin values. With Gagge's
   i_cl = 0.45 law and 70 kg / 1.8258 m², this mode reproduces `two_nodes_gagge` (test tolerance 0.01 °C).
@@ -52,20 +61,20 @@ Compendium METs (box lifting 4.0, seated 1.0, treadmill 5.3).
 
 | Model | Condition | Treadmill rate (model) | Measured (mean ± SD) | Error / SD | Whole-protocol rise model / measured (°C) |
 |---|---|---|---|---|---|
-| conservative | CON | 0.0349 | 0.037 ± 0.015 | -0.14 | 1.81 / 1.81 |
-| conservative | FULL | 0.0710 | 0.071 ± 0.032 | -0.00 (fit) | 2.80 / 2.37 |
+| conservative | CON | 0.0349 | 0.037 ± 0.015 | -0.14 | 1.80 / 1.81 |
+| conservative | FULL | 0.0618 | 0.071 ± 0.032 | -0.29 | 2.37 / 2.37 (fit) |
 | iso7933_dynamic | CON | 0.0219 | 0.037 ± 0.015 | -1.01 | 1.12 / 1.81 |
-| iso7933_dynamic | FULL | 0.0390 | 0.071 ± 0.032 | -1.00 | 1.46 / 2.37 |
-| gagge_static | CON | 0.0313 | 0.037 ± 0.015 | -0.38 | 1.66 / 1.81 |
-| gagge_static | FULL | 0.0562 | 0.071 ± 0.032 | -0.46 | 2.20 / 2.37 |
+| iso7933_dynamic | FULL | 0.0389 | 0.071 ± 0.032 | -1.00 | 1.45 / 2.37 |
+| gagge_static | CON | 0.0313 | 0.037 ± 0.015 | -0.38 | 1.65 / 1.81 |
+| gagge_static | FULL | 0.0560 | 0.071 ± 0.032 | -0.47 | 2.18 / 2.37 |
 | jos3 | CON | 0.0324 | 0.037 ± 0.015 | -0.31 | 1.81 / 1.81 |
 | jos3 | FULL | 0.0383 | 0.071 ± 0.032 | -1.02 | 1.52 / 2.37 |
 
 Summary values only: Tables 3 and 4. Figure 2's time course isn't tabulated and wasn't digitized. The air speed wasn't reported; results.json has a 0.1 / 0.5 / 1.0 m/s sweep, and it's the largest uncertainty, since conservative CON moves by about 1 SD between 0.1 and 0.5 m/s. JOS-3 behaves like the ISO-dynamic mode: it under-predicts FULL by about 1 SD.
 
-The FULL row in conservative mode is the calibration target, and CON informed dropping the walking credit, so the only
-unfitted checks are the whole-protocol rates. Conservative over-predicts FULL whole-protocol by 0.8 SD (0.050 vs 0.042),
-which is the safe direction. ISO-dynamic under-predicts both conditions by about 1 SD, the unsafe direction.
+The FULL rise in conservative mode is the calibration target, and CON informed dropping the walking credit. With the rise
+fit, the FULL treadmill rate is 0.062 vs 0.071 ± 0.032 (−0.3 SD) and CON matches (0.035 vs 0.037). ISO-dynamic and JOS-3
+under-predict both conditions by about 1 SD.
 
 **Field consequence** (fixture practice, NATA-phased gear, cached NWS forecast). Conservative: median peak 40.1–41.0 °C,
 p95 40.7–41.9 °C. ISO-dynamic: median 38.8–39.8 °C, p95 39.5–40.5 °C. In both modes all 16 athletes cross 39.0 °C at p95 on the
@@ -347,8 +356,9 @@ For each step k with inputs u_k (drill/gear/shade/weather at the step start):
 Initial state: `T_cr = T_cr,n (− acclimatization shift)`, `T_sk = T_sk,n`, `SKBF = SKBF_n`, `α = α₀`,
 `E_sk = 0.1·met_A` (the reference's initial guess).
 
-**Step size:** `step_min` sets dt. Core: 1 min vs 15 s differs by ≤ 0.035 °C on the fixture (physio-reviewer). The test
-requires < 0.05 °C for p50 and p95, so no sub-stepping is needed. Skin: 1-min Euler overshoots by up to 0.7 °C right at
+**Step size:** the physics integrates at ≤ `model_options.max_internal_dt_s` = 30 s and reports on the `step_min` grid. With
+plain 1-min Euler, one fixture drill boundary differed from 15-s steps by 0.051 °C. With 30-s sub-steps the < 0.05 °C test passes,
+at 5.5 ms per 16 × 113 × 30 simulation. Skin: 1-min Euler overshoots by up to 0.7 °C right at
 drill boundaries (the skin node's time constant is about 1 min at high blood flow) and damps within 2 steps. Skin isn't
 an output, and the core is unaffected.
 
@@ -421,7 +431,7 @@ to 0.1 °C and state the seed; the optimizer uses common random numbers, so plan
 - The numba kernel raises on a non-converged T_cl, and stale text is corrected.
 
 **Open judgement calls (owner's decision):**
-1. **Calibration statistic.** Armstrong's Table 4 FULL rate (0.071 °C/min) is a mean of individual rates, and fast heaters stopped early. 0.071 × 36.2 min = 2.57 °C, more than the 2.37 °C whole-protocol rise, so fitting one mean subject to 0.071 overshoots the rise (model 2.80 vs 2.37 ± 0.45 °C). Fitting δ to the whole-protocol rise instead gives δ ≈ 0.061 and lowers fixture p95 by about 0.1–0.2 °C. It stays on 0.071 as the owner decided ("match the mean rise rate").
+1. **Calibration statistic. DECIDED Oct 3:** δ is now fitted to the whole-protocol rise (0.0645). The treadmill-rate fit (0.1673) is reported alongside it above and in results.json.
 2. **The walking-ventilation credit is the biggest lever.** Restoring it, with δ refit to about 0.20, lowers fixture p95 by about 1.0–1.3 °C. The case for dropping it depends on the treadmill MET:
    - The Compendium 17034 value (5.3 MET) is used here.
    - The ACSM walking equation would give about 6.1 MET (book not verified). At that MET the credit-off choice over-predicts CON by about +1.5 SD.

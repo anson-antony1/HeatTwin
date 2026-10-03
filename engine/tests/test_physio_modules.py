@@ -152,10 +152,14 @@ def test_unverified_gear_level_is_labelled():
 
 
 def test_conservative_calibration_reproduces_armstrong_full():
-    """constants.clothing_conservative.δ must still reproduce Armstrong 2010 FULL treadmill rise (recalibrate if not)."""
+    """constants.clothing_conservative.δ must still reproduce its Armstrong 2010 FULL target (recalibrate if not)."""
     from validation.armstrong_2010 import simulate
-    target = consts.get("armstrong_2010.treadmill_rate_c_per_min.FULL")[0]
-    assert simulate("FULL", "conservative")["treadmill_rate_c_per_min"] == pytest.approx(target, abs=5e-4)
+    metric = consts.get("clothing_conservative.calibration_metric")
+    sim = simulate("FULL", "conservative")
+    if metric == "whole_rise":
+        assert sim["rise_c"] == pytest.approx(consts.get("armstrong_2010.rise_c.FULL")[0], abs=0.01)
+    else:
+        assert sim["treadmill_rate_c_per_min"] == pytest.approx(consts.get("armstrong_2010.treadmill_rate_c_per_min.FULL")[0], abs=5e-4)
     # conservative never heats less than the ISO-dynamic alternate
     for cond in ("CON", "FULL"):
         assert simulate(cond, "conservative")["treadmill_rate_c_per_min"] >= simulate(cond, "iso7933_dynamic")["treadmill_rate_c_per_min"]

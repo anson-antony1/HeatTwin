@@ -714,20 +714,24 @@ def simulate_arrays(tl: Timeline, env: Environment, R: RosterArrays, D: Draws,
     met_scale, thermo = scales(R, D)
     met_wm2 = metabolic.met_to_w_m2(tl.met, R.mass_kg[:, None], R.bsa_m2[:, None])
     gt = clothing.gear_table()
+    # numerical sub-stepping: integrate at ≤ max_internal_dt_s, report on the step grid
+    sub = max(1, int(np.ceil(env.step_min * 60.0 / float(consts.get("model_options.max_internal_dt_s")) - 1e-9)))
     if clothing_mode == "conservative":
         met_wm2 = met_wm2 * (1.0 + gear_met_surcharge()[tl.gear])
     tr = np.where(tl.shade, env.ta[None, :S], env.tr_sun[None, :S])
+    rep2 = lambda x: np.repeat(x, sub, axis=-1) if sub > 1 else x  # noqa: E731
+    gear = rep2(tl.gear)
     iso = None
     if clothing_mode in ("iso7933_dynamic", "conservative"):
         d = consts.get("iso7933_dynamic")
         w_max = d["w_max_unacclimatized"] + R.accl_frac * (d["w_max_acclimatized"] - d["w_max_unacclimatized"])
-        iso = IsoClothing(i_t=gt["i_t"][tl.gear], i_m=gt["i_m"][tl.gear], i_cl_clo=gt["i_cl_clo"][tl.gear], w_max=w_max,
+        iso = IsoClothing(i_t=gt["i_t"][gear], i_m=gt["i_m"][gear], i_cl_clo=gt["i_cl_clo"][gear], w_max=w_max,
                           fraction=iso_fraction(clothing_mode), walk_credit=walk_credit(clothing_mode))
     return integrate(
-        met_wm2=met_wm2, met_scale=met_scale,
-        ta=env.ta[:S], pa=env.pa[:S], v=env.v_body[:S], tr=tr,
-        r_cl=gt["r_cl"][tl.gear], r_ecl=gt["r_ecl"][tl.gear], f_cl=gt["f_cl"][tl.gear], clothed=gt["clothed"][tl.gear],
-        mass_kg=R.mass_kg, bsa_m2=R.bsa_m2, dt_s=env.step_min * 60.0,
+        met_wm2=rep2(met_wm2), met_scale=met_scale,
+        ta=rep2(env.ta[:S]), pa=rep2(env.pa[:S]), v=rep2(env.v_body[:S]), tr=rep2(tr),
+        r_cl=gt["r_cl"][gear], r_ecl=gt["r_ecl"][gear], f_cl=gt["f_cl"][gear], clothed=gt["clothed"][gear],
+        mass_kg=R.mass_kg, bsa_m2=R.bsa_m2, dt_s=env.step_min * 60.0 / sub, record_every=sub,
         theta_sw=thermo * R.sw_gain[None, :], theta_dil=thermo, setpoint_shift=R.setpoint_shift,
         met_cap_wm2=metabolic.met_to_w_m2(R.met_cap, R.mass_kg, R.bsa_m2),
         cap_mode=cap_mode or consts.get("model_options.cap_mode"), iso=iso,

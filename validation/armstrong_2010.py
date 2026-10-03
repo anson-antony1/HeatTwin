@@ -51,6 +51,8 @@ def simulate(condition: str, clothing_mode: str, air_speed: float | None = None,
     mets = np.r_[np.full(A["protocol_min"]["box_lifting"], S["met"]["box_lifting"]),
                  np.full(A["protocol_min"]["seated"], S["met"]["seated"]),
                  np.full(tread, S["met"]["treadmill"])]
+    sub = max(1, int(np.ceil(60.0 / float(consts.get("model_options.max_internal_dt_s")) - 1e-9)))
+    mets = np.repeat(mets, sub)            # same internal sub-step as field simulations
     n = len(mets)
     one = np.ones((1, n))
     ta = np.full(n, A["chamber"]["air_temp_c"])
@@ -79,17 +81,18 @@ def simulate(condition: str, clothing_mode: str, air_speed: float | None = None,
         ta=ta, pa=pa, v=np.full(n, v), tr=ta[None, :],
         r_cl=gt["r_cl"][gi] * one, r_ecl=gt["r_ecl"][gi] * one, f_cl=gt["f_cl"][gi] * one,
         clothed=np.full((1, n), bool(gt["clothed"][gi])),
-        mass_kg=np.array([mass]), bsa_m2=np.array([bsa]), dt_s=60.0,
+        mass_kg=np.array([mass]), bsa_m2=np.array([bsa]), dt_s=60.0 / sub, record_every=sub,
         theta_sw=R.sw_gain[None, :], setpoint_shift=R.setpoint_shift, tcr0=np.array([A["start_rectal_c"]]),
         met_cap_wm2=metabolic.met_to_w_m2(R.met_cap, R.mass_kg, R.bsa_m2),
         cap_mode=consts.get("model_options.cap_mode"), iso=iso,
     )
     core = np.r_[A["start_rectal_c"], out.core[0, 0]]  # core[k] = state after k minutes
+    m = n // sub
     return {
-        "treadmill_rate_c_per_min": float((core[n] - core[pre]) / tread),
-        "whole_protocol_rate_c_per_min": float((core[n] - core[0]) / n),
-        "rise_c": float(core[n] - core[0]),
-        "end_core_c": float(core[n]),
+        "treadmill_rate_c_per_min": float((core[m] - core[pre]) / tread),
+        "whole_protocol_rate_c_per_min": float((core[m] - core[0]) / m),
+        "rise_c": float(core[m] - core[0]),
+        "end_core_c": float(core[m]),
         "treadmill_min": tread,
     }
 
@@ -130,10 +133,24 @@ def simulate_jos3(condition: str, air_speed: float | None = None) -> dict[str, f
     }
 
 
-def calibrate(tol: float = 1e-5) -> float:
-    """Full-pads metabolic surcharge δ ≥ 0 such that the FULL treadmill rate (conservative mode) = measured mean."""
-    target = consts.get("armstrong_2010.treadmill_rate_c_per_min.FULL")[0]
-    f = lambda d: simulate("FULL", "conservative", surcharge=d)["treadmill_rate_c_per_min"] - target  # noqa: E731
+CALIBRATION_TARGETS = ("whole_rise", "treadmill_rate")
+
+
+def _fit_metric(target: str, sim: dict[str, float]) -> float:
+    return sim["rise_c"] if target == "whole_rise" else sim["treadmill_rate_c_per_min"]
+
+
+def _target_value(target: str) -> float:
+    A = consts.get("armstrong_2010")
+    return A["rise_c"]["FULL"][0] if target == "whole_rise" else A["treadmill_rate_c_per_min"]["FULL"][0]
+
+
+def calibrate(target: str = "whole_rise", tol: float = 1e-5) -> float:
+    """Full-pads metabolic surcharge δ ≥ 0 so the conservative-mode FULL run matches Armstrong's mean
+    ``whole_rise`` (Table 3, 2.37 °C over the protocol; the default since the owner's Oct 3 decision) or
+    ``treadmill_rate`` (Table 4, 0.071 °C/min — a mean of individual rates, biased high by early terminations)."""
+    goal = _target_value(target)
+    f = lambda d: _fit_metric(target, simulate("FULL", "conservative", surcharge=d)) - goal  # noqa: E731
     lo, hi = 0.0, 1.0
     if f(lo) >= 0:
         return 0.0
@@ -146,6 +163,20 @@ def calibrate(tol: float = 1e-5) -> float:
         else:
             hi = mid
     return round(0.5 * (lo + hi), 4)
+
+
+def fits() -> list[dict]:
+    """Both calibration fits with what each predicts for CON and FULL (reference air speed)."""
+    out = []
+    for target in CALIBRATION_TARGETS:
+        d = calibrate(target)
+        row = {"target": target, "target_value": _target_value(target), "gear_met_surcharge_full_pads": d}
+        for cond in ("CON", "FULL"):
+            sim = simulate(cond, "conservative", surcharge=d)
+            row[f"{cond}_treadmill_rate_c_per_min"] = round(sim["treadmill_rate_c_per_min"], 4)
+            row[f"{cond}_rise_c"] = round(sim["rise_c"], 2)
+        out.append(row)
+    return out
 
 
 def run() -> dict:
@@ -170,13 +201,16 @@ def run() -> dict:
                     "model_rise_c": round(sim["rise_c"], 2), "measured_rise_c": rise, "measured_rise_sd": rise_sd,
                     "model_end_core_c": round(sim["end_core_c"], 2),
                     "fitted": bool(mode == "conservative" and cond == "FULL" and v == S["air_speed_m_s"]),
+                    "fitted_metric": consts.get("clothing_conservative.calibration_metric")
+                    if (mode == "conservative" and cond == "FULL" and v == S["air_speed_m_s"]) else None,
                 })
     summary = {}
     ref_v = S["air_speed_m_s"]
     for mode in MODES + REFERENCE_MODELS:
         rs = [r for r in rows if r["clothing_mode"] == mode and r["air_speed_m_s"] == ref_v]
-        unfitted = [r for r in rs if not r["fitted"]]
-        e_t = [r["treadmill_error_c_per_min"] for r in unfitted]
+        cal = consts.get("clothing_conservative.calibration_metric")
+        e_t = [r["treadmill_error_c_per_min"] for r in rs if not (r["fitted"] and cal == "treadmill_rate")]
+        e_r_unfit = [r["model_rise_c"] - r["measured_rise_c"] for r in rs if not (r["fitted"] and cal == "whole_rise")]
         e_w = [r["model_whole_protocol_rate_c_per_min"] - r["measured_whole_protocol_rate_c_per_min"] for r in rs]
         e_r = [r["model_rise_c"] - r["measured_rise_c"] for r in rs]
         summary[mode] = {
@@ -184,6 +218,7 @@ def run() -> dict:
             "whole_protocol_rate_rmse_c_per_min": round(float(np.sqrt(np.mean(np.square(e_w)))), 4),
             "whole_protocol_rate_max_abs_error_c_per_min": round(float(np.max(np.abs(e_w))), 4),
             "rise_rmse_c": round(float(np.sqrt(np.mean(np.square(e_r)))), 2),
+            "rise_rmse_unfitted_c": round(float(np.sqrt(np.mean(np.square(e_r_unfit)))), 2) if e_r_unfit else None,
             "rise_max_abs_error_c": round(float(np.max(np.abs(e_r))), 2),
             "n_comparisons": len(rs),
         }
@@ -191,6 +226,8 @@ def run() -> dict:
         "study": "Armstrong et al. 2010, J Athl Train 45:117 (PMC2838463)",
         "comparison_basis": "summary values only (Table 3 whole-protocol rise and rate, Table 4 treadmill rate); Figure 2's time course is not tabulated and was not digitized, so no time-point RMSE is reported",
         "summary_at_reference_air_speed": summary,
+        "calibration_fits": fits(),
+        "calibration_in_use": consts.get("clothing_conservative.calibration_metric"),
         "computed_by": "validation/armstrong_2010.py",
         "computed_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "model": twonode.MODEL_NAME,
@@ -198,7 +235,7 @@ def run() -> dict:
         "synthetic": False,
         "notes": [
             "Deterministic run for the mean participant; measured values are group means ± SD of 10 men.",
-            "Conservative mode is calibrated on FULL at the reference air speed (row with fitted=true) — that row is a fit, not a validation.",
+            "Conservative mode is calibrated on FULL at the reference air speed (row with fitted=true, on fitted_metric) — that metric is a fit, not a validation. Both calibration fits are listed under calibration_fits.",
             "Air speed and metabolic rate were not reported; METs from the 2024 Compendium (task mapping is a judgement call).",
             "CON maps to gear 'none', which includes a T-shirt that Armstrong's CON did not wear; PART has no matching gear level.",
             "JOS-3 uses static intrinsic clo of the mapped gear (it takes no evaporative resistance input) and starts from its own neutral state; rates and rises are compared, not absolute temperatures.",
@@ -217,11 +254,12 @@ def write(result: dict) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser(description="Armstrong 2010 reproduction")
     ap.add_argument("--calibrate", action="store_true")
+    ap.add_argument("--target", default=None, choices=CALIBRATION_TARGETS)
     args = ap.parse_args()
     if args.calibrate:
-        d = calibrate()
-        print(f"conservative gear_met_surcharge_full_pads δ = {d}")
-        print(json.dumps(simulate("FULL", "conservative", surcharge=d)))
+        for row in fits():
+            if args.target in (None, row["target"]):
+                print(json.dumps(row))
         return
     res = run()
     write(res)
