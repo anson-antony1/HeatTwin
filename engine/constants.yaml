@@ -476,3 +476,9 @@ iso7933_dynamic:
   i_a_static_m2k_w: 0.111
   w_max_unacclimatized: 0.85
   w_max_acclimatized: 1.0          # interpolated with constants.acclimatization fraction (DESIGN)
+
+assimilation:
+  status: DESIGN
+  note: "engine/weather.py assimilate_env: bias-correct the remaining forecast from sideline-node readings. Bias = mean(node − forecast) over the last window_min of readings, applied to later hours with weight falling linearly from 1 at the last reading to 0 after decay_h (WS1 brief: 'rolling mean of node−forecast WBGT, decayed over 3 h'). Corrects wbgt_f and air_temp_c (the physiology model reads air temperature, not WBGT). A modelling choice, not a sourced method; field validation (WS7) reports how well it does."
+  window_min: 60
+  decay_h: 3.0

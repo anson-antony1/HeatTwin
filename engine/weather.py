@@ -191,3 +191,113 @@ def _window(hours, start, end):
         t = datetime.fromisoformat(h["time"])
         return (start is None or t >= start) and (end is None or t < end)
     return [h for h in hours if keep(h)]
+
+
+# ── field-node assimilation (WS1 step 4) ────────────────────────────────────
+
+def _interp(hours: Sequence[Mapping[str, Any]], key: str, t: datetime) -> Optional[float]:
+    """Linear interpolation of an hourly field at t; None outside the forecast span."""
+    ts = [datetime.fromisoformat(h["time"]).timestamp() for h in hours]
+    x = t.timestamp()
+    if not ts or x < ts[0] or x > ts[-1] + 3600:
+        return None
+    import numpy as np
+
+    return float(np.interp(x, ts, [float(h[key]) for h in hours]))
+
+
+def node_reading_wbgt(reading: Mapping[str, Any], forecast: Sequence[Mapping[str, Any]],
+                      lat: Optional[float] = None, lon: Optional[float] = None) -> Optional[dict[str, Any]]:
+    """Field WBGT for one node reading (CONTRACTS.md node shape), with the forecast at the same moment.
+
+    The node has no anemometer (wind_m_s is null); the forecast's 10 m wind reduced to 2 m is used instead.
+    Returns None if the reading lacks air/RH/globe temperature or falls outside the forecast.
+    """
+    from engine import wbgt
+
+    if any(reading.get(k) is None for k in ("ts", "air_temp_c", "rh_pct", "globe_temp_c")):
+        return None
+    t = datetime.fromisoformat(reading["ts"])
+    hours = sorted(forecast, key=lambda h: datetime.fromisoformat(h["time"]))
+    f_wbgt, f_air = _interp(hours, "wbgt_f", t), _interp(hours, "air_temp_c", t)
+    if f_wbgt is None:
+        return None
+    wind = reading.get("wind_m_s")
+    if wind is None:                         # forecast 10 m wind → 2 m with Liljegren's stability power law
+        inp = consts.get("wbgt_inputs")
+        f_wind = _interp(hours, "wind_m_s", t)
+        f_solar = _interp(hours, "solar_w_m2", t) if all(h.get("solar_w_m2") is not None for h in hours) else 0.0
+        daytime = True
+        if lat is not None and lon is not None:
+            daytime = bool(wbgt.solar_geometry(wbgt._utc_seconds(t), lat, lon)[0][0] > 0)
+        stab = wbgt.stability_class(daytime, f_wind, f_solar, inp["night_dt_c"])
+        wind = float(wbgt.wind_at_2m(f_wind, inp["wind_height_m"], stab, inp["urban"]))
+    kw = {"time": t, "lat": lat, "lon": lon} if lat is not None and lon is not None else {}
+    node = wbgt.node_components(float(reading["air_temp_c"]), float(reading["rh_pct"]), float(reading["globe_temp_c"]),
+                                wind, **kw)
+    return {"t": t, "node_wbgt_f": node["wbgt_f"], "forecast_wbgt_f": f_wbgt, "node_air_c": float(reading["air_temp_c"]),
+            "forecast_air_c": f_air, "rh_pct": float(reading["rh_pct"]), "wind_m_s": wind,
+            "solar_w_m2": node["solar_inferred_w_m2"]}
+
+
+def node_hour(reading: Mapping[str, Any], forecast: Sequence[Mapping[str, Any]],
+              lat: Optional[float] = None, lon: Optional[float] = None) -> Optional[dict[str, Any]]:
+    """The latest node reading as a WeatherHour (source="field_node") for GET /node/latest."""
+    from engine import fhsaa_adapter
+
+    r = node_reading_wbgt(reading, forecast, lat, lon)
+    if r is None:
+        return None
+    cloud = _interp(sorted(forecast, key=lambda h: datetime.fromisoformat(h["time"])), "cloud_cover_pct", r["t"])
+    w = round(r["node_wbgt_f"], 1)
+    return {"time": r["t"].isoformat(), "air_temp_c": round(r["node_air_c"], 2), "rh_pct": round(r["rh_pct"], 1),
+            "wind_m_s": round(r["wind_m_s"], 2), "cloud_cover_pct": round(cloud, 1) if cloud is not None else 0.0,
+            "solar_w_m2": round(r["solar_w_m2"], 1), "wbgt_f": w, "fhsaa_zone": fhsaa_adapter.zone(w),
+            "source": "field_node", "node_id": reading.get("node_id")}
+
+
+def assimilate_env(forecast: Sequence[Mapping[str, Any]], node_readings: Sequence[Mapping[str, Any]],
+                   lat: Optional[float] = None, lon: Optional[float] = None) -> list[dict[str, Any]]:
+    """Forecast hours corrected by field-node readings (see constants.assimilation).
+
+    * Hours containing readings → WBGT and air temperature are the mean of what the node measured
+      (source="field_node").
+    * Later hours → forecast + bias · max(0, 1 − Δt/decay_h), bias = mean(node − forecast) over the last
+      window_min of readings (source="assimilated"; fields bias_wbgt_f / bias_air_c say by how much).
+    * Earlier hours and hours past the decay horizon are returned unchanged.
+    Pass the site lat/lon so the globe inversion can use sun angle (otherwise sunlight is treated as diffuse).
+    """
+    from engine import fhsaa_adapter
+
+    cfg = consts.get("assimilation")
+    hours = sorted((dict(h) for h in forecast), key=lambda h: datetime.fromisoformat(h["time"]))
+    pts = [p for p in (node_reading_wbgt(r, hours, lat, lon) for r in node_readings) if p is not None]
+    if not pts:
+        return hours
+    pts.sort(key=lambda p: p["t"])
+    t_last = pts[-1]["t"]
+    recent = [p for p in pts if (t_last - p["t"]).total_seconds() <= cfg["window_min"] * 60]
+    bias_w = sum(p["node_wbgt_f"] - p["forecast_wbgt_f"] for p in recent) / len(recent)
+    bias_a = sum(p["node_air_c"] - p["forecast_air_c"] for p in recent) / len(recent)
+
+    for h in hours:
+        t0 = datetime.fromisoformat(h["time"])
+        in_hour = [p for p in pts if 0 <= (p["t"] - t0).total_seconds() < 3600]
+        if in_hour:
+            h["wbgt_f"] = round(sum(p["node_wbgt_f"] for p in in_hour) / len(in_hour), 1)
+            h["air_temp_c"] = round(sum(p["node_air_c"] for p in in_hour) / len(in_hour), 2)
+            h["n_node_readings"] = len(in_hour)
+            h["source"] = "field_node"
+        elif t0 > t_last:
+            weight = max(0.0, 1.0 - (t0 - t_last).total_seconds() / 3600.0 / cfg["decay_h"])
+            if weight <= 0:
+                continue
+            h["bias_wbgt_f"] = round(bias_w * weight, 2)
+            h["bias_air_c"] = round(bias_a * weight, 2)
+            h["wbgt_f"] = round(h["wbgt_f"] + bias_w * weight, 1)
+            h["air_temp_c"] = round(h["air_temp_c"] + bias_a * weight, 2)
+            h["source"] = "assimilated"
+        else:
+            continue
+        h["fhsaa_zone"] = fhsaa_adapter.zone(h["wbgt_f"])
+    return hours
