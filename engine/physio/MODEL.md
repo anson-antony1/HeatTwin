@@ -517,6 +517,25 @@ overstated.
 Nothing was tuned: the gap is reported. Narrowing it needs measured drill intensity (HR or GPS from the team's own practices,
 WS3) and field validation of the clothing ventilation terms.
 
+## 12c. Duty-cycle search (Oct 3): not enabled
+
+The owner's direction: replace continuous game METs with per-drill duty cycles,
+`MET_eff = f_active·MET_active + (1 − f_active)·MET_between`, using independent workload evidence only. The 25-min search found:
+
+* **Team periods:** f_active ≈ 0.145 (high-school scrimmage, Gleason 2017: 5.7 s plays, 33.4 s rest) and 0.14–0.15 from
+  game time-motion (Rhea 2006). VERIFIED (abstracts).
+* **No sourced MET_active for a 5–6 s play.** Compendium 15210 (8.0) is a whole-game average that already includes the rest
+  between plays, so putting it in the duty cycle would double-count rest.
+* **No practice f_active** for individual, special-teams or conditioning periods. NCAA drill lengths only (Mamon).
+* **Between-drill recovery is not "standing".** Hitchcock 2007 measured 40–61 % VO₂max during recovery between drills, so a
+  standing MET_between (1.3–2.3) would under-predict heat, the unsafe direction.
+
+The model is therefore **kept disabled** (`constants.drill_duty_cycle.enabled: false`). The drill-type plumbing is in place
+(`metabolic.drill_type`, optional `Drill.drill_type`), and nothing else was changed. The field gap in §12b stands (medians
+1.4–1.7 °C above pill-measured practice peaks at matched WBGT), so the "errs hot" wording stays. To enable the model:
+full-text speed-zone data (DeMartini 2011, Gleason 2017), Hitchcock's per-drill %VO₂max, or the team's own HR or GPS from
+practice (WS3), which measures the same thing directly.
+
 ## 12. How it is checked
 
 * `tests/test_twonode.py`: rises with met; falls at rest in shade; monotonic in heat-stress inputs (T_a, RH, solar)
