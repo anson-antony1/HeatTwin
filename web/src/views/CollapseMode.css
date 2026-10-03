@@ -257,6 +257,14 @@
   color: rgb(20 17 25 / 0.72);
 }
 
+.cstep__src {
+  display: block;
+  margin-top: 6px;
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: rgb(20 17 25 / 0.55);
+}
+
 .cstep__time {
   padding-top: 9px;
   font-size: 12.5px;
@@ -289,6 +297,25 @@
   line-height: 1;
   letter-spacing: -0.02em;
   margin: 10px 0 8px;
+}
+
+.ccard__sub {
+  margin: -2px 0 8px;
+  font-size: 16px;
+  color: var(--c-ink-2);
+}
+
+/* Text in the big slot (no probe): same slot, smaller type, no tabular numerals. */
+.ccard__big--text {
+  font-size: 22px;
+  line-height: 1.15;
+}
+
+.ccard__goal {
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--c-ink-2);
 }
 
 .ccard__ok {
@@ -378,6 +405,14 @@
   font-size: 12.5px;
   color: var(--c-ink-3);
   text-align: center;
+}
+
+.collapse__foot p {
+  margin: 0;
+}
+
+.collapse__foot p + p {
+  margin-top: 4px;
 }
 
 @media (max-width: 1080px) {
