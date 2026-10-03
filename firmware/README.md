@@ -94,3 +94,21 @@ we report "our field vs. the forecast" and don't present it as a certified WBGT 
 - `fixtures/node_indoor_test_2026-10-03.csv` / `.raw.txt`: a real but **indoor** test run (globe warmed by hand/air,
   air/RH from the KGNV airport station). For building and replaying the UI only — not field data, not for validation:
   `python -m engine.node_bridge --replay fixtures/node_indoor_test_2026-10-03.raw.txt --post http://localhost:8000/node`
+
+## Indoor demo (what we present — no outdoor readings)
+`--demo` zeroes the globe on the room (first 5 readings, so start it with the ball at room temperature), then puts
+only the globe's rise on a hot-day scenario (constants.demo_node: WBGT 80 °F with no sun, RH 70 %). A heat gun or hair
+dryer on the ball reads as sunlight. Everything is labelled **"DEMO scenario … (synthetic) — not field data"**.
+
+```bash
+# terminal 1: the engine (node routes are mounted in engine/api.py on this branch)
+env -u PYTHONPATH .venv/bin/python -m uvicorn engine.api:app --port 8000
+# terminal 2: the bridge
+env -u PYTHONPATH .venv/bin/python -m engine.node_bridge --port /dev/ttyACM0 --demo --post http://localhost:8000/node
+```
+While demo readings arrive (and for 5 min after), `/simulate`, `/optimize` and the live session use the scenario
+weather, and every `POST /node` that moves the inferred sun by ≥25 W/m² returns a fresh live `reforecast`.
+
+Demo beat: Plan (original plan is red) → Optimize (green) → heat the ball → field WBGT climbs 80 → ~92 °F (zone 4) and
+the first athlete on the optimized plan crosses the planning limit. The sun angle comes from the plan's clock, so run it
+on a daytime plan (the fixture plan, or `/live/start` with `start_now` during the day).

@@ -713,3 +713,14 @@ assimilation:
   note: "engine/weather.py assimilate_env: bias-correct the remaining forecast from sideline-node readings. Bias = mean(node − forecast) over the last window_min of readings, applied to later hours with weight falling linearly from 1 at the last reading to 0 after decay_h (WS1 brief: 'rolling mean of node−forecast WBGT, decayed over 3 h'). Corrects wbgt_f and air_temp_c (the physiology model reads air temperature, not WBGT). A modelling choice, not a sourced method; field validation (WS7) reports how well it does."
   window_min: 60
   decay_h: 3.0
+
+demo_node:
+  status: DESIGN
+  synthetic: true
+  note: "Indoor demo of the sideline node (no outdoor readings were collected). The bridge zeroes the globe thermistor on the room (mean of the first baseline_samples readings) and adds only the globe's rise above that baseline to a hot-day scenario: air temperature chosen so WBGT is baseline_wbgt_f with no sun, humidity rh_pct, wind wind_10m_m_s. A heat gun / hair dryer on the globe reads as sunlight, so field WBGT and the athletes' estimated core temperatures climb live. Every reading and result is labelled 'DEMO scenario'. Not field data and not used in validation."
+  baseline_wbgt_f: 80.0
+  rh_pct: 70.0
+  wind_10m_m_s: 1.5
+  baseline_samples: 5
+  stale_after_s: 300          # scenario weather is used only while demo readings keep arriving
+  reforecast_min_change_w_m2: 25.0   # re-run the live session when inferred sunlight moves at least this much

@@ -20,7 +20,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
 
-from engine import consts, fixtures, optimizer
+from engine import consts, fixtures, node_routes, optimizer
 from engine import settings as at_settings
 from engine.physio import twonode
 
@@ -155,6 +155,10 @@ def _forecast_for(plan: dict, labels: list[str]) -> list[dict]:
     t0 = twonode.parse_time(plan["start"])
     minutes = sum(float(d["duration_min"]) for d in plan["drills"]) + consts.get("optimizer.max_added_minutes")
     t1 = t0 + timedelta(minutes=minutes)
+    demo = node_routes.demo_weather(t0, t1)   # indoor node demo running → its scenario weather (labelled)
+    if demo:
+        labels.append(node_routes.DEMO_LABEL)
+        return demo
     try:
         from engine import weather as ws1  # WS1, may not exist yet
         hours = ws1.get_forecast(plan["site"]["lat"], plan["site"]["lon"])
@@ -243,7 +247,7 @@ def optimize(req: OptimizeRequest | None = None,
     req = req or OptimizeRequest()
     key = None
     if demo:  # demo runs are deterministic → cache identical requests (warm before presenting)
-        key = (preset, req.model_dump_json())
+        key = (preset, req.model_dump_json(), node_routes.demo_version())   # node demo changes the weather
         if key in _DEMO_CACHE:
             return _DEMO_CACHE[key]
     plan, roster, weather, labels = _inputs(req)
@@ -342,3 +346,26 @@ def settings() -> dict[str, Any]:
 @app.get("/sources")
 def sources() -> dict[str, Any]:
     return consts.as_json()
+
+
+# Sideline node (engine/node_routes.py): POST /node, GET /node/latest, GET /node/history.
+app.include_router(node_routes.router)
+
+
+def _on_node_demo_update() -> dict | None:
+    """A node demo reading changed the scenario: refresh the live session's weather and re-forecast it."""
+    s = _LIVE.get("session")
+    if s is None:
+        return None
+    t0 = twonode.parse_time(s.plan["start"])
+    minutes = sum(float(d["duration_min"]) for d in s.plan["drills"])
+    demo = node_routes.demo_weather(t0, t0 + timedelta(minutes=minutes))
+    if not demo:
+        return None
+    s.weather = demo
+    if node_routes.DEMO_LABEL not in s.extra_labels:
+        s.extra_labels = [*s.extra_labels, node_routes.DEMO_LABEL]
+    return _guard(s.reforecast())
+
+
+node_routes.on_demo_update = _on_node_demo_update
