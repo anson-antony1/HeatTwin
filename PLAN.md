@@ -159,22 +159,22 @@ any model change and update these numbers. Say "estimate — planning only" out 
    - **Forecast:** tomorrow's Gainesville forecast is NWS's own WBGT grid, cached and labelled as a fixture. Practice runs 3:30–5:23 pm at 86 / 83 / 82 °F WBGT, which is FHSAA zones 2 / 2 / 1.
    - **Plan:** load the 113-minute practice. Gear already follows NATA phasing: day-2 athletes in helmets only, days 3–5 helmets and shoulder pads.
    - **Heat strip:**
-     - Every athlete's p95 estimate crosses the AT's 39.0 °C planning line between minute 44 and minute 51, during the inside run and the start of team period.
-     - The first two are the day-2 linebackers, Caleb and Isaiah, at minute 44.
+     - Every athlete's p95 estimate crosses the AT's 39.0 °C planning line between minute 45 and minute 51, during the inside run and the start of team period.
+     - First across, at minute 45: the day-2 linebackers Caleb and Isaiah, plus Darius (TE) and Kai (OL).
      - The plan also misses FHSAA zone-2 shaded-break minutes in both hours.
    - **Line to say:** "That's not a red flag on three kids; the plan as written is too hot for this forecast."
 3. **(30 s) Optimize.** Click (`?demo=1`, about 6 s).
    - **Shown on screen:**
      - A water break moves to 3:40.
      - Team period moves early and runs in two platoons; the resting platoon waits in the shaded cooling area.
-     - Team period, inside run and special teams drop to helmets only.
-     - Inside run is trimmed to 11 minutes, with three athletes rotated out.
-     - Breaks lengthen to 8 and 16 minutes, and one shaded break is added.
+     - Team period and inside run drop to helmets only; special teams and individual period drop to no pads.
+     - Inside run is trimmed to 11 minutes.
+     - Breaks lengthen to 8 and 16 minutes, and one 8-minute shaded break is added.
      - Gassers are split around the individual period.
    - **Say:**
-     - "All 16 athletes are under 39.0 °C at p95, with a maximum of 38.98. Nine sit in the near-limit band, so watch them."
-     - "Zero FHSAA and NATA violations. 74% of the training load kept. Practice grows 20 minutes, the AT's cap."
-   - Show the 18-line diff.
+     - "All 16 athletes are under 39.0 °C at p95, with a maximum of 38.97. Five sit in the near-limit band, so watch them."
+     - "Zero FHSAA and NATA violations. 79% of the training load kept. Practice grows 20 minutes, the AT's cap."
+   - Show the 15-line diff.
    - **Honesty:** the coach can lower the change count by accepting less load; the optimizer won't cross the line to do it.
 4. **(40 s) Watch.**
    - A teammate in an HR strap does burpees, or `fixtures/hr_a07_synthetic.csv` replays and is labelled REPLAY.

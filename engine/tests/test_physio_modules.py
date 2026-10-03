@@ -186,3 +186,22 @@ def test_numba_kernel_matches_numpy(mode, monkeypatch):
     monkeypatch.setattr(twonode, "integrate", lambda **kw: orig(**kw, backend="numpy"))
     ref = twonode.simulate_arrays(tl, env, R, D, clothing_mode=mode).core
     assert np.max(np.abs(fast - ref)) < 2e-3
+
+
+def test_surcharge_weights_per_gear_level():
+    """Reviewer bug 2: helmet-only (which borrows P2 clothing values) gets no extra surcharge; full pads get δ."""
+    from engine.physio import twonode
+    sc = dict(zip(clothing.GEAR_LEVELS, twonode.gear_met_surcharge()))
+    assert sc["none"] == 0.0 and sc["helmet"] == 0.0
+    assert sc["full_pads"] == pytest.approx(consts.get("clothing_conservative.gear_met_surcharge_full_pads"))
+    assert 0 < sc["helmet_shoulder_pads"] < sc["full_pads"]
+
+
+def test_rotated_out_athletes_capped_at_their_gear_limit():
+    """Reviewer bug 4: a day-2 athlete rotated out of a full-pads drill is modelled at most in a helmet."""
+    from engine.physio import twonode
+    roster = [a for a in fixtures.roster() if a["id"] in ("a06", "a14")]  # day 2 (helmet), day 12 (full pads)
+    drill = {"id": "x", "name": "x", "duration_min": 5, "intensity": "hard", "gear": "full_pads", "shade": False,
+             "is_break": False, "priority": 1, "movable": True, "participants": ["a14"]}
+    tl = twonode.build_timeline([drill], [a["id"] for a in roster], 1.0, gear_cap=twonode.gear_caps(roster))
+    assert clothing.GEAR_LEVELS[tl.gear[0, 0]] == "helmet" and clothing.GEAR_LEVELS[tl.gear[1, 0]] == "full_pads"

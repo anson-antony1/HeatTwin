@@ -82,7 +82,8 @@ class LiveSession:
         self.extra_labels = list(extra_labels)
         self.t0 = twonode.parse_time(plan["start"])
         self.R = twonode.build_roster(self.roster)
-        self.tl = twonode.build_timeline(plan["drills"], self.R.ids, 1.0, rest_shade=self.S.non_participant_shade)
+        self.tl = twonode.build_timeline(plan["drills"], self.R.ids, 1.0, rest_shade=self.S.non_participant_shade,
+                                         gear_cap=twonode.gear_caps(self.roster))
         pri = consts.get("ensemble_priors")
         self.state: dict[str, AthleteState] = {}
         for a in self.roster:
@@ -99,7 +100,10 @@ class LiveSession:
             return None
         i = self.R.ids.index(aid)
         k = int(np.clip(minute, 0, self.tl.n_steps - 1))
-        met = np.minimum(self.tl.met[i, k] * ens, self.R.met_cap[i])
+        met = self.tl.met[i, k] * ens
+        if self.S.clothing_mode == "conservative":  # the gear surcharge is metabolic: measured HR includes it
+            met = met * (1.0 + twonode.gear_met_surcharge()[self.tl.gear[i, k]])
+        met = np.minimum(met, self.R.met_cap[i])
         hr_max = a.get("hr_max_bpm") or metabolic.hr_max_bpm(float(a["age_yr"]))
         # cardiovascular drift is not modelled (constants.hr_model.drift_bpm_per_c_core = 0, status TODO)
         return hr_from_met(met, float(a["hr_rest_bpm"]), float(hr_max), twonode.vo2max_ml_kg_min(a))

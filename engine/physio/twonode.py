@@ -185,7 +185,8 @@ def iso_dynamic_resistances(m_act, v, i_t, i_m, i_cl_clo, f_cl, Q: IsoDynamic, f
     dynamic total evaporative resistance R_e,T [m²·mmHg/W]). Broadcasts over [E, N].
 
     ``fraction`` λ applies part of the correction: corr_eff = 1 − λ·(1 − corr) for both corr_tot and corr_ia
-    (λ = 1 → ISO 7933; λ = 0 → static manikin values; the conservative mode uses a λ calibrated on Armstrong 2010)."""
+    (λ = 1 → ISO 7933; λ = 0 → static manikin values). ``walk_credit`` scales ISO's walking-speed term; the
+    conservative mode keeps λ = 1 (wind credit) and sets walk_credit = 0 (constants.clothing_conservative)."""
     wa = walk_credit * np.minimum(Q.walk_k * np.maximum(m_act - Q.walk_off, 0.0), Q.walk_cap)
     v_ux = min(v, Q.v_cap)
     w_ux = np.minimum(wa, Q.w_cap)
@@ -440,6 +441,8 @@ def _integrate_numba(met_wm2, met_scale, ta, pa, v, tr, r_cl, r_ecl, f_cl, cloth
                      theta_sw, theta_dil, setpoint_shift, tcr0, met_cap_wm2, record_every, cap_mode, iso,
                      max_tcl_iter, P) -> IntegrateOut:
     K = _numba_kernel()
+    if cap_mode not in ("consistent", "ashrae55_reference"):
+        raise ValueError(cap_mode)
     E, N = met_scale.shape
     S = met_wm2.shape[1]
     f64 = lambda x, shape: np.ascontiguousarray(np.broadcast_to(np.asarray(x, dtype=float), shape))  # noqa: E731
@@ -462,8 +465,8 @@ def _integrate_numba(met_wm2, met_scale, ta, pa, v, tr, r_cl, r_ecl, f_cl, cloth
         f64(iso.i_cl_clo, (N, S)) if use_iso else z, f64(iso.w_max, (N,)) if use_iso else np.zeros(N),
         float(iso.fraction) if use_iso else 1.0, float(iso.walk_credit) if use_iso else 1.0,
         int(max_tcl_iter), _pack_gagge(P), _pack_iso())
-    if cap_mode not in ("consistent", "ashrae55_reference"):
-        raise ValueError(cap_mode)
+    if res > P.tcl_tol:
+        raise RuntimeError("clothing temperature did not converge")
     return IntegrateOut(core=core, skin=skin, tcl_max_residual=float(res), tcl_iterations_max=int(it))
 
 
@@ -581,6 +584,12 @@ def acclimatization_effects(day: float, days_since_last_heat: float | None = Non
     return 1.0 + frac * A["full_sweat_gain_increase"], frac * A["full_setpoint_shift_c"]
 
 
+def gear_caps(roster: Sequence[Mapping[str, Any]]) -> list[str]:
+    """Per-athlete NATA gear limit (engine.gear_rules), used for athletes rotated out of a drill."""
+    from engine import gear_rules
+    return [gear_rules.athlete_gear_limit(a) for a in roster]
+
+
 def vo2max_ml_kg_min(a: Mapping[str, Any]) -> float:
     """Athlete VO₂max if given, else the position-group default (constants.hr_met; Boden et al. 2022)."""
     if a.get("vo2max_ml_kg_min") is not None:
@@ -655,7 +664,8 @@ class Timeline:
 
 
 def build_timeline(drills: Sequence[Mapping[str, Any]], athlete_ids: Sequence[str], step_min: float,
-                   rest_shade: bool | None = None) -> Timeline:
+                   rest_shade: bool | None = None, gear_cap: Sequence[str] | None = None) -> Timeline:
+    """``gear_cap`` (per athlete, e.g. NATA limits): athletes rotated out of a drill wear at most this gear."""
     rest_met = metabolic.intensity_met(consts.get("non_participant.intensity"))
     rest_shade = bool(consts.get("non_participant.shade")) if rest_shade is None else rest_shade
     steps_per = [int(round(float(d["duration_min"]) / step_min)) for d in drills]
@@ -663,6 +673,7 @@ def build_timeline(drills: Sequence[Mapping[str, Any]], athlete_ids: Sequence[st
     N = len(athlete_ids)
     idx = {a: i for i, a in enumerate(athlete_ids)}
     drill_of_step = np.repeat(np.arange(len(drills)), steps_per)
+    cap_idx = np.array([clothing.gear_index(g) for g in gear_cap]) if gear_cap is not None else None
     met = np.empty((N, S))
     part = np.ones((N, S), dtype=bool)
     shade = np.empty((N, S), dtype=bool)
@@ -682,7 +693,10 @@ def build_timeline(drills: Sequence[Mapping[str, Any]], athlete_ids: Sequence[st
         part[:, sl] = mask[:, None]
         shade[:, sl] = np.where(mask, bool(d.get("shade", False)), rest_shade)[:, None]
         per = d.get("gear_by_athlete") or {}
-        gear[:, sl] = np.array([clothing.gear_index(per.get(a, d["gear"])) for a in athlete_ids])[:, None]
+        gi = np.array([clothing.gear_index(per.get(a, d["gear"])) for a in athlete_ids])
+        if cap_idx is not None:
+            gi = np.where(mask, gi, np.minimum(gi, cap_idx))
+        gear[:, sl] = gi[:, None]
         is_break[sl] = bool(d.get("is_break", False))
         s0 += n
     return Timeline(S, drill_of_step, met, part, shade, gear, is_break)
@@ -737,11 +751,10 @@ def walk_credit(clothing_mode: str) -> float:
 
 
 def gear_met_surcharge() -> np.ndarray:
-    """Conservative mode: δ·w(gear) per gear level, w interpolating intrinsic insulation none → full pads (0 → 1)."""
+    """Conservative mode: δ·w(gear) per gear level (w from constants.clothing_conservative.surcharge_weight_by_gear)."""
     d = float(consts.get("clothing_conservative.gear_met_surcharge_full_pads"))
-    icl = clothing.gear_table()["i_cl_clo"]
-    lo, hi = icl[clothing.gear_index("none")], icl[clothing.gear_index("full_pads")]
-    return d * np.clip((icl - lo) / (hi - lo), 0.0, 1.0)
+    w = consts.get("clothing_conservative.surcharge_weight_by_gear")
+    return d * np.array([float(w[g]) for g in clothing.GEAR_LEVELS])
 
 
 def percentiles(core: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -803,7 +816,8 @@ def simulate_roster(
         S = S.with_overrides({"clothing_mode": params["clothing_mode"]})
     t0 = parse_time(plan["start"])
     R = build_roster(roster)
-    tl = build_timeline(plan["drills"], R.ids, step_min, rest_shade=S.non_participant_shade)
+    tl = build_timeline(plan["drills"], R.ids, step_min, rest_shade=S.non_participant_shade,
+                        gear_cap=gear_caps(roster))
     env = build_environment(weather, plan["site"], t0, step_min, max(tl.n_steps, 1))
     D = make_draws(n_ensemble, len(R.ids), seed)
     out = simulate_arrays(tl, env, R, D, cap_mode=params.get("cap_mode"), clothing_mode=S.clothing_mode)

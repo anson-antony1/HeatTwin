@@ -90,3 +90,16 @@ def test_ect_optional_is_off_by_default():
     out = ect_optional.estimate_core([90, 120, 150, 160], research_mode=True)
     assert len(out["core_c"]) == 4 and out["labels"][0] == "research mode — method appears patented"
     assert np.all(np.diff(out["core_c"]) > 0)
+
+
+def test_hr_model_includes_gear_surcharge_in_conservative_mode():
+    """Reviewer bug 3: measured HR already contains the uniform's metabolic cost, so the HR model must include it."""
+    from engine import settings as at
+    full = {**fixtures.plan()}
+    full["drills"] = [dict(d, gear_by_athlete={}) for d in full["drills"]]
+    a14 = [a for a in fixtures.roster() if a["id"] == "a14"]   # day 12 → full pads allowed
+    cons = LiveSession(full, a14, fixtures.forecast(), settings=at.resolve({"clothing_mode": "conservative"}))
+    iso = LiveSession(full, a14, fixtures.forecast(), settings=at.resolve({"clothing_mode": "iso7933_dynamic"}))
+    ens = np.array([1.0])
+    minute = 20  # individual period, full pads, moderate
+    assert cons._predict("a14", minute, ens)[0] > iso._predict("a14", minute, ens)[0]

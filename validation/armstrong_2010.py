@@ -11,7 +11,7 @@ mean exposure time − 20 min; CON → gear 'none' (our 'none' adds a T-shirt), 
 gear level.
 
     python -m validation.armstrong_2010              # run, print, write validation/results.json
-    python -m validation.armstrong_2010 --calibrate  # print the conservative-mode λ that matches FULL
+    python -m validation.armstrong_2010 --calibrate  # print the conservative-mode gear surcharge δ that matches FULL
 
 Every number written to results.json is computed here from those inputs. The conservative mode is *calibrated* on the
 FULL treadmill mean, so its FULL result is a fit, not an independent validation; CON and the whole-protocol rates are
@@ -60,12 +60,9 @@ def simulate(condition: str, clothing_mode: str, air_speed: float | None = None,
 
     met_wm2 = metabolic.met_to_w_m2(mets, mass, bsa)[None, :]
     if clothing_mode == "conservative":
-        sc = twonode.gear_met_surcharge()[gi]
-        if surcharge is not None:  # calibration: override δ for full pads
-            sc = surcharge * (
-                (gt["i_cl_clo"][gi] - gt["i_cl_clo"][clothing.gear_index("none")])
-                / (gt["i_cl_clo"][clothing.gear_index("full_pads")] - gt["i_cl_clo"][clothing.gear_index("none")]))
-        met_wm2 = met_wm2 * (1.0 + sc)
+        w = float(consts.get(f"clothing_conservative.surcharge_weight_by_gear.{gear}"))
+        d = float(consts.get("clothing_conservative.gear_met_surcharge_full_pads")) if surcharge is None else surcharge
+        met_wm2 = met_wm2 * (1.0 + d * w)
     athlete = {"id": "armstrong_mean", "name": "Armstrong 2010 mean participant", "height_m": height, "mass_kg": mass,
                "age_yr": pt["age_yr"], "sex": pt["sex"], "acclimatization_day": S["acclimatization_day"],
                "position": "OL"}

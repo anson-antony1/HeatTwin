@@ -67,7 +67,7 @@ The FULL row in conservative mode is the calibration target, and CON informed dr
 unfitted checks are the whole-protocol rates. Conservative over-predicts FULL whole-protocol by 0.8 SD (0.050 vs 0.042),
 which is the safe direction. ISO-dynamic under-predicts both conditions by about 1 SD, the unsafe direction.
 
-**Field consequence** (fixture practice, NATA-phased gear, cached NWS forecast). Conservative: median peak 40.1–41.5 °C,
+**Field consequence** (fixture practice, NATA-phased gear, cached NWS forecast). Conservative: median peak 40.1–41.0 °C,
 p95 40.7–41.9 °C. ISO-dynamic: median 38.8–39.8 °C, p95 39.5–40.5 °C. In both modes all 16 athletes cross 39.0 °C at p95 on the
 unmodified plan. Field context: Godek 2006 measured NFL preseason practice maxima of 38.65 ± 0.48 °C (adult, acclimatized,
 unknown intensity), so conservative is likely hot in the field while ISO is low in the lab. The truth needs field data with
@@ -411,6 +411,22 @@ to 0.1 °C and state the seed; the optimizer uses common random numbers, so plan
    Deterministic peak vs p95 differ by about 1.2 °C.
 5. Acclimatization is worth about −0.2 °C on the team maximum (up to −0.5 °C per athlete). The consistent cap mode adds +0.19 °C. Initial
    core 36.8 vs 37.1 °C changes peak p95 by +0.04.
+
+## 10c. Second physio-review (conservative mode, Oct 3): fixed and open
+
+**Fixed:**
+- The helmet level no longer inherits a surcharge. It already borrows P2's clothing values; the per-gear weights are now explicit in `clothing_conservative.surcharge_weight_by_gear`.
+- The surcharge is treated as metabolic. It's applied before the VO₂max ceiling and inside the live-HR observation model, so calibration doesn't count it twice.
+- Athletes rotated out of a drill are capped at their NATA gear limit.
+- The numba kernel raises on a non-converged T_cl, and stale text is corrected.
+
+**Open judgement calls (owner's decision):**
+1. **Calibration statistic.** Armstrong's Table 4 FULL rate (0.071 °C/min) is a mean of individual rates, and fast heaters stopped early. 0.071 × 36.2 min = 2.57 °C, more than the 2.37 °C whole-protocol rise, so fitting one mean subject to 0.071 overshoots the rise (model 2.80 vs 2.37 ± 0.45 °C). Fitting δ to the whole-protocol rise instead gives δ ≈ 0.061 and lowers fixture p95 by about 0.1–0.2 °C. It stays on 0.071 as the owner decided ("match the mean rise rate").
+2. **The walking-ventilation credit is the biggest lever.** Restoring it, with δ refit to about 0.20, lowers fixture p95 by about 1.0–1.3 °C. The case for dropping it depends on the treadmill MET:
+   - The Compendium 17034 value (5.3 MET) is used here.
+   - The ACSM walking equation would give about 6.1 MET (book not verified). At that MET the credit-off choice over-predicts CON by about +1.5 SD.
+3. **The surcharge sits before the VO₂max ceiling.** In the field the ceiling binds for many lineman p95 draws, so δ moves p95 less than the median.
+4. **δ depends on the unreported chamber air speed:** 0.167 at 0.1 m/s, 0.23 at 0.3 m/s, 0.30 at 0.5 m/s. The lowest is used.
 
 ## 11. Constants status (summary — authoritative list is constants.yaml)
 

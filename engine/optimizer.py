@@ -129,6 +129,7 @@ class Problem:
         self.step_min = step_min
         self.t0 = twonode.parse_time(plan["start"])
         self.R = twonode.build_roster(self.roster)
+        self.gear_caps = twonode.gear_caps(self.roster)
         self.D = twonode.make_draws(n_ensemble, len(self.R.ids), seed)
         self.orig: State = tuple(Seg.from_drill(d) for d in plan["drills"])
         self.orig_by_src = {s.src: s for s in self.orig}
@@ -240,7 +241,8 @@ class Problem:
         self.evaluations += 1
         plan = self.to_plan(st)
         viol = fhsaa_adapter.violations(plan, self.weather, self.roster if self.S.enforce_nata_gear_phasing else None)
-        tl = twonode.build_timeline(plan["drills"], self.R.ids, self.step_min, rest_shade=self.S.non_participant_shade)
+        tl = twonode.build_timeline(plan["drills"], self.R.ids, self.step_min, rest_shade=self.S.non_participant_shade,
+                                    gear_cap=self.gear_caps)
         core = twonode.simulate_arrays(tl, self.env, self.R, self.D, clothing_mode=self.S.clothing_mode).core
         p95 = np.round(np.percentile(core, 95.0, axis=0), 3)        # [N, T] — same rounding as SimulationResult
         peak = p95.max(axis=1)
