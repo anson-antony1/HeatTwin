@@ -85,7 +85,7 @@ export function CollapseMode({ athleteId, onClose }: { athleteId: string; onClos
 
   const copy = async () => {
     const text = [
-      `HeatTwin — EMS handoff · ${athlete.name} #${athlete.number} (${athlete.position}, ${athlete.massKg} kg)`,
+      `HeatTwin — EMS handoff · ${athlete.name} (${athlete.position}, ${athlete.massKg} kg, roster entry)`,
       `Times are since Collapse mode started on this screen.`,
       ...log.map((e) => `+${mmss(e.t)}  ${e.text}`),
       tubHandoffLine(tub),
@@ -132,7 +132,7 @@ export function CollapseMode({ athleteId, onClose }: { athleteId: string; onClos
             <span className="collapse__live" aria-hidden="true" />
             <span className="eyebrow">Collapse response</span>
             <span className="collapse__who">
-              {athlete.name} · #{athlete.number}
+              {athlete.name}
             </span>
           </div>
           <div className="collapse__bar-actions">
