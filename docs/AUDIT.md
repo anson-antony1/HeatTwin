@@ -433,3 +433,31 @@ These are proposed for a new branch `audit-fixes`.
   - The baseline is unchanged: 16/16 over 39.0 °C by p95, max p95 41.65 °C, 2 FHSAA issues.
   - `/optimize?demo=1` is now feasible, 70.7 % load kept, 21 changes, 128 min, 0 over, 0 FHSAA. It was 75.3 % / 18 changes with the stub.
   - PLAN §7 needs a refresh (item 13).
+
+---
+
+## Fix status (audit-fixes → main, 2026-10-03 evening)
+
+| # | Item | Status | Where |
+|---|---|---|---|
+| P0-7 | Pin the demo forecast | done | `engine/api.py` `_forecast_for` / `weather_mode`: live NWS only with `HEATTWIN_WEATHER=live`, never with `?demo=1` |
+| P0-1 | Web reads only engine numbers | done | `GET /demo/inputs`; `web/src/data/{engineApi,selectors,engineMeta,planStore}.ts`; stand-ins in `web/src/offline/`, behind an OFFLINE FALLBACK badge |
+| P0-2 | FHSAA zones from the engine | done | Web `ZONES` table deleted; zone from `WeatherHour.fhsaa_zone`, rule text from `/sources` (Policy 41 §41.8.3), issues from `fhsaa_violations` |
+| P0-4 | Collapse/Response: no invented readings | done | No synthetic tub temperature, jersey number or core estimate in the EMS log. Checklist starts unticked. KSI/NATA numbers come from `/sources` |
+| P0-3 | Live views from the engine HR replay | done | `POST /live/replay` (newest real `fixtures/hr_<date>.csv`, else the labelled synthetic a07 file); alerts = engine `gates.flag` |
+| P0-6 | Voice and what-if act on the plan on screen | done | POST `/athlete_status` and `/field_conditions`; names resolved on the engine; every voice request sends `planStore` plan |
+| P0-5 | Voice: Gemini intent → engine → guard → TTS | done | `/voice/intent` (schema-validated), `/voice/answer` (engine-written `say` + `numbers`), `/voice/tts` (re-guarded). Web holds the reply on a guard hit, an unbacked number, or a guard outage. Hosted ElevenLabs agent removed |
+| P1-8 | Provenance labels on every view | done | `<ProvenanceLabels/>`; engine passes fixture labels through `what_if`/`athlete_status` |
+| P1-9 | Thresholds from engine settings | done | `limit_core_c`, `/settings` near band; no temperature literals in online paths |
+| P1-10 | Hard-coded voice values → references | done | What-if break length = FHSAA `break_min`; drill-id map removed |
+| P1-11 | Gemini plan-entry confirm | done | VoiceDock shows transcript, drills, every assumption and unclear item; the engine runs only after "Confirm" |
+| P1-12 | CONTRACTS v1.3 | done | Additive only |
+| P1-13 | Data wiring + `results.json["demo"]` | done | `validation/demo_numbers.py` (`synthetic: true`, `--check`). `/node/latest` says "no field recording yet" until `data/node_<date>.csv` exists. PLAN §7 refreshed |
+| P2-14 | End-to-end test | done | `engine/tests/test_e2e_demo.py` (8 questions + 5 actions vs `results.json`); web voice tests; live integration 10/10 |
+| P2-15 | Merge | done | main = ws2-physio + llm-bridge + voice-plan (already on main) + ws6-firmware (ws1) + voice-twin + audit fixes |
+| P2-16 | Copy | done (neutral) | "estimate — planning only", "review with your athletic trainer"; thresholds called illustrative defaults an AT would own; all copy passes `engine/guard.py` |
+
+**Still not verified:**
+- Gemini and ElevenLabs live: no keys on this machine. Routing is covered by a fixed table in tests.
+- A real Helio HR recording and a real node CSV: the code paths are tested with a synthetic file and a temp CSV only.
+- Clinical wording: needs an athletic trainer.
