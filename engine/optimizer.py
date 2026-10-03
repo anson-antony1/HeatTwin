@@ -817,7 +817,7 @@ def optimize(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weath
     if time.perf_counter() > deadline and stopped != "time_budget":
         stopped = "time_budget"
 
-    final = _renumber_added(best.state)
+    final = _renumber_added(best.state, P)
     new_plan = P.to_plan(final)
     labels = list(extra_labels)
     original = twonode.simulate_roster(roster, plan, weather, step_min=step_min, n_ensemble=n_ensemble, seed=seed,
@@ -855,8 +855,9 @@ def optimize(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weath
     }
 
 
-def _renumber_added(st: State) -> State:
-    """Give added breaks stable, sequential ids (ib1, ib2, …) in plan order."""
+def _renumber_added(st: State, P: "Problem | None" = None) -> State:
+    """Give added breaks stable, sequential ids (ib1, ib2, …) in plan order, and name drill parts from what they are:
+    complementary participant groups → "(platoon A/B…)", otherwise "(part k of n)"; a single part keeps its name."""
     k = 0
     out = []
     for s in st:
@@ -864,6 +865,23 @@ def _renumber_added(st: State) -> State:
             k += 1
             s = replace(s, id=f"ib{k}")
         out.append(s)
+    if P is None:
+        return tuple(out)
+    by_src: dict[str, list[int]] = {}
+    for i, s in enumerate(out):
+        if s.src is not None:
+            by_src.setdefault(s.src, []).append(i)
+    for src, idx in by_src.items():
+        base = P.orig_by_src[src].name
+        parts = [out[i] for i in idx]
+        if len(parts) == 1:
+            out[idx[0]] = replace(parts[0], name=base)
+            continue
+        groups = [set(p.participants) if p.participants is not None else None for p in parts]
+        platoon = all(g is not None for g in groups) and sum(len(g) for g in groups) == len(set().union(*groups))
+        for j, i in enumerate(idx):
+            label = f"platoon {chr(ord('A') + j)}" if platoon else f"part {j + 1} of {len(idx)}"
+            out[i] = replace(out[i], name=f"{base} ({label})")
     return tuple(out)
 
 
