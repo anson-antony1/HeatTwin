@@ -19,6 +19,7 @@ import {
 } from '../data/selectors'
 import type { OfflineResult } from '../offline/standIn'
 import { PlanEditor } from '../components/PlanEditor'
+import { VoicePanel } from '../voice'
 import { NumberTicker } from '../components/NumberTicker'
 import { OfflineBadge, OfflineBanner } from '../components/OfflineBadge'
 import { ProvenanceLabels } from '../components/ProvenanceLabels'
@@ -243,6 +244,8 @@ export function PlanView() {
           each athlete’s p95 estimate.
         </p>
       )}
+
+      <VoicePanel />
 
       <section className="glass plan__board">
         <AnimatePresence mode="popLayout" initial={false}>
