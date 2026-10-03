@@ -41,7 +41,9 @@ tell Claude; the module puts the thermistor on the other side of the divider and
 3. Sanity checks: at room temperature `globe_ohm` ≈ 10 000 and `globe_c` ≈ 20–25. Pinch the thermistor between your
    fingers: temperature rises within seconds. If it falls instead, swap the thermistor and the resistor positions.
 
-## 3. Calibrate (5 min; needed for real numbers)
+## 3. Calibrate (SKIPPED for the hackathon — readings are labelled `globe_calibrated=False`)
+Response check instead: point a hair dryer at the thermistor/globe from ~1 ft (not closer: ping-pong balls can be
+celluloid, which burns) and watch `globe_c` climb, then fall when you stop. If there's time later:
 The sketch uses `BETA = 3950`, a typical value, not one measured for *your* thermistor.
 1. **Ice water**: a cup packed with ice, topped with water, stirred. Dip the thermistor tip (keep the leg wires dry —
    wrap the joint in tape or a small plastic bag). Wait 1 min. Note `globe_ohm`. (Ice water = 0.0 °C.)
@@ -64,7 +66,17 @@ The sketch uses `BETA = 3950`, a typical value, not one measured for *your* ther
   down. Never in direct sun.
 - Laptop in the shade with the USB extension. Let it settle for 15–20 minutes before you trust the numbers
   (FHSAA 41.7.2).
-- Save the Serial Monitor output, or (better) let `engine/node_bridge.py` log it to `data/node_<date>.csv` (next step).
+- Close the Serial Monitor and run the bridge (it needs the port to itself):
+  `env -u PYTHONPATH .venv/bin/python -m engine.node_bridge --port /dev/ttyACM0`
+  It adds air temperature/RH from the NWS KGNV airport station (the node has no air/RH sensor), prints field WBGT vs
+  the forecast live, and logs to `data/node_<date>.csv` (+ the raw serial stream in `node_<date>.raw.txt`).
+  Add `--post http://localhost:8000/node` once the engine has the /node route.
+
+## Upload without the Arduino IDE
+```bash
+~/.local/bin/arduino-cli compile --fqbn arduino:avr:uno firmware/thermistor_test
+~/.local/bin/arduino-cli upload  --fqbn arduino:avr:uno -p /dev/ttyACM0 firmware/thermistor_test
+```
 
 ## What the readings are used for
 WBGT = 0.7·wet-bulb + 0.2·globe + 0.1·air. `engine/wbgt.py: node_components()` uses **globe − air** to infer the
