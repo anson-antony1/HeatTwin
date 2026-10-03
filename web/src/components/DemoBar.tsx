@@ -1,5 +1,5 @@
 import { motion } from 'motion/react'
-import { engine, useSession } from '../data/engine'
+import { engine, replayLabel, useSession } from '../data/engine'
 import { clockLabel } from '../lib/heat'
 import { spring } from '../lib/motion'
 import { IconPause, IconPlay, IconReset, IconSkip } from './Icons'
@@ -13,11 +13,14 @@ const SPEEDS = [1, 4, 10]
 export function DemoBar() {
   const s = useSession()
   const progress = s.totalMinutes > 0 ? s.minute / s.totalMinutes : 0
-  // Skip to the first minute the engine's forecast puts anyone over the line.
+  // Skip to the first minute the engine's HR-calibration gates flag someone;
+  // without a replay, to the first p95 crossing in the engine forecast.
   const crossings = Object.values(s.athletes)
     .map((a) => a.firstCrossMin)
     .filter((m): m is number => m != null)
-  const skipTo = crossings.length ? Math.min(...crossings) : null
+  const skipTo = s.firstFlagMinute ?? (crossings.length ? Math.min(...crossings) : null)
+  const skipWhat = s.firstFlagMinute != null ? 'first engine flag in the HR replay' : 'first p95 crossing in the engine forecast'
+  const replay = replayLabel(s.replay)
   return (
     <div className="demobar glass glass--strong" role="toolbar" aria-label="Demo playback">
       <button
@@ -56,15 +59,18 @@ export function DemoBar() {
         className="demobar__btn pressable"
         onClick={() => skipTo != null && engine.seek(Math.max(s.minute, skipTo))}
         disabled={skipTo == null}
-        title={skipTo != null ? `Skip to minute ${Math.round(skipTo)} (first p95 crossing in the engine forecast)` : undefined}
+        title={skipTo != null ? `Skip to minute ${Math.round(skipTo)} (${skipWhat})` : undefined}
       >
         <IconSkip width={16} height={16} />
-        <span>Skip to first crossing</span>
+        <span>{s.firstFlagMinute != null ? 'Skip to first flag' : 'Skip to first crossing'}</span>
       </button>
       <button className="demobar__icon pressable" onClick={() => engine.reset()} aria-label="Reset demo playback">
         <IconReset width={18} height={18} />
       </button>
-      <span className="demobar__tag">demo playback — not live</span>
+      <span className="demobar__tag">
+        demo playback — not live
+        {replay && <span className="demobar__replay">{replay}</span>}
+      </span>
     </div>
   )
 }

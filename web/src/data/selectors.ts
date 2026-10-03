@@ -199,10 +199,17 @@ export function frameAt(replay: LiveReplay | null, athleteId: string, m: number)
   return best
 }
 
-/** Replayed HR at minute m: the latest [minute, bpm] point at or before m. */
+/**
+ * Replayed HR at minute m: the latest [minute, bpm] point at or before m.
+ * Null before the recording starts and once it has ended (later than one
+ * sample spacing after the last point) — a finished file is not a live HR.
+ */
 export function hrAt(replay: LiveReplay | null, athleteId: string, m: number): number | null {
   const s = replay?.hr_series[athleteId]
   if (!s?.length) return null
+  const n = s.length
+  const spacing = n > 1 ? s[n - 1][0] - s[n - 2][0] : 0
+  if (m > s[n - 1][0] + spacing) return null
   let bpm: number | null = null
   for (const [t, v] of s) {
     if (t > m) break
@@ -357,6 +364,12 @@ export function basisLabel(a: Pick<AthleteLive, 'basis' | 'hasHr' | 'calibrated'
   if (a.basis === 'hr_replay')
     return a.calibrated ? 'HR-calibrated estimate (replay)' : `HR replay · engine gates: ${a.gates?.message ?? 'waiting'}`
   return a.hasHr ? 'plan forecast — waiting for the first HR calibration' : 'plan forecast only — no HR'
+}
+
+/** HR column text when there is no HR value at this minute. */
+export function noHrLabel(a: Pick<AthleteLive, 'basis' | 'hasHr' | 'calibrated' | 'gates' | 'hr'>): string {
+  if (a.hasHr && a.hr == null && a.basis === 'hr_replay') return `HR replay ended · ${basisLabel(a)}`
+  return basisLabel(a)
 }
 
 export const STATUS_LABEL: Record<AthleteStatus, string> = {
