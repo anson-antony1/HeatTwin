@@ -133,7 +133,7 @@ function SessionHeader({
             <span className="eyebrow">Now · {clockLabel(s.startHour, s.minute)}</span>
             {planState.source !== 'fixture' && (
               <span className={`session__src session__src--${planState.source}`}>
-                {planState.source === 'voice' ? 'Voice plan · engine forecast' : 'Optimized · engine forecast'}
+                {{ voice: 'Voice plan', optimized: 'Optimized', edited: 'Edited plan' }[planState.source]} · engine forecast
               </span>
             )}
           </div>

@@ -434,6 +434,11 @@
   color: #6a4fc4;
 }
 
+.dayplan__source--edited {
+  background: rgb(255 178 107 / 0.2);
+  color: #a85d16;
+}
+
 .dayplan__source--optimized {
   background: var(--steady-bg);
   color: var(--steady);
@@ -522,4 +527,114 @@
 .dayplan__quote {
   color: var(--ink-2);
   font-style: italic;
+}
+
+/* ---------- Scrub + zoom ---------- */
+
+.vitals__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 22px;
+}
+
+.vitals__eyebrow > .eyebrow {
+  display: inline-block;
+}
+
+.vitals__live {
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: white;
+  font-size: 11.5px;
+  transition:
+    opacity var(--dur-small) var(--ease-out),
+    transform var(--dur-press) var(--ease-out);
+  @starting-style {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+
+.forecast__tools {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.zoom {
+  display: flex;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--ink-4);
+}
+
+.zoom__btn {
+  position: relative;
+  width: 36px;
+  height: 26px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--ink-2);
+  transition: color var(--dur-small) ease;
+}
+
+.zoom__btn span {
+  position: relative;
+}
+
+.zoom__btn.is-on {
+  color: var(--ink);
+}
+
+.zoom__thumb {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.nav {
+  position: relative;
+  height: 40px;
+  margin: 2px 0 0 44px;
+  border-radius: 10px;
+  background: rgb(16 16 24 / 0.04);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.nav:active {
+  cursor: grabbing;
+}
+
+.nav svg {
+  position: absolute;
+  inset: 3px 0;
+  width: 100%;
+  height: calc(100% - 6px);
+}
+
+.nav__line {
+  fill: none;
+  stroke: var(--heat-2);
+  stroke-width: 1.5;
+}
+
+.nav__window {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 10px;
+  background: rgb(255 255 255 / 0.55);
+  box-shadow: inset 0 0 0 1.5px var(--ink), var(--shadow-sm);
+}
+
+.forecast__hint {
+  font-size: 12px;
 }

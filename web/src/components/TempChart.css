@@ -90,3 +90,79 @@
   fill: var(--heat-2);
   opacity: 0.6;
 }
+
+/* ---------- Scrubbing ---------- */
+
+.chart--scrub {
+  outline: none;
+  border-radius: 12px;
+}
+
+.chart--scrub:focus-visible {
+  box-shadow: 0 0 0 2px rgb(120 100 255 / 0.5);
+}
+
+.chart__hit {
+  fill: transparent;
+  cursor: ew-resize;
+  touch-action: pan-y;
+}
+
+.chart__scrub line {
+  stroke: var(--ink);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+  opacity: 0.55;
+}
+
+.chart__scrub .chart__scrub-band {
+  stroke: rgb(150 130 255 / 0.55);
+  stroke-width: 6;
+  stroke-dasharray: none;
+  stroke-linecap: round;
+  opacity: 1;
+}
+
+.chart__tip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  margin-left: 12px;
+  padding: 8px 11px;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 0.92);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.chart__tip.is-left {
+  margin-left: 0;
+  translate: calc(-100% - 12px) 0;
+}
+
+.chart__tip-time {
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+.chart__tip-temp {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 18px;
+  letter-spacing: -0.01em;
+}
+
+.chart__tip-band {
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.chart__tip-meta {
+  font-size: 12px;
+  color: var(--ink-2);
+}

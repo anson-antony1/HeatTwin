@@ -1,4 +1,5 @@
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { useEffect, useRef, useState } from 'react'
+import { animate, AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { usePlan, useSession } from '../data/engine'
 import { ROSTER } from '../data/fixtures'
 import { SAFETY_LINE, THRESHOLDS } from '../data/constants'
@@ -12,6 +13,7 @@ import { clockLabel, cToF, gearLabel, heatColor } from '../lib/heat'
 import { ease, spring } from '../lib/motion'
 import { gearFor, usePlanState } from '../data/planStore'
 import { perMinute } from '../data/engineApi'
+import { AI_NAME } from '../lib/brand'
 import './AthleteView.css'
 
 interface Props {
@@ -82,6 +84,13 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
   const calibrated = a.hasStrap && s.minute > 5
   const nextBand = live.band.find((b) => b > 0) ?? 0
 
+  // Scrubbing the chart drives the whole page: figure, number, and labels read
+  // the scrubbed minute until the coach lets go (mouse) or taps "Live".
+  const [scrub, setScrub] = useState<number | null>(null)
+  const scrubbed = scrub != null ? readAt(live, s.minute, scrub) : null
+  const coreShown = scrubbed ? scrubbed.c : live.coreC
+  const zoom = useZoom(s.totalMinutes, scrub ?? s.minute)
+
   return (
     <div className="twin__grid">
       {/* Vitals — the Figma's tall left card */}
@@ -97,12 +106,32 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
         </div>
 
         <div className="vitals__core">
-          <div className="eyebrow">Estimated core</div>
-          <div className="display-xl vitals__temp" style={{ color: heatColor(live.coreC) }}>
-            <NumberTicker value={live.coreC} decimals={1} suffix="°C" />
+          <div className="vitals__eyebrow">
+            <AnimatePresence mode="popLayout" initial={false}>
+              <motion.span
+                key={scrubbed ? 'scrub' : 'live'}
+                className="eyebrow"
+                initial={{ opacity: 0, filter: 'blur(3px)' }}
+                animate={{ opacity: 1, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, filter: 'blur(3px)' }}
+                transition={{ duration: 0.18, ease: ease.out }}
+              >
+                {scrubbed
+                  ? `${scrubbed.measured ? 'Estimate' : 'Forecast'} · ${clockLabel(s.startHour, scrub!)}`
+                  : 'Estimated core'}
+              </motion.span>
+            </AnimatePresence>
+            {scrubbed && (
+              <button className="vitals__live pressable" onClick={() => setScrub(null)}>
+                Live
+              </button>
+            )}
+          </div>
+          <div className="display-xl vitals__temp" style={{ color: heatColor(coreShown) }}>
+            <NumberTicker value={coreShown} decimals={1} suffix="°C" />
           </div>
           <div className="muted num" style={{ fontSize: 14 }}>
-            {cToF(live.coreC).toFixed(1)} °F · ±{nextBand.toFixed(2)}° (p95)
+            {cToF(coreShown).toFixed(1)} °F · ±{(scrubbed ? scrubbed.band : nextBand).toFixed(2)}° (p95)
           </div>
         </div>
 
@@ -146,12 +175,12 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
 
       {/* The twin itself */}
       <section className="twin__figure" aria-label="Thermal figure">
-        <BodyFigure coreC={live.coreC} hr={live.hr} />
+        <BodyFigure coreC={coreShown} hr={scrubbed ? null : live.hr} />
         <div className="twin__callout twin__callout--core">
-          <span className="twin__callout-dot" style={{ background: heatColor(live.coreC) }} />
+          <span className="twin__callout-dot" style={{ background: heatColor(coreShown) }} />
           Core
         </div>
-        {live.hr != null && (
+        {live.hr != null && !scrubbed && (
           <div className="twin__callout twin__callout--hr">
             <span className="twin__callout-dot" />
             Heart · strap
@@ -181,13 +210,29 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
               {live.predictedPeakC >= THRESHOLDS.alertC ? 'Forecast crosses the line' : 'Forecast stays under the line'}
             </div>
           </div>
-          <ul className="legend">
-            <li><span className="legend__swatch legend__swatch--est" />Estimate</li>
-            <li><span className="legend__swatch legend__swatch--fc" />Forecast</li>
-            <li><span className="legend__swatch legend__swatch--band" />p95</li>
-          </ul>
+          <div className="forecast__tools">
+            <ul className="legend">
+              <li><span className="legend__swatch legend__swatch--est" />Estimate</li>
+              <li><span className="legend__swatch legend__swatch--fc" />Forecast</li>
+              <li><span className="legend__swatch legend__swatch--band" />p95</li>
+            </ul>
+            <div className="zoom" role="radiogroup" aria-label="Zoom">
+              {ZOOMS.map((z) => (
+                <button
+                  key={z}
+                  role="radio"
+                  aria-checked={zoom.level === z}
+                  className={`zoom__btn num ${zoom.level === z ? 'is-on' : ''}`}
+                  onClick={() => zoom.setLevel(z)}
+                >
+                  {zoom.level === z && <motion.span layoutId="zoom-thumb" className="zoom__thumb" transition={spring.ui} />}
+                  <span>{z}×</span>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
-        <div className="forecast__chart">
+        <div className="forecast__chart" onWheel={zoom.onWheel}>
           <TempChart
             reveal
             history={live.history}
@@ -197,7 +242,28 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
             now={s.minute}
             live={live.coreC}
             drills={plan}
+            view={zoom.view}
+            startHour={s.startHour}
+            scrub={scrub}
+            onScrub={setScrub}
           />
+        </div>
+        <AnimatePresence initial={false}>
+          {zoom.level > 1 && (
+            <motion.div
+              key="nav"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.22, ease: ease.out }}
+              style={{ overflow: 'hidden' }}
+            >
+              <Navigator series={live.forecast} total={s.totalMinutes} view={zoom.view} onPan={zoom.panTo} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+        <div className="forecast__hint faint">
+          {zoom.level > 1 ? 'Drag across the chart to scrub · drag the window below to move' : 'Drag across the chart to scrub through practice'}
         </div>
       </section>
 
@@ -269,6 +335,120 @@ function BreakRing({ minutes }: { minutes: number | null }) {
   )
 }
 
+// ---------- Scrub + zoom helpers ----------
+
+const ZOOMS = [1, 2, 4] as const
+type ZoomLevel = (typeof ZOOMS)[number]
+
+/** Value the page shows for a minute: the estimate so far, or the forecast (with its band) beyond now. */
+function readAt(live: { history: number[]; forecast: number[]; band: number[]; coreC: number }, now: number, m: number) {
+  const k = Math.floor(now)
+  if (m <= k) return { c: live.history[m] ?? live.coreC, band: 0, measured: true }
+  if (m <= now) return { c: live.coreC, band: 0, measured: true }
+  return { c: live.forecast[m] ?? live.forecast[live.forecast.length - 1], band: live.band[m] ?? 0, measured: false }
+}
+
+/** Zoom level + visible window. Zoom changes glide (on-screen movement → ease-in-out); panning tracks 1:1. */
+function useZoom(total: number, focus: number) {
+  const reduce = useReducedMotion()
+  const [level, setLevelState] = useState<ZoomLevel>(1)
+  const [view, setView] = useState<[number, number]>([0, total])
+  const viewRef = useRef(view)
+  useEffect(() => {
+    viewRef.current = view
+  }, [view])
+
+  const clampWindow = (center: number, span: number): [number, number] => {
+    const half = span / 2
+    const c = Math.max(half, Math.min(total - half, center))
+    return [c - half, c + half]
+  }
+
+  // Keep the window valid when the plan's length changes.
+  useEffect(() => {
+    const span = total / level
+    const c = (viewRef.current[0] + viewRef.current[1]) / 2
+    setView(clampWindow(c, span)) // eslint-disable-line react-hooks/set-state-in-effect
+  }, [total]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const setLevel = (z: ZoomLevel) => {
+    setLevelState(z)
+    const target = clampWindow(z === 1 ? total / 2 : focus, total / z)
+    if (reduce) return setView(target)
+    const from = viewRef.current
+    animate(0, 1, {
+      duration: 0.32,
+      ease: ease.inOut,
+      onUpdate: (t) => setView([from[0] + (target[0] - from[0]) * t, from[1] + (target[1] - from[1]) * t]),
+    })
+  }
+
+  const panTo = (center: number) => setView(clampWindow(center, viewRef.current[1] - viewRef.current[0]))
+
+  const onWheel = (e: React.WheelEvent) => {
+    if (level === 1) return
+    const dx = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.shiftKey ? e.deltaY : 0
+    if (!dx) return
+    const span = viewRef.current[1] - viewRef.current[0]
+    panTo((viewRef.current[0] + viewRef.current[1]) / 2 + (dx / 600) * span)
+  }
+
+  return { level, view, setLevel, panTo, onWheel }
+}
+
+/** Overview strip: the whole session, with a window you drag to move the zoomed chart. */
+function Navigator({
+  series,
+  total,
+  view,
+  onPan,
+}: {
+  series: number[]
+  total: number
+  view: [number, number]
+  onPan: (center: number) => void
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const grab = useRef<number | null>(null)
+  const lo = 36.8
+  const hi = 39.6
+  const pts = series.map((v, i) => `${((i / total) * 100).toFixed(2)},${(32 - ((v - lo) / (hi - lo)) * 28).toFixed(2)}`)
+  const minuteAt = (clientX: number) => {
+    const r = ref.current!.getBoundingClientRect()
+    return ((clientX - r.left) / r.width) * total
+  }
+  const center = (view[0] + view[1]) / 2
+
+  return (
+    <div
+      ref={ref}
+      className="nav"
+      onPointerDown={(e) => {
+        e.currentTarget.setPointerCapture(e.pointerId)
+        const m = minuteAt(e.clientX)
+        const inside = m >= view[0] && m <= view[1]
+        // Respect where the window was grabbed; a click outside jumps it there.
+        grab.current = inside ? m - center : 0
+        if (!inside) onPan(m)
+      }}
+      onPointerMove={(e) => {
+        if (grab.current == null) return
+        onPan(minuteAt(e.clientX) - grab.current)
+      }}
+      onPointerUp={() => (grab.current = null)}
+      onPointerCancel={() => (grab.current = null)}
+    >
+      <svg viewBox="0 0 100 34" preserveAspectRatio="none" aria-hidden="true">
+        <polyline points={pts.join(' ')} className="nav__line" vectorEffect="non-scaling-stroke" />
+      </svg>
+      <div
+        className="nav__window"
+        style={{ left: `${(view[0] / total) * 100}%`, width: `${((view[1] - view[0]) / total) * 100}%` }}
+      />
+    </div>
+  )
+}
+
 const PLAN_GEAR: Record<string, string> = { none: 'No pads', helmet: 'Helmet', helmet_shoulder_pads: 'Shells', full_pads: 'Full pads' }
 
 /** Today's plan as this athlete will live it: their gear, their engine forecast per block. */
@@ -285,8 +465,10 @@ function AthletePlanCard({ athleteId, minute }: { athleteId: string; minute: num
     p.source === 'voice'
       ? `Described by voice${p.confirmedAt ? ` · ${new Date(p.confirmedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}`
       : p.source === 'optimized'
-        ? 'Optimized by the twin'
-        : 'Default plan'
+        ? `Optimized by ${AI_NAME}`
+        : p.source === 'edited'
+          ? 'Edited by the coach'
+          : 'Default plan'
 
   const starts = drills.map((_, i) => drills.slice(0, i).reduce((sum, d) => sum + d.duration_min, 0))
   const blocks = drills.map((d, i) => {

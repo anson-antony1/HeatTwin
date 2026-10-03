@@ -19,7 +19,9 @@ npm run lint
 | **Response** | Pre-practice readiness checklist and a one-tap way into Collapse mode. | — |
 | **Collapse mode** | Full-screen cold-water-immersion flow: wall-clock timer, voice-guided steps, tub probe, immersion timer, and a copyable EMS handoff timeline. Ending it takes a hold, so it can't be closed by accident. | — |
 
-### Talk to the Twin (voice → plan → engine)
+### Kelvin, the voice assistant (voice → plan → engine)
+
+The assistant's name lives in `src/lib/brand.ts`.
 
 The mic dock at the bottom left (Figma `9:65`) is the coach's way in:
 
@@ -30,6 +32,12 @@ The mic dock at the bottom left (Figma `9:65`) is the coach's way in:
 5. **Optimize** (optional). `POST /optimize` rewrites the plan to keep everyone under the line, and the dock shows the engine's top changes.
 
 The confirmed plan is saved in `localStorage`, so a reload keeps it.
+
+**Memory.** Every request sends the plan in use as `current_plan`. Gemini then edits that plan instead of starting over. For example, "add a 20 minute session at the end for jumping jacks" keeps every other drill and appends one, and the draft lists `changes`. A full new description still replaces the plan. *Start a new plan* in the sheet clears it.
+
+**Practice plan tab.** Click any block to see its details: time, gear, the hottest athletes in that block, and FHSAA issues. **Edit** (left of *Optimize plan*) opens a timeline editor where you drag blocks to reorder, drag a block's right edge to trim it, double-click a block to rename it, and use the inspector for intensity, gear, priority, break and shade. ⌘Z undoes. *Save & model* runs the edited plan through `/simulate`.
+
+**Athlete twin chart.** Hover or drag across it to scrub; the body figure and the big number follow the scrubbed minute. Zoom to 1×, 2× or 4× and pan with the overview strip or a horizontal scroll.
 
 **Setup:** the Gemini key lives only on the engine, in the repo-root `.env` (gitignored; see `.env.example`). Run the engine with `.venv/bin/uvicorn engine.api:app --port 8000`. The web app calls `VITE_ENGINE_URL`, which defaults to `http://localhost:8000`.
 

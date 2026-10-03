@@ -1,0 +1,333 @@
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.editor__bar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.editor__bar .display-sm {
+  margin-top: 4px;
+}
+
+.editor__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.editor__sep {
+  width: 1px;
+  height: 24px;
+  background: var(--hairline);
+  margin: 0 4px;
+}
+
+.editor__actions .btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.editor__error {
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--alert-bg);
+  color: var(--alert);
+  font-size: 13.5px;
+}
+
+/* ---------- Timeline ---------- */
+
+.editor__timeline {
+  position: relative;
+  padding: 0 4px 4px;
+  border-radius: 18px;
+  background:
+    repeating-linear-gradient(90deg, rgb(16 16 24 / 0.035) 0 1px, transparent 1px 100%),
+    rgb(16 16 24 / 0.04);
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.ruler {
+  position: relative;
+  height: 26px;
+}
+
+.ruler__tick {
+  position: absolute;
+  bottom: 0;
+  left: 4px;
+  width: 1px;
+  height: 6px;
+  background: var(--ink-4);
+}
+
+.ruler__tick.is-major {
+  height: 11px;
+  background: var(--ink-3);
+}
+
+.ruler__label {
+  position: absolute;
+  bottom: 13px;
+  left: 0;
+  transform: translateX(-50%);
+  font-size: 10.5px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.track {
+  display: flex;
+  gap: 4px;
+  height: 84px;
+  padding-bottom: 2px;
+}
+
+.clip {
+  --clip: rgb(255 255 255 / 0.95);
+  position: relative;
+  flex: none;
+  height: 100%;
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.55), rgb(255 255 255 / 0.1)),
+    var(--clip);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.7), var(--shadow-sm);
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  overflow: hidden;
+  transition: box-shadow var(--dur-small) ease;
+}
+
+.clip:active {
+  cursor: grabbing;
+}
+
+.clip--light {
+  --clip: rgb(178 140 255 / 0.4);
+}
+.clip--moderate {
+  --clip: rgb(255 178 107 / 0.45);
+}
+.clip--hard {
+  --clip: rgb(255 122 89 / 0.45);
+}
+.clip--max {
+  --clip: rgb(236 56 74 / 0.42);
+}
+.clip--break {
+  --clip: rgb(139 150 255 / 0.35);
+}
+
+.clip.is-selected {
+  box-shadow: inset 0 0 0 2px var(--ink), var(--shadow-md);
+}
+
+.clip__body {
+  position: absolute;
+  inset: 9px 14px 9px 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.clip__name {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.clip__meta {
+  font-size: 11px;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.clip__rename {
+  width: 100%;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: white;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  outline: 2px solid rgb(120 100 255 / 0.6);
+}
+
+/* Trim handle on the right edge, the way a video editor does it. */
+.clip__trim {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 10px;
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.clip__trim::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 3px;
+  width: 3px;
+  height: 26px;
+  border-radius: 2px;
+  background: var(--ink);
+  opacity: 0;
+  transform: translateY(-50%) scaleY(0.7);
+  transition:
+    opacity var(--dur-small) ease,
+    transform var(--dur-small) var(--ease-out);
+}
+
+.clip.is-selected .clip__trim::after {
+  opacity: 0.55;
+  transform: translateY(-50%) scaleY(1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .clip:hover .clip__trim::after {
+    opacity: 0.4;
+    transform: translateY(-50%) scaleY(1);
+  }
+}
+
+.editor__hint {
+  font-size: 12px;
+}
+
+/* ---------- Inspector ---------- */
+
+.inspector {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px 20px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: rgb(255 255 255 / 0.7);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field--name input {
+  width: 220px;
+  height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: white;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.field--name input:focus {
+  outline: 2px solid rgb(120 100 255 / 0.5);
+}
+
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  border-radius: 10px;
+  background: white;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.stepper button {
+  width: 34px;
+  height: 100%;
+  font-size: 18px;
+  color: var(--ink-2);
+}
+
+.stepper span {
+  min-width: 36px;
+  text-align: center;
+  font-size: 14px;
+}
+
+.seg {
+  display: flex;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--ink-4);
+}
+
+.seg__btn {
+  position: relative;
+  height: 30px;
+  padding: 0 11px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  white-space: nowrap;
+  transition: color var(--dur-small) ease;
+}
+
+.seg__btn span {
+  position: relative;
+}
+
+.seg__btn.is-on {
+  color: var(--ink);
+}
+
+.seg__thumb {
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  background: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.field--toggles {
+  flex-direction: row;
+  gap: 14px;
+  padding-bottom: 7px;
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.toggle input {
+  accent-color: var(--ink);
+}
+
+.inspector__end {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.btn--danger {
+  color: var(--alert);
+}

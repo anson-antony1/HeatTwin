@@ -1,6 +1,6 @@
 .demobar {
   position: fixed;
-  right: 28px;
+  right: max(28px, calc(50% - 840px + 40px));
   bottom: 24px;
   z-index: 40;
   display: flex;

@@ -14,7 +14,7 @@ export type PlanPhase = 'idle' | 'simulating' | 'optimizing' | 'ready' | 'error'
 export interface PlanState {
   phase: PlanPhase
   plan: PracticePlan
-  source: 'fixture' | 'voice' | 'optimized'
+  source: 'fixture' | 'voice' | 'optimized' | 'edited'
   /** The draft the coach confirmed (transcript, assumptions) — kept for display. */
   draft: PlanDraft | null
   sim: SimulationResult | null
@@ -91,6 +91,23 @@ export const planStore = {
       const sim = await simulatePlan(draft.plan, inflight.signal)
       set({ phase: 'ready', draft, plan: draft.plan, source: 'voice', opt: null, sim, original: sim, confirmedAt: Date.now(), previous })
       apply(draft.plan, sim)
+      persist()
+    } catch (e) {
+      if ((e as Error).name === 'AbortError') return
+      set({ phase: 'error', error: (e as Error).message })
+    }
+  },
+
+  /** A plan the coach built by hand in the Practice plan editor. */
+  async applyPlan(plan: PracticePlan) {
+    inflight?.abort()
+    inflight = new AbortController()
+    const previous = snapshot()
+    set({ phase: 'simulating', error: null })
+    try {
+      const sim = await simulatePlan(plan, inflight.signal)
+      set({ phase: 'ready', plan, source: 'edited', draft: null, opt: null, sim, original: sim, confirmedAt: Date.now(), previous })
+      apply(plan, sim)
       persist()
     } catch (e) {
       if ((e as Error).name === 'AbortError') return

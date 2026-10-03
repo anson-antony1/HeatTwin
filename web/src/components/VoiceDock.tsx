@@ -10,9 +10,10 @@ import { mmss } from '../lib/heat'
 import { ease, spring } from '../lib/motion'
 import { NumberTicker } from './NumberTicker'
 import { IconArrow, IconMic, IconSpark, IconStop } from './Icons'
+import { AI_NAME } from '../lib/brand'
 import './VoiceDock.css'
 
-// "Talk to the Twin" — the mic dock from Figma 9:65.
+// The voice dock (Figma 9:65) — the coach talks to the assistant (AI_NAME, lib/brand.ts).
 //
 // At rest it's a compact pill, exactly as wide as the sidebar. Press the mic
 // and it springs out to full width (waveform, live captions, timer). Stop, and
@@ -36,8 +37,10 @@ const INTENSITY: Record<string, string> = { rest: 'Rest', light: 'Light', modera
 const GEAR: Record<string, string> = { none: 'No pads', helmet: 'Helmet', helmet_shoulder_pads: 'Shells', full_pads: 'Full pads' }
 
 export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
-  const v = useVoicePlan()
   const p = usePlanState()
+  // Memory: every request carries the plan in use, so "add 20 minutes of jumping
+  // jacks at the end" edits it instead of starting over.
+  const v = useVoicePlan({ current_plan: p.plan })
   const reduce = useReducedMotion()
   const [opened, setOpened] = useState<'result' | 'typing' | null>(null)
   const [flash, setFlash] = useState(false)
@@ -110,7 +113,11 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
   }
 
   const busyLabel =
-    v.state === 'processing' ? ['Transcribing', 'Gemini'] : p.phase === 'optimizing' ? ['Optimizing', 'the twin'] : ['Modeling', `${ROSTER.length} athletes`]
+    v.state === 'processing'
+      ? ['Thinking', `${AI_NAME} · ${p.source === 'fixture' ? 'new plan' : 'editing plan'}`]
+      : p.phase === 'optimizing'
+        ? ['Optimizing', AI_NAME]
+        : ['Modeling', `${ROSTER.length} athletes`]
 
   return (
     <div className="dock" data-bar={bar}>
@@ -202,7 +209,7 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
           className={`dock__mic dock__mic--${bar}`}
           onClick={recording ? v.stop : startRecording}
           disabled={bar === 'busy' || bar === 'done'}
-          aria-label={recording ? 'Stop recording' : 'Describe today’s practice'}
+          aria-label={recording ? 'Stop recording' : `Ask ${AI_NAME}`}
           style={{ borderRadius: 999 }}
         >
           <span className="dock__mic-ring" aria-hidden="true" />
@@ -316,19 +323,18 @@ function BarText({ bar, p, captions, busyLabel }: { bar: Bar; p: PlanState; capt
   }
   if (bar === 'done') {
     const mins = Math.round(p.plan.drills.reduce((s, d) => s + d.duration_min, 0))
+    const change = p.draft?.edited ? p.draft.changes?.[0] : null
     return (
       <>
         <span className="dock__title">Plan updated</span>
-        <span className="dock__caption num">
-          {p.plan.drills.length} blocks · {mins} min
-        </span>
+        <span className="dock__caption num">{change ?? `${p.plan.drills.length} blocks · ${mins} min`}</span>
       </>
     )
   }
   return (
     <>
-      <span className="dock__title">Talk to Twin</span>
-      <span className="dock__caption">{p.source === 'fixture' ? 'Tap mic to plan' : 'Plan live · review'}</span>
+      <span className="dock__title">Ask {AI_NAME}</span>
+      <span className="dock__caption">{p.source === 'fixture' ? 'Tap mic to plan' : 'Tap mic to change'}</span>
     </>
   )
 }
@@ -427,7 +433,7 @@ function Result({
   return (
     <div className="result">
       <div className="review__head">
-        <div className="eyebrow">{p.source === 'optimized' ? 'Optimized plan' : 'Your plan'} · engine forecast</div>
+        <div className="eyebrow">{p.source === 'optimized' ? 'Optimized plan' : 'Your plan'} · {AI_NAME}</div>
         <span className="review__label">{sim.labels[0]}</span>
       </div>
 
@@ -447,8 +453,15 @@ function Result({
 
       {p.draft?.transcript && p.source === 'voice' && (
         <blockquote className="review__quote">
-          <span className="eyebrow">Heard</span> “{p.draft.transcript}”
+          <span className="eyebrow">{AI_NAME} heard</span> “{p.draft.transcript}”
         </blockquote>
+      )}
+      {p.draft?.edited && p.draft.changes && p.draft.changes.length > 0 && p.source === 'voice' && (
+        <ul className="result__edits">
+          {p.draft.changes.map((c) => (
+            <li key={c}>{c}</li>
+          ))}
+        </ul>
       )}
       {p.opt?.top_changes_text && <p className="result__changes">{p.opt.top_changes_text}</p>}
       {p.opt && (
@@ -508,6 +521,11 @@ function Result({
         <button className="linkbtn" onClick={onType} disabled={optimizing}>
           Type a correction
         </button>
+        {p.source !== 'fixture' && (
+          <button className="linkbtn" onClick={() => planStore.clear()} disabled={optimizing}>
+            Start a new plan
+          </button>
+        )}
         {p.previous && (
           <button className="linkbtn" onClick={() => planStore.undo()} disabled={optimizing}>
             Undo {p.source === 'optimized' ? 'optimization' : 'this plan'}

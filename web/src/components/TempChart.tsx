@@ -1,9 +1,9 @@
-import { useId, useMemo } from 'react'
+import { useId, useMemo, useRef, type KeyboardEvent, type PointerEvent } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
 import type { Drill } from '../data/types'
 import { THRESHOLDS } from '../data/constants'
 import { bandPath, downsample, splinePath, type Pt } from '../lib/spline'
-import { HEAT_STOPS, heatColor } from '../lib/heat'
+import { clockLabel, HEAT_STOPS, heatColor } from '../lib/heat'
 import { ease } from '../lib/motion'
 import { useSize } from '../lib/useSize'
 import './TempChart.css'
@@ -12,6 +12,10 @@ import './TempChart.css'
 // (dashed spline), and the p95 band. All curves are Catmull-Rom splines.
 // Data lines never move for style — the only flourish is a one-time
 // left-to-right reveal on pages people open occasionally (`reveal`).
+//
+// Scrubbing (`onScrub`): hover or drag across the plot to read any minute —
+// the cursor tracks the pointer 1:1, no easing (direct manipulation). Arrow
+// keys step a minute (Shift: 5). `view` zooms to a window of minutes.
 
 interface Props {
   history: number[]
@@ -26,6 +30,11 @@ interface Props {
   domain?: [number, number]
   /** Optional comparison series (e.g. original plan) drawn faint. */
   ghost?: number[]
+  /** Visible window in practice minutes (zoom). Defaults to the whole session. */
+  view?: [number, number]
+  startHour?: number
+  scrub?: number | null
+  onScrub?: (minute: number | null) => void
 }
 
 export function TempChart({
@@ -40,6 +49,10 @@ export function TempChart({
   drills,
   domain = [36.8, 39.6],
   ghost,
+  view,
+  startHour,
+  scrub = null,
+  onScrub,
 }: Props) {
   const [ref, { width, height }] = useSize<HTMLDivElement>()
   const reduce = useReducedMotion()
@@ -48,13 +61,19 @@ export function TempChart({
   const w = Math.max(0, width - pad.l - pad.r)
   const h = Math.max(0, height - pad.t - pad.b)
 
-  const x = (m: number) => pad.l + (total ? (m / total) * w : 0)
+  const v0 = view?.[0] ?? 0
+  const v1 = view?.[1] ?? total
+  const span = Math.max(1, v1 - v0)
+  const x = (m: number) => pad.l + ((m - v0) / span) * w
+  const minuteAt = (px: number) => Math.max(0, Math.min(total, Math.round(v0 + ((px - pad.l) / (w || 1)) * span)))
+  const pressed = useRef(false)
   const y = (c: number) => pad.t + (1 - (c - domain[0]) / (domain[1] - domain[0])) * h
 
   const paths = useMemo(() => {
     if (!w || !h) return null
     const k = Math.floor(now)
-    const target = compact ? 36 : 90
+    // More samples when zoomed, so the curve keeps its detail.
+    const target = compact ? 36 : Math.min(400, Math.round((90 * (total || 1)) / span))
     const histPts: Pt[] = downsample(history, target).map(({ value, index }) => [x(index), y(value)])
     if (now > k) histPts.push([x(now), y(live)])
 
@@ -83,12 +102,51 @@ export function TempChart({
     }
     // x/y are pure functions of the inputs listed here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [history, forecast, band, now, live, w, h, total, compact, ghost])
+  }, [history, forecast, band, now, live, w, h, total, compact, ghost, v0, v1])
 
   const gradTop = y(HEAT_STOPS[HEAT_STOPS.length - 1][0])
   const gradBottom = y(HEAT_STOPS[0][0])
   const ticks = compact ? [] : [37, 37.5, 38, 38.5, 39, 39.5].filter((t) => t > domain[0] && t < domain[1])
-  const timeTicks = compact ? [] : Array.from({ length: Math.floor(total / 15) + 1 }, (_, i) => i * 15)
+  const tickStep = span <= 32 ? 5 : span <= 64 ? 10 : 15
+  const timeTicks = compact
+    ? []
+    : Array.from({ length: Math.floor(total / tickStep) + 1 }, (_, i) => i * tickStep).filter((m) => m >= v0 - 0.01 && m <= v1 + 0.01)
+
+  // What the chart reads at the scrubbed minute.
+  const read = (m: number) => {
+    const k = Math.floor(now)
+    if (m <= k) return { c: history[m] ?? live, band: 0, measured: true }
+    if (m <= now) return { c: live, band: 0, measured: true }
+    return { c: forecast[m] ?? forecast[forecast.length - 1], band: band[m] ?? 0, measured: false }
+  }
+
+  const handleMove = (e: PointerEvent<SVGRectElement>) => {
+    if (!onScrub) return
+    if (e.pointerType !== 'mouse' && !pressed.current) return
+    const r = e.currentTarget.ownerSVGElement!.getBoundingClientRect()
+    onScrub(minuteAt(e.clientX - r.left))
+  }
+  const handleKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (!onScrub) return
+    const step = e.shiftKey ? 5 : 1
+    const from = scrub ?? Math.round(now)
+    if (e.key === 'ArrowRight') onScrub(Math.min(total, from + step))
+    else if (e.key === 'ArrowLeft') onScrub(Math.max(0, from - step))
+    else if (e.key === 'Escape') onScrub(null)
+    else return
+    e.preventDefault()
+  }
+
+  const scrubRead = scrub != null ? read(scrub) : null
+  const drillAtScrub = (() => {
+    if (scrub == null || !drills) return null
+    let t = 0
+    for (const d of drills) {
+      if (scrub < t + d.minutes) return d
+      t += d.minutes
+    }
+    return drills[drills.length - 1] ?? null
+  })()
 
   const body = paths && (
     <>
@@ -109,6 +167,9 @@ export function TempChart({
         <mask id={`wash-mask-${uid}`}>
           <path d={paths.area} fill={`url(#wash-${uid})`} />
         </mask>
+        <clipPath id={`plot-${uid}`}>
+          <rect x={pad.l - 12} y={0} width={w + 24} height={height} />
+        </clipPath>
       </defs>
 
       {/* Grid */}
@@ -126,6 +187,7 @@ export function TempChart({
         </text>
       ))}
 
+      <g clipPath={view ? `url(#plot-${uid})` : undefined}>
       {/* Drill underlay */}
       {drills && (
         <g>
@@ -181,19 +243,69 @@ export function TempChart({
       {paths.fut && <path className="chart__forecast" d={paths.fut} stroke={`url(#heat-${uid})`} />}
       <path className="chart__history" d={paths.hist} stroke={`url(#heat-${uid})`} />
 
+      </g>
+
       {/* Now marker + live head */}
-      {now > 0 && now < total && (
+      {now > 0 && now < total && now >= v0 && now <= v1 && (
         <>
           {!compact && <line className="chart__now" x1={x(now)} x2={x(now)} y1={pad.t} y2={pad.t + h} />}
           <circle className="chart__head-glow" cx={x(now)} cy={y(live)} r={compact ? 6 : 10} fill={heatColor(live, 0.28)} />
           <circle cx={x(now)} cy={y(live)} r={compact ? 2.6 : 4} fill={heatColor(live)} stroke="white" strokeWidth={compact ? 1.2 : 2} />
         </>
       )}
+
+      {scrubRead && scrub != null && (
+        <g className="chart__scrub" pointerEvents="none">
+          <line x1={x(scrub)} x2={x(scrub)} y1={pad.t - 6} y2={pad.t + h} />
+          {scrubRead.band > 0 && (
+            <line
+              className="chart__scrub-band"
+              x1={x(scrub)}
+              x2={x(scrub)}
+              y1={y(scrubRead.c + scrubRead.band)}
+              y2={y(scrubRead.c - scrubRead.band)}
+            />
+          )}
+          <circle cx={x(scrub)} cy={y(scrubRead.c)} r={5.5} fill={heatColor(scrubRead.c)} stroke="white" strokeWidth={2.5} />
+        </g>
+      )}
+
+      {onScrub && (
+        <rect
+          className="chart__hit"
+          x={pad.l}
+          y={0}
+          width={w}
+          height={pad.t + h}
+          onPointerDown={(e) => {
+            pressed.current = true
+            e.currentTarget.setPointerCapture(e.pointerId)
+            const r = e.currentTarget.ownerSVGElement!.getBoundingClientRect()
+            onScrub(minuteAt(e.clientX - r.left))
+          }}
+          onPointerMove={handleMove}
+          onPointerUp={() => {
+            pressed.current = false
+          }}
+          onPointerCancel={() => {
+            pressed.current = false
+          }}
+          onPointerLeave={(e) => {
+            if (e.pointerType === 'mouse' && !pressed.current) onScrub(null)
+          }}
+        />
+      )}
     </>
   )
 
   return (
-    <div ref={ref} className={`chart ${compact ? 'chart--compact' : ''}`}>
+    <div
+      ref={ref}
+      className={`chart ${compact ? 'chart--compact' : ''} ${onScrub ? 'chart--scrub' : ''}`}
+      tabIndex={onScrub ? 0 : undefined}
+      onKeyDown={handleKey}
+      aria-label={onScrub ? 'Core temperature chart. Use arrow keys to scrub through practice.' : undefined}
+    >
       {width > 0 && (
         <svg width={width} height={height} role="img" aria-label={`Estimated core temperature ${live.toFixed(1)} degrees Celsius`}>
           {reveal && !reduce ? (
@@ -208,6 +320,25 @@ export function TempChart({
             body
           )}
         </svg>
+      )}
+      {scrubRead && scrub != null && w > 0 && (
+        <div
+          className={`chart__tip ${x(scrub) > pad.l + w * 0.62 ? 'is-left' : ''}`}
+          style={{ transform: `translate(${x(scrub)}px, ${pad.t}px)` }}
+          role="status"
+        >
+          <div className="chart__tip-time num">
+            {startHour != null ? clockLabel(startHour, scrub) : ''} · {scrub}′
+          </div>
+          <div className="chart__tip-temp num" style={{ color: heatColor(scrubRead.c) }}>
+            {scrubRead.c.toFixed(2)}°C
+            {scrubRead.band > 0 && <span className="chart__tip-band"> ±{scrubRead.band.toFixed(2)}</span>}
+          </div>
+          <div className="chart__tip-meta">
+            {scrubRead.measured ? 'Estimate so far' : 'Forecast'}
+            {drillAtScrub ? ` · ${drillAtScrub.name}` : ''}
+          </div>
+        </div>
       )}
     </div>
   )

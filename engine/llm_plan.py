@@ -109,9 +109,11 @@ RESPONSE_SCHEMA = {
                         "description": "Every value you filled in that the coach did not say."},
         "unclear": {"type": "ARRAY", "items": {"type": "STRING"},
                     "description": "Anything you could not interpret; ask the coach."},
+        "changes": {"type": "ARRAY", "items": {"type": "STRING"},
+                    "description": "Editing an existing plan only: each change you made, one short sentence each."},
     },
     "required": ["transcript", "drills", "assumptions", "unclear"],
-    "propertyOrdering": ["transcript", "start_time_local", "drills", "assumptions", "unclear"],
+    "propertyOrdering": ["transcript", "start_time_local", "drills", "assumptions", "unclear", "changes"],
 }
 
 INSTRUCTIONS = """You turn a high school football coach's description of today's practice into a list of drills.
@@ -136,6 +138,20 @@ over or inferred, how you read the start time, durations you inferred. Do not li
 that follow from the rules above.
 "transcript": verbatim words of the coach. "start_time_local": start time if stated, 24 h HH:MM, else null."""
 
+# Appended when the coach is changing a plan that already exists (memory of the last session).
+EDIT_INSTRUCTIONS = """EDITING AN EXISTING PLAN. The current plan is given below as JSON. The coach is now describing changes
+to it ("add 20 minutes of jumping jacks at the end", "make team period 15 minutes", "drop special teams", "move
+conditioning to the start"). Return the FULL updated drill list in order:
+- Keep every drill the coach did not mention exactly as it is: same name, duration_min, intensity, gear, is_break,
+  shade, priority, movable, in the same position.
+- Apply only the changes the coach describes (add, remove, reorder, rename, change duration or gear). New drills follow
+  the field rules above.
+- If the coach instead describes a whole new practice from scratch ("today we're doing…" listing a full session),
+  replace the plan with it.
+- "changes": one short sentence per change you made. "assumptions": only values you filled in for new or changed
+  drills. Do not list the unchanged drills anywhere.
+- "start_time_local": the current plan's start unless the coach changes it."""
+
 
 class ParsedDrill(BaseModel):
     name: str = Field(min_length=1, max_length=80)
@@ -154,16 +170,17 @@ class Parsed(BaseModel):
     drills: list[ParsedDrill]
     assumptions: list[str] = []
     unclear: list[str] = []
+    changes: list[str] = []
 
 
 # ── Gemini call ──────────────────────────────────────────────────────────────
 
-def _call_gemini(parts: list[dict[str, Any]]) -> str:
+def _call_gemini(parts: list[dict[str, Any]], editing: bool = False) -> str:
     """One generateContent call with JSON-constrained output; returns the JSON text."""
     import requests
 
     body = {
-        "systemInstruction": {"parts": [{"text": INSTRUCTIONS}]},
+        "systemInstruction": {"parts": [{"text": INSTRUCTIONS + ("\n\n" + EDIT_INSTRUCTIONS if editing else "")}]},
         "contents": [{"role": "user", "parts": parts}],
         "generationConfig": {"responseMimeType": "application/json", "responseSchema": RESPONSE_SCHEMA,
                              "temperature": 0.1, "maxOutputTokens": MAX_OUTPUT_TOKENS},
@@ -184,10 +201,10 @@ def _call_gemini(parts: list[dict[str, Any]]) -> str:
         raise LLMError(f"Gemini returned no content ({reason})") from e
 
 
-def _parse(parts: list[dict[str, Any]]) -> Parsed:
+def _parse(parts: list[dict[str, Any]], editing: bool = False) -> Parsed:
     last: Exception | None = None
     for _ in range(2):                                     # one retry on malformed output
-        text = _call_gemini(parts)
+        text = _call_gemini(parts, editing=True) if editing else _call_gemini(parts)
         try:
             return Parsed.model_validate(json.loads(text))
         except (json.JSONDecodeError, ValidationError) as e:
@@ -197,14 +214,28 @@ def _parse(parts: list[dict[str, Any]]) -> Parsed:
 
 # ── public API ───────────────────────────────────────────────────────────────
 
-def parse_text(text: str, **plan_kw) -> dict[str, Any]:
+def _current_plan_part(current_plan: Optional[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The plan being edited, trimmed to the fields the model works with."""
+    if not current_plan or not current_plan.get("drills"):
+        return []
+    keep = ("name", "duration_min", "intensity", "gear", "is_break", "shade", "priority", "movable")
+    drills = [{k: d[k] for k in keep if k in d} for d in current_plan["drills"]]
+    start = str(current_plan.get("start", ""))[11:16] or None
+    return [{"text": "Current plan (edit this):\n" + json.dumps({"start_time_local": start, "drills": drills})}]
+
+
+def parse_text(text: str, current_plan: Optional[dict[str, Any]] = None, **plan_kw) -> dict[str, Any]:
     text = (text or "").strip()
     if not text:
         raise ValueError("text is empty")
-    return draft_plan(_parse([{"text": f"Coach's practice description:\n{text}"}]), **plan_kw)
+    ctx = _current_plan_part(current_plan)
+    label = "Coach's changes:" if ctx else "Coach's practice description:"
+    parsed = _parse(ctx + [{"text": f"{label}\n{text}"}], editing=bool(ctx))
+    return draft_plan(parsed, current_plan=current_plan if ctx else None, **plan_kw)
 
 
-def parse_audio(audio: bytes, mime_type: str, **plan_kw) -> dict[str, Any]:
+def parse_audio(audio: bytes, mime_type: str, current_plan: Optional[dict[str, Any]] = None,
+                **plan_kw) -> dict[str, Any]:
     mime = mime_type.split(";")[0].strip().lower()
     if mime not in AUDIO_MIME:
         raise ValueError(f"unsupported audio type {mime_type!r}; send WAV (see web/src/lib/useVoicePlan.ts)")
@@ -212,16 +243,19 @@ def parse_audio(audio: bytes, mime_type: str, **plan_kw) -> dict[str, Any]:
         raise ValueError("audio is empty")
     if len(audio) > MAX_AUDIO_BYTES:
         raise ValueError("audio too long; keep the description under ~5 minutes")
-    parts = [{"inline_data": {"mime_type": mime, "data": base64.b64encode(audio).decode()}},
-             {"text": "The audio is the coach describing today's practice. Transcribe it and extract the drills."}]
-    return draft_plan(_parse(parts), **plan_kw)
+    ctx = _current_plan_part(current_plan)
+    ask = ("The audio is the coach describing changes to the current plan. Transcribe it and return the updated drills."
+           if ctx else "The audio is the coach describing today's practice. Transcribe it and extract the drills.")
+    parts = ctx + [{"inline_data": {"mime_type": mime, "data": base64.b64encode(audio).decode()}}, {"text": ask}]
+    return draft_plan(_parse(parts, editing=bool(ctx)), current_plan=current_plan if ctx else None, **plan_kw)
 
 
 _HHMM = re.compile(r"^([01]?\d|2[0-3]):([0-5]\d)$")
 
 
 def draft_plan(p: Parsed, site: Optional[dict[str, Any]] = None, date: Optional[str] = None,
-               start: Optional[str] = None, plan_id: str = "plan-voice-1") -> dict[str, Any]:
+               start: Optional[str] = None, plan_id: str = "plan-voice-1",
+               current_plan: Optional[dict[str, Any]] = None) -> dict[str, Any]:
     """Parsed LLM output → {plan (CONTRACTS.md PracticePlan), transcript, assumptions, unclear, labels, ...}.
 
     ``start`` (full ISO time) wins over the spoken start time; otherwise ``date`` (YYYY-MM-DD) + spoken HH:MM; site,
@@ -231,8 +265,10 @@ def draft_plan(p: Parsed, site: Optional[dict[str, Any]] = None, date: Optional[
     from engine import fixtures, guard
 
     base = fixtures.plan()
-    site = site or base["site"]
+    site = site or (current_plan or {}).get("site") or base["site"]
     unclear = list(p.unclear)
+    if start is None and current_plan and not p.start_time_local and current_plan.get("start"):
+        start = current_plan["start"]                      # editing: the start time carries over
     if start is None:
         day = date or base["start"][:10]
         tz = base["start"][19:] or "-04:00"
@@ -264,6 +300,8 @@ def draft_plan(p: Parsed, site: Optional[dict[str, Any]] = None, date: Optional[
         "transcript": p.transcript,
         "assumptions": g(p.assumptions, "llm_plan.assumptions"),
         "unclear": g(unclear, "llm_plan.unclear"),
+        "changes": g(p.changes, "llm_plan.changes") if current_plan else [],
+        "edited": bool(current_plan),
         "total_min": round(sum(d["duration_min"] for d in drills), 1),
         "needs_confirmation": True,
         "labels": [LABEL],

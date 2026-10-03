@@ -163,6 +163,7 @@
 
 /* Drill blocks — flex-grow by minutes so a reorder is a pure layout change. */
 .timeline {
+  position: relative;
   display: flex;
   gap: 3px;
   height: 56px;
@@ -171,6 +172,10 @@
 .block {
   position: relative;
   min-width: 0;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  transition: box-shadow var(--dur-small) ease;
   border-radius: 10px;
   overflow: hidden;
   background: rgb(255 255 255 / 0.85);
@@ -181,14 +186,31 @@
   background: rgb(139 150 255 / 0.28);
   box-shadow: none;
 }
-.block--conditioning {
-  background: rgb(255 122 89 / 0.22);
+.block--light {
+  background: rgb(178 140 255 / 0.2);
 }
-.block--team {
+.block--moderate {
   background: rgb(255 178 107 / 0.22);
 }
-.block--warmup {
-  background: rgb(255 255 255 / 0.65);
+.block--hard {
+  background: rgb(255 122 89 / 0.24);
+}
+.block--max {
+  background: rgb(236 56 74 / 0.22);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .block:hover {
+    box-shadow: inset 0 0 0 1.5px rgb(16 16 24 / 0.25);
+  }
+}
+
+.block:active {
+  transform: scale(0.98);
+}
+
+.block.is-open {
+  box-shadow: inset 0 0 0 2px var(--ink);
 }
 
 .block__text {
@@ -311,4 +333,155 @@
   .plan__name {
     display: none;
   }
+}
+
+.plan__src {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--ink-4);
+  color: var(--ink-2);
+  letter-spacing: 0.04em;
+}
+
+.plan__src--voice {
+  background: rgb(178 140 255 / 0.18);
+  color: #6a4fc4;
+}
+
+.plan__src--optimized {
+  background: var(--steady-bg);
+  color: var(--steady);
+}
+
+.plan__src--edited {
+  background: rgb(255 178 107 / 0.2);
+  color: #a85d16;
+}
+
+.plan__error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: var(--alert-bg);
+  color: var(--alert);
+  font-size: 14px;
+}
+
+.plan__top {
+  margin: 10px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+/* ---------- Drill popover ---------- */
+
+.pop {
+  position: absolute;
+  top: calc(100% + 10px);
+  z-index: 20;
+  width: 320px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  background: rgb(255 255 255 / 0.92);
+  box-shadow: var(--shadow-lg), inset 0 1px 0 var(--glass-edge);
+}
+
+.pop__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.pop__head .display-sm {
+  margin-top: 4px;
+}
+
+.pop__close {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--ink-4);
+  color: var(--ink-2);
+  flex: none;
+}
+
+.pop__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 12px;
+}
+
+.pop__note {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+
+.pop__heat {
+  margin-top: 14px;
+}
+
+.pop__heat ul {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pop__heat li {
+  display: grid;
+  grid-template-columns: 10px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  border-top: 1px solid var(--hairline);
+  font-size: 13.5px;
+}
+
+.pop__heat .is-over {
+  color: var(--alert);
+}
+
+.pop__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.pop__issues {
+  margin: 10px 0 0;
+  padding: 0 0 0 16px;
+  font-size: 12.5px;
+  color: var(--alert);
+}
+
+.pop__actions {
+  margin-top: 14px;
+}
+
+.chip {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--ink-4);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.chip--hard {
+  background: rgb(255 178 107 / 0.25);
+  color: #b4651c;
+}
+
+.chip--max {
+  background: rgb(255 122 89 / 0.22);
+  color: #c4442a;
 }

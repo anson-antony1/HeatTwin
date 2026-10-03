@@ -48,6 +48,9 @@ export interface PlanDraft {
   /** e.g. "parsed by AI from the coach's description — coach must confirm". Display it. */
   labels: string[]
   model: string
+  /** Set when current_plan was sent: one sentence per change Gemini made. */
+  changes?: string[]
+  edited?: boolean
 }
 
 export interface PlanContext {
@@ -57,6 +60,8 @@ export interface PlanContext {
   date?: string
   /** Full ISO start time; overrides any spoken start time. */
   start?: string
+  /** The plan already in use: the coach's words edit it and keep everything else. */
+  current_plan?: PracticePlan
 }
 
 export class PlanParseError extends Error {

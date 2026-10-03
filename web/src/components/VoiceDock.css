@@ -2,7 +2,8 @@
 
 .dock {
   position: fixed;
-  left: 36px;
+  /* Line up with the sidebar even when the 1680px shell is centred on a wide screen. */
+  left: max(36px, calc(50% - 840px + 36px));
   bottom: 24px;
   z-index: 45;
   display: flex;
@@ -599,4 +600,11 @@
     color: var(--ink);
     background: none;
   }
+}
+
+.result__edits {
+  margin: 0 0 4px;
+  padding: 0 0 0 18px;
+  font-size: 13.5px;
+  color: var(--ink-2);
 }

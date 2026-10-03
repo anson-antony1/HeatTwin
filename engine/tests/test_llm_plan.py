@@ -104,3 +104,39 @@ def test_no_key_is_503(monkeypatch):
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.setattr(llm_plan, "_load_dotenv", lambda: None)
     assert TestClient(app).post("/plan/parse", json={"text": "warmup"}).status_code == 503
+
+
+def test_edit_existing_plan_keeps_context(monkeypatch):
+    """With current_plan, the model gets the plan + edit instructions, and start/site carry over."""
+    seen = {}
+
+    def fake(parts, editing=False):
+        seen["parts"], seen["editing"] = parts, editing
+        return json.dumps({
+            "transcript": "add 20 minutes of jumping jacks at the end",
+            "start_time_local": None,
+            "drills": [
+                {"name": "Warmup", "duration_min": 10, "intensity": "light", "gear": "helmet", "is_break": False,
+                 "shade": False, "priority": 2, "movable": False},
+                {"name": "Jumping jacks", "duration_min": 20, "intensity": "moderate", "gear": "helmet",
+                 "is_break": False, "shade": False, "priority": 2, "movable": True},
+            ],
+            "assumptions": ["Jumping jacks set to moderate."],
+            "unclear": [],
+            "changes": ["Added 20 min of jumping jacks at the end."],
+        })
+
+    monkeypatch.setattr(llm_plan, "_call_gemini", fake)
+    current = {"id": "p", "site": {"name": "Field X", "lat": 0, "lon": 0, "surface": "turf"},
+               "start": "2026-10-04T16:15:00-04:00",
+               "drills": [{"id": "d1", "name": "Warmup", "duration_min": 10, "intensity": "light", "gear": "helmet",
+                           "shade": False, "is_break": False, "priority": 2, "movable": False}]}
+    out = llm_plan.parse_text("add 20 minutes of jumping jacks at the end", current_plan=current)
+
+    assert seen["editing"] is True
+    assert "Current plan" in seen["parts"][0]["text"] and '"Warmup"' in seen["parts"][0]["text"]
+    assert out["edited"] is True and out["changes"] == ["Added 20 min of jumping jacks at the end."]
+    assert out["plan"]["start"] == current["start"]          # no "start time not stated" when editing
+    assert out["plan"]["site"]["name"] == "Field X"
+    assert [d["name"] for d in out["plan"]["drills"]] == ["Warmup", "Jumping jacks"]
+    assert not any("Start time" in u for u in out["unclear"])
