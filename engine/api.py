@@ -8,11 +8,13 @@ GET  /sources                                                                   
 GET  /health
 
 Missing ``plan``/``roster`` fall back to fixtures/plan.json and fixtures/roster.json (labelled synthetic).
-Missing ``weather`` uses WS1's engine.weather.get_forecast when it exists and covers the plan, otherwise the cached
-NWS fixture forecast (labelled "forecast is fixture"). Every result is labelled "estimate — planning only".
+Missing ``weather`` uses the cached NWS fixture forecast (labelled "forecast is fixture"). Live NWS (WS1
+engine.weather.get_forecast) is opt-in with HEATTWIN_WEATHER=live and is never used with ``?demo=1``, so demo numbers are
+reproducible with the network off. Every result is labelled "estimate — planning only".
 """
 from __future__ import annotations
 
+import os
 from datetime import timedelta
 from typing import Any, Literal, Optional
 
@@ -126,7 +128,7 @@ def _dump(x):
     return x.model_dump(exclude_none=True) if hasattr(x, "model_dump") else x
 
 
-def _inputs(req: SimulateRequest) -> tuple[dict, list[dict], list[dict], list[str]]:
+def _inputs(req: SimulateRequest, demo: bool = False) -> tuple[dict, list[dict], list[dict], list[str]]:
     labels: list[str] = []
     if req.plan is not None:
         plan = _dump(req.plan)
@@ -146,26 +148,35 @@ def _inputs(req: SimulateRequest) -> tuple[dict, list[dict], list[dict], list[st
         unknown = set(d.get("participants") or []) - ids
         if unknown:
             raise HTTPException(422, f"drill {d['id']} lists participants not on the roster: {sorted(unknown)}")
-    weather = [_dump(h) for h in req.weather] if req.weather is not None else _forecast_for(plan, labels)
+    weather = [_dump(h) for h in req.weather] if req.weather is not None else _forecast_for(plan, labels, demo)
     return plan, roster, weather, labels
 
 
-def _forecast_for(plan: dict, labels: list[str]) -> list[dict]:
-    """WS1 live forecast if available and covering the plan window, else the cached NWS fixture."""
+def weather_mode(demo: bool = False) -> str:
+    """'fixture' (default, and always with ?demo=1) or 'live' (HEATTWIN_WEATHER=live: WS1 NWS fetch)."""
+    return "live" if not demo and os.environ.get("HEATTWIN_WEATHER", "").lower() == "live" else "fixture"
+
+
+def _forecast_for(plan: dict, labels: list[str], demo: bool = False) -> list[dict]:
+    """Cached NWS fixture unless live weather is switched on (never in demo mode); live falls back to the fixture."""
     t0 = twonode.parse_time(plan["start"])
     minutes = sum(float(d["duration_min"]) for d in plan["drills"]) + consts.get("optimizer.max_added_minutes")
     t1 = t0 + timedelta(minutes=minutes)
-    try:
-        from engine import weather as ws1  # WS1, may not exist yet
-        hours = ws1.get_forecast(plan["site"]["lat"], plan["site"]["lon"])
-        hours = [h.model_dump() if hasattr(h, "model_dump") else dict(h) for h in hours]
-        ts = [twonode.parse_time(h["time"]) for h in hours]
-        if hours and min(ts) <= t0 and max(ts) + timedelta(hours=1) >= t1:
-            if any(h.get("source") == "fixture" for h in hours):
-                labels.append("forecast is fixture")
-            return hours
-    except Exception:  # noqa: BLE001 — any WS1 failure falls back to the cached fixture
-        pass
+    if demo:
+        labels.append("demo mode: forecast pinned to the cached NWS fixture")
+    if weather_mode(demo) == "live":
+        try:
+            from engine import weather as ws1  # WS1
+            hours = ws1.get_forecast(plan["site"]["lat"], plan["site"]["lon"])
+            hours = [h.model_dump() if hasattr(h, "model_dump") else dict(h) for h in hours]
+            ts = [twonode.parse_time(h["time"]) for h in hours]
+            if hours and min(ts) <= t0 and max(ts) + timedelta(hours=1) >= t1:
+                if any(h.get("source") == "fixture" for h in hours):
+                    labels.append("forecast is fixture")
+                return hours
+        except Exception:  # noqa: BLE001 — any WS1 failure falls back to the cached fixture
+            pass
+        labels.append("live forecast unavailable; cached NWS fixture used")
     hours = fixtures.forecast()
     ts = [twonode.parse_time(h["time"]) for h in hours]
     if not (min(ts) <= t0 and max(ts) + timedelta(hours=1) >= t1):
@@ -220,7 +231,8 @@ def _live_session():
 @app.get("/health")
 def health() -> dict[str, Any]:
     from engine import fhsaa_adapter
-    return {"ok": True, "model": twonode.MODEL_NAME, "fhsaa": "stub" if fhsaa_adapter.USING_STUB else "ws1"}
+    return {"ok": True, "model": twonode.MODEL_NAME, "fhsaa": "stub" if fhsaa_adapter.USING_STUB else "ws1",
+            "weather": weather_mode()}
 
 
 @app.post("/simulate")
@@ -230,7 +242,7 @@ def simulate(req: SimulateRequest | None = None, demo: bool = Query(False, descr
     if demo:
         dm = consts.get("demo_mode")
         req = req.model_copy(update={"seed": int(dm["seed"]), "n_ensemble": int(dm["n_ensemble"])})
-    plan, roster, weather, labels = _inputs(req)
+    plan, roster, weather, labels = _inputs(req, demo)
     return _guard(twonode.simulate_roster(roster, plan, weather, step_min=req.step_min, n_ensemble=req.n_ensemble,
                                           seed=req.seed, extra_labels=labels, settings=_settings(req)))
 
@@ -246,7 +258,7 @@ def optimize(req: OptimizeRequest | None = None,
         key = (preset, req.model_dump_json())
         if key in _DEMO_CACHE:
             return _DEMO_CACHE[key]
-    plan, roster, weather, labels = _inputs(req)
+    plan, roster, weather, labels = _inputs(req, demo)
     try:
         res = optimizer.optimize(plan, roster, weather, budget_s=req.budget_s, seed=req.seed,
                                  n_ensemble=req.n_ensemble, step_min=req.step_min, extra_labels=labels,

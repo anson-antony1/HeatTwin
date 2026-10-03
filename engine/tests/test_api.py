@@ -84,3 +84,19 @@ def test_demo_mode_is_reproducible():
     s1 = client.post("/simulate?demo=1", json=body).json()
     s2 = client.post("/simulate?demo=1", json=body).json()
     assert s1["athletes"] == s2["athletes"]
+
+
+def test_demo_mode_pins_the_cached_forecast_even_with_live_weather_on(monkeypatch):
+    """Item 7 (docs/AUDIT.md): ?demo=1 never fetches live NWS, so demo numbers are reproducible offline."""
+    from engine import api
+    monkeypatch.setenv("HEATTWIN_WEATHER", "live")
+    calls = []
+    import engine.weather as ws1
+    monkeypatch.setattr(ws1, "get_forecast", lambda *a, **k: calls.append(a) or [])
+    r = client.post("/simulate?demo=1", json={})
+    assert r.status_code == 200
+    assert calls == []
+    labels = r.json()["labels"]
+    assert "forecast is fixture" in labels
+    assert "demo mode: forecast pinned to the cached NWS fixture" in labels
+    assert api.weather_mode(demo=True) == "fixture" and api.weather_mode() == "live"

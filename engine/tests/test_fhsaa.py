@@ -36,7 +36,10 @@ def test_zone_boundaries(w, z):
 
 def test_adapter_uses_real_module():
     assert fhsaa_adapter.USING_STUB is False
-    assert fhsaa_adapter.zone is fhsaa.zone and fhsaa_adapter.violations is fhsaa.violations
+    assert fhsaa_adapter.zone is fhsaa.zone
+    # the adapter wraps WS1's violations (adding NATA gear phasing only when a roster is passed)
+    p, w = plan(drill("a", 120, gear="full_pads", intensity="max")), weather(3, 3, 3)
+    assert fhsaa_adapter.violations(p, w) == fhsaa.violations(p, w)
 
 
 def test_zone1_no_rules():
