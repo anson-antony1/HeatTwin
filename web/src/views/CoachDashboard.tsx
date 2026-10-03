@@ -6,7 +6,7 @@ import { useEngineMeta } from '../data/engineMeta'
 import { useRoster } from '../data/roster'
 import { ESTIMATE_LABEL, zoneColor } from '../data/constants'
 import { SCHOOL } from '../data/fixtures'
-import { basisLabel, drillAtMinute, statusCounts, type AthleteLive } from '../data/selectors'
+import { basisLabel, drillAtMinute, FHSAA_CITATION, statusCounts, zoneRule, zoneRuleText, type AthleteLive } from '../data/selectors'
 import { NumberTicker } from '../components/NumberTicker'
 import { StatusPill } from '../components/StatusPill'
 import { TempChart } from '../components/TempChart'
@@ -140,6 +140,8 @@ function SessionHeader({
   const progress = s.minute / total
   const starts = drills.map((_, i) => drills.slice(0, i).reduce((sum, d) => sum + d.duration_min, 0))
   const w = s.weather
+  const meta = useEngineMeta()
+  const rule = zoneRule(meta.sources?.fhsaa_wbgt_zones?.zones, w?.fhsaa_zone)
 
   return (
     <motion.section layout transition={spring.move} className="session glass" aria-label="Practice session">
@@ -187,7 +189,10 @@ function SessionHeader({
             </Stat>
             <Stat label="FHSAA (forecast)">
               {w ? (
-                <span className="session__zone" title={`WBGT ${w.wbgt_f.toFixed(1)} °F, ${w.source} forecast hour`}>
+                <span
+                  className="session__zone"
+                  title={rule ? `Zone ${w.fhsaa_zone}: ${zoneRuleText(rule)} — ${FHSAA_CITATION}` : undefined}
+                >
                   <span className="session__zone-dot" style={{ background: zoneColor(w.fhsaa_zone) }} />
                   <span className="num">
                     FHSAA zone {w.fhsaa_zone} · WBGT {w.wbgt_f.toFixed(1)} °F (forecast)
