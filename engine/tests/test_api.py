@@ -58,3 +58,17 @@ def test_sources_lists_statuses():
     res = client.get("/sources").json()
     assert res["planning_limit_core_c"]["status"] == "VERIFIED"
     assert "gagge_1986" in res
+
+
+def test_settings_endpoint_and_overrides():
+    rows = {r["key"]: r for r in client.get("/settings").json()["settings"]}
+    assert rows["planning_limit_core_c"]["default"] == 39.0 and rows["planning_limit_core_c"]["owner"] == "athletic trainer"
+    assert rows["clothing_mode"]["value"] == "conservative"
+    body = {"roster": fixtures.roster()[:2], "n_ensemble": 5, "settings": {"planning_limit_core_c": 38.5}}
+    res = client.post("/simulate", json=body).json()
+    assert res["limit_core_c"] == 38.5
+    assert any("planning limit 38.5 °C (set by AT" in lab for lab in res["labels"])
+    res = client.post("/simulate", json={"roster": fixtures.roster()[:2], "n_ensemble": 5}).json()
+    assert any("planning limit 39.0 °C (default" in lab for lab in res["labels"])
+    assert client.post("/simulate", json={"settings": {"planning_limit_core_c": 41.0}}).status_code == 422
+    assert client.post("/simulate", json={"settings": {"bogus": 1}}).status_code == 422

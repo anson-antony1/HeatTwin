@@ -568,9 +568,10 @@ class Timeline:
     is_break: np.ndarray        # [S] bool
 
 
-def build_timeline(drills: Sequence[Mapping[str, Any]], athlete_ids: Sequence[str], step_min: float) -> Timeline:
+def build_timeline(drills: Sequence[Mapping[str, Any]], athlete_ids: Sequence[str], step_min: float,
+                   rest_shade: bool | None = None) -> Timeline:
     rest_met = metabolic.intensity_met(consts.get("non_participant.intensity"))
-    rest_shade = bool(consts.get("non_participant.shade"))
+    rest_shade = bool(consts.get("non_participant.shade")) if rest_shade is None else rest_shade
     steps_per = [int(round(float(d["duration_min"]) / step_min)) for d in drills]
     S = int(sum(steps_per))
     N = len(athlete_ids)
@@ -671,10 +672,11 @@ def planning_limit_c() -> float:
     return float(consts.get("planning_limit_core_c.value"))
 
 
-def athlete_status(peak_p95: float, limit: float) -> str:
+def athlete_status(peak_p95: float, limit: float, near_margin: float | None = None) -> str:
     if peak_p95 >= limit:
         return "over_limit"
-    if peak_p95 >= limit - float(consts.get("near_limit_margin_c.value")):
+    near = float(consts.get("near_limit_margin_c.value")) if near_margin is None else near_margin
+    if peak_p95 >= limit - near:
         return "near_limit"
     return "below_limit"
 
@@ -699,27 +701,36 @@ def simulate_roster(
     params: Mapping[str, Any] | None = None,
     *,
     extra_labels: Sequence[str] = (),
+    settings=None,
 ) -> dict[str, Any]:
     """Simulate every athlete through ``plan`` → CONTRACTS.md ``SimulationResult`` (dict).
 
-    ``params`` may set ``cap_mode`` ("consistent" | "ashrae55_reference"). Output is an estimate for
-    planning only; status is never "safe".
+    ``settings`` (engine.settings.AtSettings) carries the athletic trainer's choices (limit, clothing mode, …);
+    defaults come from constants.yaml. ``params`` may set ``cap_mode`` or ``clothing_mode`` (overrides settings).
+    Output is an estimate for planning only; status is never "safe".
     """
+    from engine import settings as at_settings
+
+    S = settings or at_settings.resolve()
     params = dict(params or {})
+    if "clothing_mode" in params:
+        S = S.with_overrides({"clothing_mode": params["clothing_mode"]})
     t0 = parse_time(plan["start"])
     R = build_roster(roster)
-    tl = build_timeline(plan["drills"], R.ids, step_min)
+    tl = build_timeline(plan["drills"], R.ids, step_min, rest_shade=S.non_participant_shade)
     env = build_environment(weather, plan["site"], t0, step_min, max(tl.n_steps, 1))
     D = make_draws(n_ensemble, len(R.ids), seed)
-    out = simulate_arrays(tl, env, R, D, cap_mode=params.get("cap_mode"), clothing_mode=params.get("clothing_mode"))
-    return assemble_result(plan, roster, weather, tl, env, R, out.core, step_min, extra_labels=extra_labels)
+    out = simulate_arrays(tl, env, R, D, cap_mode=params.get("cap_mode"), clothing_mode=S.clothing_mode)
+    return assemble_result(plan, roster, weather, tl, env, R, out.core, step_min, extra_labels=extra_labels, settings=S)
 
 
 def assemble_result(plan, roster, weather, tl: Timeline, env: Environment, R: RosterArrays, core: np.ndarray,
-                    step_min: float, *, extra_labels: Sequence[str] = ()) -> dict[str, Any]:
+                    step_min: float, *, extra_labels: Sequence[str] = (), settings=None) -> dict[str, Any]:
     from engine import fhsaa_adapter
+    from engine import settings as at_settings
 
-    limit = planning_limit_c()
+    S = settings or at_settings.resolve()
+    limit = S.planning_limit_core_c
     p50, p95 = percentiles(core)
     T = core.shape[2]
     times = [(env.t0 + timedelta(minutes=(k + 1) * step_min)).isoformat() for k in range(T)]
@@ -734,11 +745,11 @@ def assemble_result(plan, roster, weather, tl: Timeline, env: Environment, R: Ro
             "core_c_p95": np.round(p95[i], 3).tolist(),
             "first_cross_min": float((over[0] + 1) * step_min) if over.size else None,
             "peak_core_c_p95": round(peak, 3),
-            "status": athlete_status(peak, limit),
+            "status": athlete_status(peak, limit, S.near_limit_margin_c),
         })
     blocks = set(MODEL_BLOCKS) | env.blocks
     blocks |= {f"gear_clothing.levels.{clothing.GEAR_LEVELS[g]}" for g in np.unique(tl.gear)}
-    labels = [ESTIMATE_LABEL, *env.labels, *R.labels, *extra_labels]
+    labels = [ESTIMATE_LABEL, *env.labels, *R.labels, *extra_labels, *S.labels()]
     unv = consts.unverified(blocks)
     if unv:
         labels.append("uses unverified constants: " + ", ".join(unv))
@@ -749,9 +760,10 @@ def assemble_result(plan, roster, weather, tl: Timeline, env: Environment, R: Ro
         "weather": [h for h in weather if _hour_overlaps(h, env.t0, T * step_min)],
         "athletes": athletes,
         "limit_core_c": limit,
-        "fhsaa_violations": fhsaa_adapter.violations(plan, weather, roster),
+        "fhsaa_violations": fhsaa_adapter.violations(plan, weather, roster if S.enforce_nata_gear_phasing else None),
         "training_load_met_min": round(training_load_met_min(tl, step_min), 1),
-        "model": {"name": MODEL_NAME, "params_ref": PARAMS_REF},
+        "model": {"name": MODEL_NAME, "params_ref": PARAMS_REF, "clothing_mode": S.clothing_mode},
+        "settings": S.as_dict(),
         "labels": labels,
     }
 

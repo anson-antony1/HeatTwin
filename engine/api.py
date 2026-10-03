@@ -21,6 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
 
 from engine import consts, fixtures, optimizer
+from engine import settings as at_settings
 from engine.physio import twonode
 
 app = FastAPI(title="HeatTwin engine", version="0.1.0",
@@ -112,6 +113,7 @@ class SimulateRequest(_Model):
     step_min: float = Field(default=1.0, gt=0, le=5)
     n_ensemble: int = Field(default=30, ge=5, le=500)
     seed: int = 0
+    settings: Optional[dict[str, Any]] = Field(default=None, description="AT-owned overrides; see GET /settings")
 
 
 class OptimizeRequest(SimulateRequest):
@@ -171,6 +173,13 @@ def _forecast_for(plan: dict, labels: list[str]) -> list[dict]:
     return hours
 
 
+def _settings(req: SimulateRequest) -> at_settings.AtSettings:
+    try:
+        return at_settings.resolve(req.settings)
+    except ValueError as e:
+        raise HTTPException(422, str(e)) from e
+
+
 def _guard(result: dict) -> dict:
     """Pass generated text through engine/guard.py when it exists (WS owner TBD); always strip nothing silently."""
     try:
@@ -197,7 +206,7 @@ def simulate(req: SimulateRequest | None = None) -> dict[str, Any]:
     req = req or SimulateRequest()
     plan, roster, weather, labels = _inputs(req)
     return twonode.simulate_roster(roster, plan, weather, step_min=req.step_min, n_ensemble=req.n_ensemble,
-                                   seed=req.seed, extra_labels=labels)
+                                   seed=req.seed, extra_labels=labels, settings=_settings(req))
 
 
 @app.post("/optimize")
@@ -205,8 +214,15 @@ def optimize(req: OptimizeRequest | None = None) -> dict[str, Any]:
     req = req or OptimizeRequest()
     plan, roster, weather, labels = _inputs(req)
     res = optimizer.optimize(plan, roster, weather, budget_s=req.budget_s, seed=req.seed,
-                             n_ensemble=req.n_ensemble, step_min=req.step_min, extra_labels=labels)
+                             n_ensemble=req.n_ensemble, step_min=req.step_min, extra_labels=labels,
+                             settings=_settings(req))
     return _guard(res)
+
+
+@app.get("/settings")
+def settings() -> dict[str, Any]:
+    """AT-owned settings: defaults, sources and allowed values. Override any of them via ``settings`` in a request."""
+    return {"owner": "athletic trainer", "settings": at_settings.resolve().describe()}
 
 
 @app.get("/sources")

@@ -119,7 +119,10 @@ class Problem:
     """Everything fixed during one optimization: roster arrays, ensemble draws, weather on the step grid."""
 
     def __init__(self, plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]],
-                 weather: Sequence[Mapping[str, Any]], *, n_ensemble: int = 30, seed: int = 0, step_min: float = 1.0):
+                 weather: Sequence[Mapping[str, Any]], *, n_ensemble: int = 30, seed: int = 0, step_min: float = 1.0,
+                 settings=None):
+        from engine import settings as at_settings
+        self.S = settings or at_settings.resolve()
         self.plan = plan
         self.roster = list(roster)
         self.weather = list(weather)
@@ -131,13 +134,13 @@ class Problem:
         self.orig_by_src = {s.src: s for s in self.orig}
         self.orig_index = {s.src: i for i, s in enumerate(self.orig)}
         self.orig_total = sum(s.duration for s in self.orig)
-        self.max_total = self.orig_total + int(_opt("max_added_minutes"))
+        self.max_total = self.orig_total + int(self.S.max_added_minutes)
         self.env = twonode.build_environment(self.weather, plan["site"], self.t0, step_min,
                                              int(math.ceil(self.max_total / step_min)))
-        self.limit = twonode.planning_limit_c()
-        self.near = float(consts.get("near_limit_margin_c.value"))
-        self.weights = {int(k): float(v) for k, v in _opt("priority_weights").items()}
-        self.p1_frac = float(_opt("p1_min_kept_fraction"))
+        self.limit = self.S.planning_limit_core_c
+        self.near = self.S.near_limit_margin_c
+        self.weights = self.S.weights()
+        self.p1_frac = self.S.p1_min_kept_fraction
         self.fixed_before = {s.src: {o.src for o in self.orig[:i]} for i, s in enumerate(self.orig) if not s.movable}
         self.break_min = self._break_min()
         self.cache: dict[int, Eval] = {}
@@ -182,7 +185,7 @@ class Problem:
 
     def gear_ok(self, st: State) -> bool:
         """Downgrades never go below the intensity's gear floor (the coach's own original gear is always allowed)."""
-        floor = _opt("gear_floor_by_intensity") or {}
+        floor = self.S.gear_floor()
         order = clothing.GEAR_LEVELS
         for s in st:
             if s.is_break or s.intensity not in floor or s.src is None:
@@ -236,9 +239,9 @@ class Problem:
             return self.cache[key]
         self.evaluations += 1
         plan = self.to_plan(st)
-        viol = fhsaa_adapter.violations(plan, self.weather, self.roster)
-        tl = twonode.build_timeline(plan["drills"], self.R.ids, self.step_min)
-        core = twonode.simulate_arrays(tl, self.env, self.R, self.D).core
+        viol = fhsaa_adapter.violations(plan, self.weather, self.roster if self.S.enforce_nata_gear_phasing else None)
+        tl = twonode.build_timeline(plan["drills"], self.R.ids, self.step_min, rest_shade=self.S.non_participant_shade)
+        core = twonode.simulate_arrays(tl, self.env, self.R, self.D, clothing_mode=self.S.clothing_mode).core
         p95 = np.round(np.percentile(core, 95.0, axis=0), 3)        # [N, T] — same rounding as SimulationResult
         peak = p95.max(axis=1)
         over = p95 >= self.limit
@@ -779,12 +782,12 @@ def simplify(P: Problem, best: Eval, deadline: float) -> Eval:
 
 def optimize(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weather: Sequence[Mapping[str, Any]],
              budget_s: float | None = None, seed: int = 0, n_ensemble: int = 30, step_min: float = 1.0,
-             max_iterations: int | None = None, extra_labels: Sequence[str] = ()) -> dict[str, Any]:
+             max_iterations: int | None = None, extra_labels: Sequence[str] = (), settings=None) -> dict[str, Any]:
     """CONTRACTS.md ``OptimizeResult`` (dict), plus additive fields ``infeasible_reasons`` and ``labels``."""
     t_start = time.perf_counter()
     budget = float(budget_s if budget_s is not None else _opt("default_budget_s"))
     deadline = t_start + budget
-    P = Problem(plan, roster, weather, n_ensemble=n_ensemble, seed=seed, step_min=step_min)
+    P = Problem(plan, roster, weather, n_ensemble=n_ensemble, seed=seed, step_min=step_min, settings=settings)
     rng = random.Random(seed)
 
     beam_deadline = t_start + budget * float(_opt("beam_time_fraction"))
@@ -803,9 +806,9 @@ def optimize(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weath
     new_plan = P.to_plan(final)
     labels = list(extra_labels)
     original = twonode.simulate_roster(roster, plan, weather, step_min=step_min, n_ensemble=n_ensemble, seed=seed,
-                                       extra_labels=labels)
+                                       extra_labels=labels, settings=P.S)
     optimized = twonode.simulate_roster(roster, new_plan, weather, step_min=step_min, n_ensemble=n_ensemble, seed=seed,
-                                        extra_labels=labels)
+                                        extra_labels=labels, settings=P.S)
     load0 = original["training_load_met_min"]
     reasons = _infeasible_reasons(P, best)
     return {
@@ -830,7 +833,8 @@ def optimize(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weath
             "weighted_load_kept_pct": round(100.0 * best.load_w / P.load0, 1),
         },
         "infeasible_reasons": reasons,
-        "labels": [twonode.ESTIMATE_LABEL, *labels]
+        "settings": P.S.as_dict(),
+        "labels": [twonode.ESTIMATE_LABEL, *labels, *P.S.labels()]
                   + ([] if best.feasible else ["no plan met every constraint — least-bad plan shown"]),
     }
 
