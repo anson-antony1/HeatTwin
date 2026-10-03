@@ -1,0 +1,156 @@
+{
+ "synthetic": true,
+ "roster_ids": [
+  "a02",
+  "a06",
+  "a09",
+  "a14"
+ ],
+ "note": "SYNTHETIC test fixture. Overcast, mild physiology (27 \u00b0C, 60 % RH) but FHSAA zone set directly to 2, which requires shaded breaks the plan lacks.",
+ "weather": [
+  {
+   "time": "2026-10-04T12:00:00-04:00",
+   "air_temp_c": 27.0,
+   "rh_pct": 60.0,
+   "wind_m_s": 2.0,
+   "cloud_cover_pct": 100.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 84.0,
+   "fhsaa_zone": 2,
+   "source": "fixture"
+  },
+  {
+   "time": "2026-10-04T13:00:00-04:00",
+   "air_temp_c": 27.0,
+   "rh_pct": 60.0,
+   "wind_m_s": 2.0,
+   "cloud_cover_pct": 100.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 84.0,
+   "fhsaa_zone": 2,
+   "source": "fixture"
+  },
+  {
+   "time": "2026-10-04T14:00:00-04:00",
+   "air_temp_c": 27.0,
+   "rh_pct": 60.0,
+   "wind_m_s": 2.0,
+   "cloud_cover_pct": 100.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 84.0,
+   "fhsaa_zone": 2,
+   "source": "fixture"
+  },
+  {
+   "time": "2026-10-04T15:00:00-04:00",
+   "air_temp_c": 27.0,
+   "rh_pct": 60.0,
+   "wind_m_s": 2.0,
+   "cloud_cover_pct": 100.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 84.0,
+   "fhsaa_zone": 2,
+   "source": "fixture"
+  },
+  {
+   "time": "2026-10-04T16:00:00-04:00",
+   "air_temp_c": 27.0,
+   "rh_pct": 60.0,
+   "wind_m_s": 2.0,
+   "cloud_cover_pct": 100.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 84.0,
+   "fhsaa_zone": 2,
+   "source": "fixture"
+  },
+  {
+   "time": "2026-10-04T17:00:00-04:00",
+   "air_temp_c": 27.0,
+   "rh_pct": 60.0,
+   "wind_m_s": 2.0,
+   "cloud_cover_pct": 100.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 84.0,
+   "fhsaa_zone": 2,
+   "source": "fixture"
+  },
+  {
+   "time": "2026-10-04T18:00:00-04:00",
+   "air_temp_c": 27.0,
+   "rh_pct": 60.0,
+   "wind_m_s": 2.0,
+   "cloud_cover_pct": 100.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 84.0,
+   "fhsaa_zone": 2,
+   "source": "fixture"
+  },
+  {
+   "time": "2026-10-04T19:00:00-04:00",
+   "air_temp_c": 27.0,
+   "rh_pct": 60.0,
+   "wind_m_s": 2.0,
+   "cloud_cover_pct": 100.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 84.0,
+   "fhsaa_zone": 2,
+   "source": "fixture"
+  }
+ ],
+ "plan": {
+  "id": "syn-break",
+  "site": {
+   "name": "Synthetic test field",
+   "lat": 29.6516,
+   "lon": -82.3248,
+   "surface": "grass"
+  },
+  "start": "2026-10-04T15:00:00-04:00",
+  "drills": [
+   {
+    "id": "w",
+    "name": "Warmup",
+    "duration_min": 10,
+    "intensity": "light",
+    "gear": "none",
+    "shade": false,
+    "is_break": false,
+    "priority": 1,
+    "movable": false
+   },
+   {
+    "id": "m1",
+    "name": "Individual",
+    "duration_min": 20,
+    "intensity": "moderate",
+    "gear": "none",
+    "shade": false,
+    "is_break": false,
+    "priority": 1,
+    "movable": true
+   },
+   {
+    "id": "m2",
+    "name": "Group",
+    "duration_min": 20,
+    "intensity": "moderate",
+    "gear": "none",
+    "shade": false,
+    "is_break": false,
+    "priority": 2,
+    "movable": true
+   },
+   {
+    "id": "c",
+    "name": "Cooldown",
+    "duration_min": 10,
+    "intensity": "light",
+    "gear": "none",
+    "shade": false,
+    "is_break": false,
+    "priority": 1,
+    "movable": false
+   }
+  ]
+ }
+}
