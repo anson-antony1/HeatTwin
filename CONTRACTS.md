@@ -1,6 +1,8 @@
-# CONTRACTS.md — frozen data shapes (v1)
+# CONTRACTS.md — frozen data shapes (v1.1)
 
-Freeze at M0. Additive changes only after that. Units are in field names. Times are ISO 8601 with offset; durations are in minutes.
+Freeze at M0. Additive changes only after that.
+**v1.1 (additive, Oct 3):** fields marked `// v1.1` are new and optional; every v1 field keeps its meaning.
+**v1.2 (additive, Oct 3 night):** `// v1.2` — Drill.drill_type, OptimizeResult.top_changes/top_changes_text, voice-tool endpoints. Units are in field names. Times are ISO 8601 with offset; durations are in minutes.
 
 ## Athlete
 ```ts
@@ -19,6 +21,9 @@ type Athlete = {
   days_since_last_heat_session?: number;
   flags?: string[];           // e.g. "recent_illness", "prior_ehi" — self/AT reported, never inferred
   calib?: AthleteCalibration; // filled by calibrate.py
+  gear_limit?: GearLevel;     // v1.1: AT-set gear cap. NATA 2009 phasing from acclimatization_day always applies
+                              //       (days 1–2 helmet, 3–5 helmet+shoulder pads, 6+ full); this can only tighten it
+  vo2max_ml_kg_min?: number;  // v1.1: if measured; default by position group (Boden 2022: linemen 32.8, others 41.8)
 };
 
 type AthleteCalibration = {
@@ -47,6 +52,8 @@ type Drill = {
   priority: 1 | 2 | 3;        // 1 = must keep, 3 = first to trim
   movable: boolean;           // can the optimizer reorder it?
   participants?: string[];    // athlete ids; default = all
+  gear_by_athlete?: Record<string, GearLevel>; // v1.1: per-athlete gear in this drill (overrides `gear` for those ids)
+  drill_type?: "warmup" | "individual" | "team" | "special_teams" | "conditioning" | "cooldown" | "break"; // v1.2 (else inferred from name/intensity)
 };
 
 type PracticePlan = {
@@ -93,6 +100,7 @@ type SimulationResult = {
   weather: WeatherHour[];
   athletes: {
     id: string;
+    name?: string;                      // v1.1
     core_c_p50: number[];               // length T
     core_c_p95: number[];
     first_cross_min?: number;           // first minute p95 >= limit
@@ -100,10 +108,26 @@ type SimulationResult = {
     status: "below_limit" | "near_limit" | "over_limit"; // never "safe"
   }[];
   limit_core_c: number;                 // from constants.yaml
-  fhsaa_violations: { drill_id: string; rule: string; detail: string }[];
+  fhsaa_violations: { drill_id: string; rule: string; detail: string }[];  // v1.1: rule may be "nata_gear_phasing"
   training_load_met_min: number;
-  model: { name: "twonode-v1"; params_ref: string };
-  labels: string[];                     // e.g. ["estimate — planning only", "forecast is fixture"]
+  model: { name: "twonode-v1"; params_ref: string;
+           clothing_mode?: "conservative" | "iso7933_dynamic" | "gagge_static" };  // v1.1
+  settings?: AtSettings;                // v1.1: the AT-owned settings this run used
+  labels: string[];                     // e.g. ["estimate — planning only", "forecast is fixture",
+                                        //       "AT-owned settings — planning limit 39.0 °C (default; …)"]
+};
+
+// v1.1: settings an athletic trainer owns (GET /settings lists defaults, sources, allowed values)
+type AtSettings = {
+  planning_limit_core_c: number;        // default 39.0 (NIOSH 2016); alternatives 38.0, 38.5
+  near_limit_margin_c: number;          // default 0.3
+  clothing_mode: "conservative" | "iso7933_dynamic" | "gagge_static";  // default conservative
+  non_participant_shade: boolean;       // rotated-out athletes rest in shade (default true)
+  enforce_nata_gear_phasing: boolean;   // default true
+  max_added_minutes: number;            // optimizer may lengthen practice by at most this (default 20)
+  p1_min_kept_fraction: number;         // default 0.9
+  priority_weights: Record<"1" | "2" | "3", number>;   // default 3 / 2 / 1
+  gear_floor_by_intensity: Record<string, GearLevel>;  // default { hard: "helmet", max: "none" }
 };
 ```
 
@@ -113,10 +137,21 @@ type OptimizeResult = {
   original: SimulationResult;
   optimized: SimulationResult;
   plan: PracticePlan;                   // new plan
-  changes: { kind: "reorder" | "insert_break" | "gear_change" | "trim" | "shade"; drill_id: string; detail: string }[];
+  changes: { kind: "reorder" | "insert_break" | "gear_change" | "trim" | "shade"; drill_id: string; detail: string;
+             move?: "reorder" | "insert_break" | "lengthen_break" | "split" | "platoon" | "rotate_out" | "trim"
+                  | "remove" | "gear_down" | "gear_per_athlete" | "shade" }[];   // v1.1: finer move type
   load_kept_pct: number;
   feasible: boolean;
-  search: { iterations: number; seconds: number; method: string };
+  search: { iterations: number; seconds: number; method: string;
+            // v1.1 (all optional):
+            evaluations?: number; cache_hits?: number; beam_iterations?: number; sa_iterations?: number;
+            sa_best_iteration?: number; stopped_by?: "iterations" | "time_budget"; seed?: number;
+            budget_s?: number; demo?: boolean; weighted_load_kept_pct?: number };
+  infeasible_reasons?: string[];        // v1.1: why feasible=false (least-bad plan still returned in `plan`)
+  top_changes?: { kind: string; move?: string; drill_id: string; detail: string; heat_reduction_c: number }[]; // v1.2: top 3 by heat reduction (leave-one-out, team-mean peak p95)
+  top_changes_text?: string;            // v1.2: guarded sentence for the UI / voice agent
+  settings?: AtSettings;                // v1.1
+  labels?: string[];                    // v1.1: "estimate — planning only", settings, demo mode, least-bad notice
 };
 ```
 
@@ -136,10 +171,16 @@ type CollapseLog = {
 | Method | Path | Body → Response |
 |---|---|---|
 | GET | `/weather?lat&lon` | → `WeatherHour[]` |
-| POST | `/simulate` | `{plan, roster}` → `SimulationResult` |
-| POST | `/optimize` | `{plan, roster, budget_s?}` → `OptimizeResult` |
-| POST | `/hr` | live HR → `{athlete_id, calib, reforecast: SimulationResult}` |
+| POST | `/simulate` | `{plan, roster}` → `SimulationResult` · v1.1 optional body fields: `weather`, `step_min`, `n_ensemble`, `seed`, `settings` (AT overrides); `?demo=1` fixes the seed. Missing plan/roster/weather fall back to labelled fixtures |
+| POST | `/optimize` | `{plan, roster, budget_s?}` → `OptimizeResult` · v1.1: same optional fields; `?demo=1` = fixed seed + fixed iteration cap instead of a time budget (reproducible) |
+| GET | `/settings` | v1.1 → `{owner: "athletic trainer", settings: [{key, value, default, status, source, description, …}]}` |
+| GET | `/health` | v1.1 → `{ok, model, fhsaa: "stub" \| "ws1"}` |
+| POST | `/hr` | live HR → `{athlete_id, calib, reforecast: SimulationResult}` · v1.1 adds `gates: {crossing, persistent, coverage_ok, coverage_fraction, n_updates, flag, held_by[], message}`, `updated`, `replay`, `labels` |
+| POST | `/live/start` | v1.1 `{plan?, roster?, weather?, settings?, seed?}` → `{ok, plan_id, athletes}` — starts/reset the live session /hr uses (defaults to fixtures) |
 | POST | `/node` | node reading → `{ok}` |
 | GET | `/node/latest` | → last reading + assimilated `WeatherHour` |
 | GET | `/sources` | → constants.yaml as JSON with status |
+| POST | `/what_if` | v1.2 `{change: {drill_id, gear?\|duration_min?\|shade?\|intensity?\|move_to?\|remove?} \| {add_break_after, minutes}, plan?, roster?, settings?}` → `{before, after, delta_team_mean_p95_c, say, labels}` (summaries: athletes, over_limit, near_limit, max_p95_c, team_mean_p95_c, first_cross_min, limit_c, fhsaa_violations, practice_min) |
+| GET | `/athlete_status?athlete_id=` | v1.2 id or name → `{id, name, position, acclimatization_day, gear_limit, peak_p50_c, peak_p95_c, status, first_cross_min, limit_c, say, labels}` |
+| GET | `/field_conditions` | v1.2 → `{hours: [{time, wbgt_f, fhsaa_zone, air_temp_c, rh_pct, source}], sources, say, labels}` |
 | POST | `/guard` | `{text}` → `{ok, redacted_text, hits[]}` |

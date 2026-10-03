@@ -1,0 +1,268 @@
+"""Coach's words (typed or spoken) → draft PracticePlan, via Google Gemini.
+
+PLAN.md "Runtime AI (not in the safety loop)": the coach describes practice in plain English, the LLM turns it into
+CONTRACTS.md ``Drill[]``, the output is schema-validated, and **the coach confirms** before anything is simulated.
+The LLM never sees athlete data and never produces heat-risk judgements; it only structures the coach's own plan.
+
+Speech needs no separate model: Gemini takes the audio directly and returns the transcript and the drills in one
+call. The browser records with MediaRecorder and converts to 16 kHz mono WAV (web/src/lib/useVoicePlan.ts), a format
+Gemini accepts.
+
+Key: ``GEMINI_API_KEY`` from the environment or the repo-root ``.env`` (gitignored — never commit it).
+Model: ``GEMINI_MODEL`` (default below).
+"""
+from __future__ import annotations
+
+import base64
+import json
+import os
+import re
+from pathlib import Path
+from typing import Any, Literal, Optional
+
+from pydantic import BaseModel, Field, ValidationError
+
+API = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+DEFAULT_MODEL = "gemini-3.8-flash"
+TIMEOUT_S = 45.0
+MAX_AUDIO_BYTES = 15 * 1024 * 1024        # Gemini inline-data limit is ~20 MB per request (base64 grows ~4/3)
+AUDIO_MIME = {"audio/wav", "audio/x-wav", "audio/mp3", "audio/mpeg", "audio/aiff", "audio/aac", "audio/ogg", "audio/flac"}
+LABEL = "parsed by AI from the coach's description — coach must confirm"
+
+
+class LLMNotConfigured(RuntimeError):
+    pass
+
+
+class LLMError(RuntimeError):
+    pass
+
+
+# ── key / model ──────────────────────────────────────────────────────────────
+
+def _load_dotenv() -> None:
+    """Minimal .env reader (KEY=VALUE lines) so no extra dependency is needed. Real env vars win."""
+    path = Path(__file__).resolve().parents[1] / ".env"
+    if not path.exists():
+        return
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+
+
+def _key() -> str:
+    _load_dotenv()
+    key = os.environ.get("GEMINI_API_KEY", "")
+    if not key:
+        raise LLMNotConfigured("GEMINI_API_KEY is not set (put it in .env at the repo root)")
+    return key
+
+
+def model_name() -> str:
+    _load_dotenv()
+    return os.environ.get("GEMINI_MODEL", DEFAULT_MODEL)
+
+
+def status() -> dict[str, Any]:
+    try:
+        _key()
+        configured = True
+    except LLMNotConfigured:
+        configured = False
+    return {"configured": configured, "provider": "google-gemini", "model": model_name()}
+
+
+# ── what the model must return ───────────────────────────────────────────────
+
+INTENSITIES = ["rest", "light", "moderate", "hard", "max"]
+GEARS = ["none", "helmet", "helmet_shoulder_pads", "full_pads"]
+
+# Gemini structured-output schema (OpenAPI subset). Field meanings are in the instructions below.
+RESPONSE_SCHEMA = {
+    "type": "OBJECT",
+    "properties": {
+        "transcript": {"type": "STRING", "description": "What the coach said, verbatim (for typed input: the text)."},
+        "start_time_local": {"type": "STRING", "nullable": True, "description": "Practice start as HH:MM 24 h if stated, else null."},
+        "drills": {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "name": {"type": "STRING"},
+                    "duration_min": {"type": "NUMBER"},
+                    "intensity": {"type": "STRING", "enum": INTENSITIES},
+                    "gear": {"type": "STRING", "enum": GEARS},
+                    "is_break": {"type": "BOOLEAN"},
+                    "shade": {"type": "BOOLEAN"},
+                    "priority": {"type": "INTEGER", "description": "1, 2 or 3"},
+                    "movable": {"type": "BOOLEAN"},
+                },
+                "required": ["name", "duration_min", "intensity", "gear", "is_break", "shade", "priority", "movable"],
+                "propertyOrdering": ["name", "duration_min", "intensity", "gear", "is_break", "shade", "priority", "movable"],
+            },
+        },
+        "assumptions": {"type": "ARRAY", "items": {"type": "STRING"},
+                        "description": "Every value you filled in that the coach did not say."},
+        "unclear": {"type": "ARRAY", "items": {"type": "STRING"},
+                    "description": "Anything you could not interpret; ask the coach."},
+    },
+    "required": ["transcript", "drills", "assumptions", "unclear"],
+    "propertyOrdering": ["transcript", "start_time_local", "drills", "assumptions", "unclear"],
+}
+
+INSTRUCTIONS = """You turn a high school football coach's description of today's practice into a list of drills.
+Only structure what the coach said. Do not add, remove, reorder, lengthen or shorten drills, and do not give safety,
+heat or medical advice.
+
+For each drill, in the order the coach said them:
+- name: short, the coach's own words ("Individual period", "Inside run", "Water break").
+- duration_min: minutes as stated. If a duration is missing, do not guess: use 0 and list it in "unclear".
+- intensity: rest (standing, water break, walkthrough at a stand), light (warmup, stretching, calisthenics,
+  walkthrough), moderate (individual/position drills, special teams, 7-on-7), hard (team period, inside run,
+  scrimmage, live tackling), max (conditioning, sprints, gassers).
+- gear: none (shorts/t-shirt), helmet (helmets only), helmet_shoulder_pads ("shells", helmet and shoulder pads),
+  full_pads (full pads / full gear). If the coach states gear once for the practice, apply it to every drill until they
+  change it. Water breaks keep the gear of the drill before them.
+- is_break: true only for water/rest breaks. shade: true only if the coach says the break is in shade/under a tent.
+- priority: 1 if the coach says it must happen or can't be cut, 3 if they say it's optional or can be cut, else 2.
+- movable: false if the coach ties it to a time or order ("first", "always end with"), else true. A warmup at the start
+  is movable=false.
+Put in "assumptions" every value you set that the coach did not state explicitly (one short sentence each).
+"transcript": verbatim words of the coach. "start_time_local": start time if stated, 24 h HH:MM, else null."""
+
+
+class ParsedDrill(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    duration_min: float = Field(ge=0, le=240)
+    intensity: Literal["rest", "light", "moderate", "hard", "max"]
+    gear: Literal["none", "helmet", "helmet_shoulder_pads", "full_pads"]
+    is_break: bool
+    shade: bool
+    priority: Literal[1, 2, 3]
+    movable: bool
+
+
+class Parsed(BaseModel):
+    transcript: str = ""
+    start_time_local: Optional[str] = None
+    drills: list[ParsedDrill]
+    assumptions: list[str] = []
+    unclear: list[str] = []
+
+
+# ── Gemini call ──────────────────────────────────────────────────────────────
+
+def _call_gemini(parts: list[dict[str, Any]]) -> str:
+    """One generateContent call with JSON-constrained output; returns the JSON text."""
+    import requests
+
+    body = {
+        "systemInstruction": {"parts": [{"text": INSTRUCTIONS}]},
+        "contents": [{"role": "user", "parts": parts}],
+        "generationConfig": {"responseMimeType": "application/json", "responseSchema": RESPONSE_SCHEMA,
+                             "temperature": 0.1},
+    }
+    try:
+        r = requests.post(API.format(model=model_name()), json=body, timeout=TIMEOUT_S,
+                          headers={"x-goog-api-key": _key(), "Content-Type": "application/json"})
+    except requests.RequestException as e:
+        raise LLMError(f"Gemini unreachable: {type(e).__name__}") from e
+    if r.status_code != 200:
+        msg = r.json().get("error", {}).get("message", r.text[:200]) if r.headers.get("content-type", "").startswith("application/json") else r.text[:200]
+        raise LLMError(f"Gemini HTTP {r.status_code}: {msg}")
+    data = r.json()
+    try:
+        return "".join(p.get("text", "") for p in data["candidates"][0]["content"]["parts"])
+    except (KeyError, IndexError) as e:
+        reason = (data.get("promptFeedback") or {}).get("blockReason") or (data.get("candidates") or [{}])[0].get("finishReason")
+        raise LLMError(f"Gemini returned no content ({reason})") from e
+
+
+def _parse(parts: list[dict[str, Any]]) -> Parsed:
+    last: Exception | None = None
+    for _ in range(2):                                     # one retry on malformed output
+        text = _call_gemini(parts)
+        try:
+            return Parsed.model_validate(json.loads(text))
+        except (json.JSONDecodeError, ValidationError) as e:
+            last = e
+    raise LLMError(f"Gemini output did not match the drill schema: {last}")
+
+
+# ── public API ───────────────────────────────────────────────────────────────
+
+def parse_text(text: str, **plan_kw) -> dict[str, Any]:
+    text = (text or "").strip()
+    if not text:
+        raise ValueError("text is empty")
+    return draft_plan(_parse([{"text": f"Coach's practice description:\n{text}"}]), **plan_kw)
+
+
+def parse_audio(audio: bytes, mime_type: str, **plan_kw) -> dict[str, Any]:
+    mime = mime_type.split(";")[0].strip().lower()
+    if mime not in AUDIO_MIME:
+        raise ValueError(f"unsupported audio type {mime_type!r}; send WAV (see web/src/lib/useVoicePlan.ts)")
+    if not audio:
+        raise ValueError("audio is empty")
+    if len(audio) > MAX_AUDIO_BYTES:
+        raise ValueError("audio too long; keep the description under ~5 minutes")
+    parts = [{"inline_data": {"mime_type": mime, "data": base64.b64encode(audio).decode()}},
+             {"text": "The audio is the coach describing today's practice. Transcribe it and extract the drills."}]
+    return draft_plan(_parse(parts), **plan_kw)
+
+
+_HHMM = re.compile(r"^([01]?\d|2[0-3]):([0-5]\d)$")
+
+
+def draft_plan(p: Parsed, site: Optional[dict[str, Any]] = None, date: Optional[str] = None,
+               start: Optional[str] = None, plan_id: str = "plan-voice-1") -> dict[str, Any]:
+    """Parsed LLM output → {plan (CONTRACTS.md PracticePlan), transcript, assumptions, unclear, labels, ...}.
+
+    ``start`` (full ISO time) wins over the spoken start time; otherwise ``date`` (YYYY-MM-DD) + spoken HH:MM; site,
+    date and start default to the fixture plan's. Drills with no stated duration are dropped from the plan and named
+    in ``unclear`` so the coach fills them in.
+    """
+    from engine import fixtures, guard
+
+    base = fixtures.plan()
+    site = site or base["site"]
+    unclear = list(p.unclear)
+    if start is None:
+        day = date or base["start"][:10]
+        tz = base["start"][19:] or "-04:00"
+        hhmm = (p.start_time_local or "").strip()
+        m = _HHMM.match(hhmm)
+        start = f"{day}T{int(m.group(1)):02d}:{m.group(2)}:00{tz}" if m else base["start"].replace(base["start"][:10], day)
+        if not m:
+            unclear.append("Start time not stated; using the default start time.")
+
+    drills, n_drill, n_break = [], 0, 0
+    for d in p.drills:
+        if d.duration_min <= 0:
+            if not any(d.name.lower() in u.lower() for u in unclear):   # the model may already have said so
+                unclear.append(f"No duration for \"{d.name}\".")
+            continue
+        if d.is_break:
+            n_break += 1
+            did = f"b{n_break}"
+        else:
+            n_drill += 1
+            did = f"d{n_drill}"
+        drills.append({"id": did, "name": d.name, "duration_min": round(float(d.duration_min), 1),
+                       "intensity": "rest" if d.is_break else d.intensity, "gear": d.gear, "shade": d.shade,
+                       "is_break": d.is_break, "priority": d.priority, "movable": d.movable})
+
+    g = lambda items, src: [guard.check(s, source=src)["redacted_text"] for s in items]  # noqa: E731
+    return {
+        "plan": {"id": plan_id, "site": site, "start": start, "drills": drills},
+        "transcript": p.transcript,
+        "assumptions": g(p.assumptions, "llm_plan.assumptions"),
+        "unclear": g(unclear, "llm_plan.unclear"),
+        "total_min": round(sum(d["duration_min"] for d in drills), 1),
+        "needs_confirmation": True,
+        "labels": [LABEL],
+        "model": model_name(),
+    }

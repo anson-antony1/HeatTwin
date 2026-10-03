@@ -1,6 +1,6 @@
 {
   "synthetic": true,
-  "note": "Fictional demo roster. No real athletes.",
+  "note": "Fictional demo roster. No real athletes. gear_limit follows NATA 2009 preseason gear phasing from acclimatization_day (days 1-2 helmet only, 3-5 helmet + shoulder pads, 6+ full pads).",
   "roster": [
     {
       "id": "a01",
@@ -12,7 +12,8 @@
       "sex": "male",
       "hr_rest_bpm": 59,
       "acclimatization_day": 5,
-      "days_since_last_heat_session": 1
+      "days_since_last_heat_session": 1,
+      "gear_limit": "helmet_shoulder_pads"
     },
     {
       "id": "a02",
@@ -24,7 +25,8 @@
       "sex": "male",
       "hr_rest_bpm": 72,
       "acclimatization_day": 2,
-      "days_since_last_heat_session": 1
+      "days_since_last_heat_session": 1,
+      "gear_limit": "helmet"
     },
     {
       "id": "a03",
@@ -36,7 +38,8 @@
       "sex": "male",
       "hr_rest_bpm": 71,
       "acclimatization_day": 2,
-      "days_since_last_heat_session": 1
+      "days_since_last_heat_session": 1,
+      "gear_limit": "helmet"
     },
     {
       "id": "a04",
@@ -48,7 +51,8 @@
       "sex": "male",
       "hr_rest_bpm": 68,
       "acclimatization_day": 5,
-      "days_since_last_heat_session": 1
+      "days_since_last_heat_session": 1,
+      "gear_limit": "helmet_shoulder_pads"
     },
     {
       "id": "a05",
@@ -60,7 +64,8 @@
       "sex": "male",
       "hr_rest_bpm": 57,
       "acclimatization_day": 8,
-      "days_since_last_heat_session": 3
+      "days_since_last_heat_session": 3,
+      "gear_limit": "full_pads"
     },
     {
       "id": "a06",
@@ -72,7 +77,8 @@
       "sex": "male",
       "hr_rest_bpm": 58,
       "acclimatization_day": 2,
-      "days_since_last_heat_session": 1
+      "days_since_last_heat_session": 1,
+      "gear_limit": "helmet"
     },
     {
       "id": "a07",
@@ -84,7 +90,8 @@
       "sex": "male",
       "hr_rest_bpm": 56,
       "acclimatization_day": 2,
-      "days_since_last_heat_session": 1
+      "days_since_last_heat_session": 1,
+      "gear_limit": "helmet"
     },
     {
       "id": "a08",
@@ -96,7 +103,8 @@
       "sex": "male",
       "hr_rest_bpm": 64,
       "acclimatization_day": 5,
-      "days_since_last_heat_session": 1
+      "days_since_last_heat_session": 1,
+      "gear_limit": "helmet_shoulder_pads"
     },
     {
       "id": "a09",
@@ -108,7 +116,8 @@
       "sex": "male",
       "hr_rest_bpm": 64,
       "acclimatization_day": 8,
-      "days_since_last_heat_session": 1
+      "days_since_last_heat_session": 1,
+      "gear_limit": "full_pads"
     },
     {
       "id": "a10",
@@ -120,7 +129,8 @@
       "sex": "male",
       "hr_rest_bpm": 61,
       "acclimatization_day": 3,
-      "days_since_last_heat_session": 1
+      "days_since_last_heat_session": 1,
+      "gear_limit": "helmet_shoulder_pads"
     },
     {
       "id": "a11",
@@ -132,7 +142,8 @@
       "sex": "male",
       "hr_rest_bpm": 56,
       "acclimatization_day": 8,
-      "days_since_last_heat_session": 1
+      "days_since_last_heat_session": 1,
+      "gear_limit": "full_pads"
     },
     {
       "id": "a12",
@@ -144,7 +155,8 @@
       "sex": "male",
       "hr_rest_bpm": 72,
       "acclimatization_day": 5,
-      "days_since_last_heat_session": 1
+      "days_since_last_heat_session": 1,
+      "gear_limit": "helmet_shoulder_pads"
     },
     {
       "id": "a13",
@@ -156,7 +168,8 @@
       "sex": "male",
       "hr_rest_bpm": 69,
       "acclimatization_day": 3,
-      "days_since_last_heat_session": 1
+      "days_since_last_heat_session": 1,
+      "gear_limit": "helmet_shoulder_pads"
     },
     {
       "id": "a14",
@@ -168,7 +181,8 @@
       "sex": "male",
       "hr_rest_bpm": 60,
       "acclimatization_day": 12,
-      "days_since_last_heat_session": 1
+      "days_since_last_heat_session": 1,
+      "gear_limit": "full_pads"
     },
     {
       "id": "a15",
@@ -180,7 +194,8 @@
       "sex": "male",
       "hr_rest_bpm": 64,
       "acclimatization_day": 8,
-      "days_since_last_heat_session": 3
+      "days_since_last_heat_session": 3,
+      "gear_limit": "full_pads"
     },
     {
       "id": "a16",
@@ -192,7 +207,8 @@
       "sex": "male",
       "hr_rest_bpm": 69,
       "acclimatization_day": 3,
-      "days_since_last_heat_session": 1
+      "days_since_last_heat_session": 1,
+      "gear_limit": "helmet_shoulder_pads"
     }
   ]
 }

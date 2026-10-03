@@ -1,0 +1,111 @@
+{
+ "synthetic": false,
+ "note": "Cached NWS gridpoint forecast (not live). wbgt_f is the NWS wetBulbGlobeTemperature forecast layer, not computed by wbgt.py. solar_w_m2 absent (NWS provides none).",
+ "provenance": {
+  "url": "https://api.weather.gov/gridpoints/JAX/43,32",
+  "nws_update_time": "2026-10-03T12:07:00+00:00",
+  "raw_file": "JAX_43_32_update_2026-10-03T1207Z.json"
+ },
+ "hours": [
+  {
+   "time": "2026-10-04T10:00:00-04:00",
+   "air_temp_c": 26.11,
+   "rh_pct": 97.0,
+   "wind_m_s": 2.57,
+   "cloud_cover_pct": 51.0,
+   "wbgt_f": 79.0,
+   "fhsaa_zone": 1,
+   "source": "fixture"
+  },
+  {
+   "time": "2026-10-04T11:00:00-04:00",
+   "air_temp_c": 27.78,
+   "rh_pct": 88.0,
+   "wind_m_s": 3.09,
+   "cloud_cover_pct": 58.0,
+   "wbgt_f": 82.0,
+   "fhsaa_zone": 1,
+   "source": "fixture"
+  },
+  {
+   "time": "2026-10-04T12:00:00-04:00",
+   "air_temp_c": 29.44,
+   "rh_pct": 80.0,
+   "wind_m_s": 3.09,
+   "cloud_cover_pct": 59.0,
+   "wbgt_f": 84.0,
+   "fhsaa_zone": 2,
+   "source": "fixture"
+  },
+  {
+   "time": "2026-10-04T13:00:00-04:00",
+   "air_temp_c": 30,
+   "rh_pct": 77.0,
+   "wind_m_s": 3.09,
+   "cloud_cover_pct": 57.0,
+   "wbgt_f": 85.0,
+   "fhsaa_zone": 2,
+   "source": "fixture"
+  },
+  {
+   "time": "2026-10-04T14:00:00-04:00",
+   "air_temp_c": 30.56,
+   "rh_pct": 75.0,
+   "wind_m_s": 2.57,
+   "cloud_cover_pct": 62.0,
+   "wbgt_f": 86.0,
+   "fhsaa_zone": 2,
+   "source": "fixture"
+  },
+  {
+   "time": "2026-10-04T15:00:00-04:00",
+   "air_temp_c": 31.11,
+   "rh_pct": 72.0,
+   "wind_m_s": 2.57,
+   "cloud_cover_pct": 60.0,
+   "wbgt_f": 86.0,
+   "fhsaa_zone": 2,
+   "source": "fixture"
+  },
+  {
+   "time": "2026-10-04T16:00:00-04:00",
+   "air_temp_c": 30,
+   "rh_pct": 75.0,
+   "wind_m_s": 2.06,
+   "cloud_cover_pct": 65.0,
+   "wbgt_f": 83.0,
+   "fhsaa_zone": 2,
+   "source": "fixture"
+  },
+  {
+   "time": "2026-10-04T17:00:00-04:00",
+   "air_temp_c": 29.44,
+   "rh_pct": 77.0,
+   "wind_m_s": 2.06,
+   "cloud_cover_pct": 75.0,
+   "wbgt_f": 82.0,
+   "fhsaa_zone": 1,
+   "source": "fixture"
+  },
+  {
+   "time": "2026-10-04T18:00:00-04:00",
+   "air_temp_c": 28.89,
+   "rh_pct": 80.0,
+   "wind_m_s": 1.54,
+   "cloud_cover_pct": 78.0,
+   "wbgt_f": 81.0,
+   "fhsaa_zone": 1,
+   "source": "fixture"
+  },
+  {
+   "time": "2026-10-04T19:00:00-04:00",
+   "air_temp_c": 26.67,
+   "rh_pct": 88.0,
+   "wind_m_s": 1.54,
+   "cloud_cover_pct": 86.0,
+   "wbgt_f": 78.0,
+   "fhsaa_zone": 1,
+   "source": "fixture"
+  }
+ ]
+}

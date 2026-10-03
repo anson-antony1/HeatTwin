@@ -1,0 +1,167 @@
+{
+ "synthetic": true,
+ "roster_ids": [
+  "a02",
+  "a06",
+  "a09",
+  "a14"
+ ],
+ "note": "SYNTHETIC test fixture. Overcast (solar 0), 29 \u00b0C, 55 % RH, FHSAA zone set directly to 1 (no breaks required). Two hard blocks back to back cross the planning limit; moving the existing shaded rest between them fixes it. No gear to remove and all drills priority 1.",
+ "weather": [
+  {
+   "time": "2026-10-04T12:00:00-04:00",
+   "air_temp_c": 29.0,
+   "rh_pct": 55.0,
+   "wind_m_s": 2.0,
+   "cloud_cover_pct": 100.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 81.0,
+   "fhsaa_zone": 1,
+   "source": "fixture"
+  },
+  {
+   "time": "2026-10-04T13:00:00-04:00",
+   "air_temp_c": 29.0,
+   "rh_pct": 55.0,
+   "wind_m_s": 2.0,
+   "cloud_cover_pct": 100.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 81.0,
+   "fhsaa_zone": 1,
+   "source": "fixture"
+  },
+  {
+   "time": "2026-10-04T14:00:00-04:00",
+   "air_temp_c": 29.0,
+   "rh_pct": 55.0,
+   "wind_m_s": 2.0,
+   "cloud_cover_pct": 100.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 81.0,
+   "fhsaa_zone": 1,
+   "source": "fixture"
+  },
+  {
+   "time": "2026-10-04T15:00:00-04:00",
+   "air_temp_c": 29.0,
+   "rh_pct": 55.0,
+   "wind_m_s": 2.0,
+   "cloud_cover_pct": 100.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 81.0,
+   "fhsaa_zone": 1,
+   "source": "fixture"
+  },
+  {
+   "time": "2026-10-04T16:00:00-04:00",
+   "air_temp_c": 29.0,
+   "rh_pct": 55.0,
+   "wind_m_s": 2.0,
+   "cloud_cover_pct": 100.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 81.0,
+   "fhsaa_zone": 1,
+   "source": "fixture"
+  },
+  {
+   "time": "2026-10-04T17:00:00-04:00",
+   "air_temp_c": 29.0,
+   "rh_pct": 55.0,
+   "wind_m_s": 2.0,
+   "cloud_cover_pct": 100.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 81.0,
+   "fhsaa_zone": 1,
+   "source": "fixture"
+  },
+  {
+   "time": "2026-10-04T18:00:00-04:00",
+   "air_temp_c": 29.0,
+   "rh_pct": 55.0,
+   "wind_m_s": 2.0,
+   "cloud_cover_pct": 100.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 81.0,
+   "fhsaa_zone": 1,
+   "source": "fixture"
+  },
+  {
+   "time": "2026-10-04T19:00:00-04:00",
+   "air_temp_c": 29.0,
+   "rh_pct": 55.0,
+   "wind_m_s": 2.0,
+   "cloud_cover_pct": 100.0,
+   "solar_w_m2": 0.0,
+   "wbgt_f": 81.0,
+   "fhsaa_zone": 1,
+   "source": "fixture"
+  }
+ ],
+ "plan": {
+  "id": "syn-reorder",
+  "site": {
+   "name": "Synthetic test field",
+   "lat": 29.6516,
+   "lon": -82.3248,
+   "surface": "grass"
+  },
+  "start": "2026-10-04T15:30:00-04:00",
+  "drills": [
+   {
+    "id": "w",
+    "name": "Warmup",
+    "duration_min": 10,
+    "intensity": "light",
+    "gear": "none",
+    "shade": false,
+    "is_break": false,
+    "priority": 1,
+    "movable": false
+   },
+   {
+    "id": "h1",
+    "name": "Hard block 1",
+    "duration_min": 20,
+    "intensity": "hard",
+    "gear": "none",
+    "shade": false,
+    "is_break": false,
+    "priority": 1,
+    "movable": true
+   },
+   {
+    "id": "h2",
+    "name": "Hard block 2",
+    "duration_min": 20,
+    "intensity": "hard",
+    "gear": "none",
+    "shade": false,
+    "is_break": false,
+    "priority": 1,
+    "movable": true
+   },
+   {
+    "id": "b",
+    "name": "Shaded rest",
+    "duration_min": 15,
+    "intensity": "rest",
+    "gear": "none",
+    "shade": true,
+    "is_break": true,
+    "priority": 1,
+    "movable": true
+   },
+   {
+    "id": "c",
+    "name": "Cooldown",
+    "duration_min": 5,
+    "intensity": "light",
+    "gear": "none",
+    "shade": true,
+    "is_break": false,
+    "priority": 1,
+    "movable": false
+   }
+  ]
+ }
+}

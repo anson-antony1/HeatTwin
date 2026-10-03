@@ -30,7 +30,20 @@
         "shade": false,
         "is_break": false,
         "priority": 1,
-        "movable": true
+        "movable": true,
+        "gear_by_athlete": {
+          "a01": "helmet_shoulder_pads",
+          "a02": "helmet",
+          "a03": "helmet",
+          "a04": "helmet_shoulder_pads",
+          "a06": "helmet",
+          "a07": "helmet",
+          "a08": "helmet_shoulder_pads",
+          "a10": "helmet_shoulder_pads",
+          "a12": "helmet_shoulder_pads",
+          "a13": "helmet_shoulder_pads",
+          "a16": "helmet_shoulder_pads"
+        }
       },
       {
         "id": "b1",
@@ -41,7 +54,20 @@
         "shade": true,
         "is_break": true,
         "priority": 1,
-        "movable": true
+        "movable": true,
+        "gear_by_athlete": {
+          "a01": "helmet_shoulder_pads",
+          "a02": "helmet",
+          "a03": "helmet",
+          "a04": "helmet_shoulder_pads",
+          "a06": "helmet",
+          "a07": "helmet",
+          "a08": "helmet_shoulder_pads",
+          "a10": "helmet_shoulder_pads",
+          "a12": "helmet_shoulder_pads",
+          "a13": "helmet_shoulder_pads",
+          "a16": "helmet_shoulder_pads"
+        }
       },
       {
         "id": "d3",
@@ -52,7 +78,20 @@
         "shade": false,
         "is_break": false,
         "priority": 2,
-        "movable": true
+        "movable": true,
+        "gear_by_athlete": {
+          "a01": "helmet_shoulder_pads",
+          "a02": "helmet",
+          "a03": "helmet",
+          "a04": "helmet_shoulder_pads",
+          "a06": "helmet",
+          "a07": "helmet",
+          "a08": "helmet_shoulder_pads",
+          "a10": "helmet_shoulder_pads",
+          "a12": "helmet_shoulder_pads",
+          "a13": "helmet_shoulder_pads",
+          "a16": "helmet_shoulder_pads"
+        }
       },
       {
         "id": "d4",
@@ -63,7 +102,20 @@
         "shade": false,
         "is_break": false,
         "priority": 1,
-        "movable": true
+        "movable": true,
+        "gear_by_athlete": {
+          "a01": "helmet_shoulder_pads",
+          "a02": "helmet",
+          "a03": "helmet",
+          "a04": "helmet_shoulder_pads",
+          "a06": "helmet",
+          "a07": "helmet",
+          "a08": "helmet_shoulder_pads",
+          "a10": "helmet_shoulder_pads",
+          "a12": "helmet_shoulder_pads",
+          "a13": "helmet_shoulder_pads",
+          "a16": "helmet_shoulder_pads"
+        }
       },
       {
         "id": "b2",
@@ -74,7 +126,20 @@
         "shade": true,
         "is_break": true,
         "priority": 1,
-        "movable": true
+        "movable": true,
+        "gear_by_athlete": {
+          "a01": "helmet_shoulder_pads",
+          "a02": "helmet",
+          "a03": "helmet",
+          "a04": "helmet_shoulder_pads",
+          "a06": "helmet",
+          "a07": "helmet",
+          "a08": "helmet_shoulder_pads",
+          "a10": "helmet_shoulder_pads",
+          "a12": "helmet_shoulder_pads",
+          "a13": "helmet_shoulder_pads",
+          "a16": "helmet_shoulder_pads"
+        }
       },
       {
         "id": "d5",
@@ -85,7 +150,20 @@
         "shade": false,
         "is_break": false,
         "priority": 2,
-        "movable": true
+        "movable": true,
+        "gear_by_athlete": {
+          "a01": "helmet_shoulder_pads",
+          "a02": "helmet",
+          "a03": "helmet",
+          "a04": "helmet_shoulder_pads",
+          "a06": "helmet",
+          "a07": "helmet",
+          "a08": "helmet_shoulder_pads",
+          "a10": "helmet_shoulder_pads",
+          "a12": "helmet_shoulder_pads",
+          "a13": "helmet_shoulder_pads",
+          "a16": "helmet_shoulder_pads"
+        }
       },
       {
         "id": "d6",
@@ -110,5 +188,6 @@
         "movable": false
       }
     ]
-  }
+  },
+  "note": "Synthetic demo plan. Drill 'gear' is what acclimatized athletes wear; gear_by_athlete caps athletes still inside the NATA 2009 phasing window (days 1-2 helmet only, 3-5 helmet + shoulder pads)."
 }

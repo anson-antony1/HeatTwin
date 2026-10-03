@@ -1,0 +1,834 @@
+{
+ "armstrong_2010": {
+  "study": "Armstrong et al. 2010, J Athl Train 45:117 (PMC2838463)",
+  "comparison_basis": "summary values only (Table 3 whole-protocol rise and rate, Table 4 treadmill rate); Figure 2's time course is not tabulated and was not digitized, so no time-point RMSE is reported",
+  "summary_at_reference_air_speed": {
+   "conservative": {
+    "treadmill_rate_rmse_unfitted_c_per_min": 0.0064,
+    "whole_protocol_rate_rmse_c_per_min": 0.0003,
+    "whole_protocol_rate_max_abs_error_c_per_min": 0.0003,
+    "rise_rmse_c": 0.03,
+    "rise_rmse_unfitted_c": 0.04,
+    "rise_max_abs_error_c": 0.04,
+    "n_comparisons": 2
+   },
+   "iso7933_dynamic": {
+    "treadmill_rate_rmse_unfitted_c_per_min": 0.0243,
+    "whole_protocol_rate_rmse_c_per_min": 0.0131,
+    "whole_protocol_rate_max_abs_error_c_per_min": 0.0155,
+    "rise_rmse_c": 0.79,
+    "rise_rmse_unfitted_c": 0.79,
+    "rise_max_abs_error_c": 0.89,
+    "n_comparisons": 2
+   },
+   "gagge_static": {
+    "treadmill_rate_rmse_unfitted_c_per_min": 0.0108,
+    "whole_protocol_rate_rmse_c_per_min": 0.0028,
+    "whole_protocol_rate_max_abs_error_c_per_min": 0.003,
+    "rise_rmse_c": 0.16,
+    "rise_rmse_unfitted_c": 0.16,
+    "rise_max_abs_error_c": 0.16,
+    "n_comparisons": 2
+   },
+   "jos3": {
+    "treadmill_rate_rmse_unfitted_c_per_min": 0.0223,
+    "whole_protocol_rate_rmse_c_per_min": 0.0096,
+    "whole_protocol_rate_max_abs_error_c_per_min": 0.0136,
+    "rise_rmse_c": 0.57,
+    "rise_rmse_unfitted_c": 0.57,
+    "rise_max_abs_error_c": 0.81,
+    "n_comparisons": 2
+   }
+  },
+  "walk_credit_check": {
+   "acsm_arithmetic": "speed 5.6 km/h = 93.333 m/min; VO2 = 0.1\u00d793.333 + 1.8\u00d793.333\u00d70.05 + 3.5 = 9.333 + 8.400 + 3.5 = 21.233 mL/kg/min = 6.067 MET",
+   "treadmill_met_acsm": 6.067,
+   "treadmill_met_compendium_17034": 5.3,
+   "measured_CON_treadmill_rate": [
+    0.037,
+    0.015
+   ],
+   "measured_CON_rise": [
+    1.81,
+    0.4
+   ],
+   "options": [
+    {
+     "walk_credit": 1.0,
+     "treadmill_met": "acsm",
+     "CON_treadmill_rate_c_per_min": 0.0224,
+     "error_in_sd": -0.98,
+     "CON_rise_c": 1.14,
+     "rise_error_in_sd": -1.67
+    },
+    {
+     "walk_credit": 1.0,
+     "treadmill_met": "compendium",
+     "CON_treadmill_rate_c_per_min": 0.0166,
+     "error_in_sd": -1.36,
+     "CON_rise_c": 0.84,
+     "rise_error_in_sd": -2.43
+    },
+    {
+     "walk_credit": 0.0,
+     "treadmill_met": "acsm",
+     "CON_treadmill_rate_c_per_min": 0.0358,
+     "error_in_sd": -0.08,
+     "CON_rise_c": 1.85,
+     "rise_error_in_sd": 0.1
+    },
+    {
+     "walk_credit": 0.0,
+     "treadmill_met": "compendium",
+     "CON_treadmill_rate_c_per_min": 0.0241,
+     "error_in_sd": -0.86,
+     "CON_rise_c": 1.24,
+     "rise_error_in_sd": -1.42
+    }
+   ],
+   "decision_rule": "with the ACSM MET, choose the walk_credit whose CON treadmill rate is closer to the measured mean",
+   "chosen_walk_credit": 0.0,
+   "in_constants": 0.0
+  },
+  "calibration_fits": [
+   {
+    "target": "whole_rise",
+    "target_value": 2.37,
+    "gear_met_surcharge_full_pads": 0.0486,
+    "CON_treadmill_rate_c_per_min": 0.0358,
+    "CON_rise_c": 1.85,
+    "FULL_treadmill_rate_c_per_min": 0.0621,
+    "FULL_rise_c": 2.37
+   },
+   {
+    "target": "treadmill_rate",
+    "target_value": 0.071,
+    "gear_met_surcharge_full_pads": 0.1348,
+    "CON_treadmill_rate_c_per_min": 0.0358,
+    "CON_rise_c": 1.85,
+    "FULL_treadmill_rate_c_per_min": 0.071,
+    "FULL_rise_c": 2.76
+   }
+  ],
+  "calibration_in_use": "whole_rise",
+  "computed_by": "validation/armstrong_2010.py",
+  "computed_at": "2026-10-03T19:24:47+00:00",
+  "model": "twonode-v1",
+  "conservative_gear_met_surcharge_full_pads": 0.0486,
+  "synthetic": false,
+  "notes": [
+   "Deterministic run for the mean participant; measured values are group means \u00b1 SD of 10 men.",
+   "Conservative mode is calibrated on FULL at the reference air speed (row with fitted=true, on fitted_metric) \u2014 that metric is a fit, not a validation. Both calibration fits are listed under calibration_fits.",
+   "Air speed and metabolic rate were not reported; METs from the 2024 Compendium (task mapping is a judgement call).",
+   "CON maps to gear 'none', which includes a T-shirt that Armstrong's CON did not wear; PART has no matching gear level.",
+   "JOS-3 uses static intrinsic clo of the mapped gear (it takes no evaporative resistance input) and starts from its own neutral state; rates and rises are compared, not absolute temperatures.",
+   "estimate \u2014 planning only"
+  ],
+  "rows": [
+   {
+    "clothing_mode": "conservative",
+    "condition": "CON",
+    "gear": "none",
+    "air_speed_m_s": 0.1,
+    "model_treadmill_rate_c_per_min": 0.0358,
+    "measured_treadmill_rate_c_per_min": 0.037,
+    "measured_sd": 0.015,
+    "treadmill_error_c_per_min": -0.0012,
+    "treadmill_error_in_sd": -0.08,
+    "model_whole_protocol_rate_c_per_min": 0.0257,
+    "measured_whole_protocol_rate_c_per_min": 0.026,
+    "measured_whole_sd": 0.008,
+    "model_rise_c": 1.85,
+    "measured_rise_c": 1.81,
+    "measured_rise_sd": 0.4,
+    "model_end_core_c": 39.05,
+    "fitted": false,
+    "fitted_metric": null
+   },
+   {
+    "clothing_mode": "conservative",
+    "condition": "CON",
+    "gear": "none",
+    "air_speed_m_s": 0.5,
+    "model_treadmill_rate_c_per_min": 0.0242,
+    "measured_treadmill_rate_c_per_min": 0.037,
+    "measured_sd": 0.015,
+    "treadmill_error_c_per_min": -0.0128,
+    "treadmill_error_in_sd": -0.86,
+    "model_whole_protocol_rate_c_per_min": 0.017,
+    "measured_whole_protocol_rate_c_per_min": 0.026,
+    "measured_whole_sd": 0.008,
+    "model_rise_c": 1.22,
+    "measured_rise_c": 1.81,
+    "measured_rise_sd": 0.4,
+    "model_end_core_c": 38.42,
+    "fitted": false,
+    "fitted_metric": null
+   },
+   {
+    "clothing_mode": "conservative",
+    "condition": "CON",
+    "gear": "none",
+    "air_speed_m_s": 1.0,
+    "model_treadmill_rate_c_per_min": 0.0224,
+    "measured_treadmill_rate_c_per_min": 0.037,
+    "measured_sd": 0.015,
+    "treadmill_error_c_per_min": -0.0146,
+    "treadmill_error_in_sd": -0.97,
+    "model_whole_protocol_rate_c_per_min": 0.0153,
+    "measured_whole_protocol_rate_c_per_min": 0.026,
+    "measured_whole_sd": 0.008,
+    "model_rise_c": 1.1,
+    "measured_rise_c": 1.81,
+    "measured_rise_sd": 0.4,
+    "model_end_core_c": 38.3,
+    "fitted": false,
+    "fitted_metric": null
+   },
+   {
+    "clothing_mode": "conservative",
+    "condition": "FULL",
+    "gear": "full_pads",
+    "air_speed_m_s": 0.1,
+    "model_treadmill_rate_c_per_min": 0.0621,
+    "measured_treadmill_rate_c_per_min": 0.071,
+    "measured_sd": 0.032,
+    "treadmill_error_c_per_min": -0.0089,
+    "treadmill_error_in_sd": -0.28,
+    "model_whole_protocol_rate_c_per_min": 0.0423,
+    "measured_whole_protocol_rate_c_per_min": 0.042,
+    "measured_whole_sd": 0.01,
+    "model_rise_c": 2.37,
+    "measured_rise_c": 2.37,
+    "measured_rise_sd": 0.45,
+    "model_end_core_c": 39.57,
+    "fitted": true,
+    "fitted_metric": "whole_rise"
+   },
+   {
+    "clothing_mode": "conservative",
+    "condition": "FULL",
+    "gear": "full_pads",
+    "air_speed_m_s": 0.5,
+    "model_treadmill_rate_c_per_min": 0.0515,
+    "measured_treadmill_rate_c_per_min": 0.071,
+    "measured_sd": 0.032,
+    "treadmill_error_c_per_min": -0.0195,
+    "treadmill_error_in_sd": -0.61,
+    "model_whole_protocol_rate_c_per_min": 0.0336,
+    "measured_whole_protocol_rate_c_per_min": 0.042,
+    "measured_whole_sd": 0.01,
+    "model_rise_c": 1.88,
+    "measured_rise_c": 2.37,
+    "measured_rise_sd": 0.45,
+    "model_end_core_c": 39.08,
+    "fitted": false,
+    "fitted_metric": null
+   },
+   {
+    "clothing_mode": "conservative",
+    "condition": "FULL",
+    "gear": "full_pads",
+    "air_speed_m_s": 1.0,
+    "model_treadmill_rate_c_per_min": 0.0393,
+    "measured_treadmill_rate_c_per_min": 0.071,
+    "measured_sd": 0.032,
+    "treadmill_error_c_per_min": -0.0317,
+    "treadmill_error_in_sd": -0.99,
+    "model_whole_protocol_rate_c_per_min": 0.0254,
+    "measured_whole_protocol_rate_c_per_min": 0.042,
+    "measured_whole_sd": 0.01,
+    "model_rise_c": 1.42,
+    "measured_rise_c": 2.37,
+    "measured_rise_sd": 0.45,
+    "model_end_core_c": 38.62,
+    "fitted": false,
+    "fitted_metric": null
+   },
+   {
+    "clothing_mode": "iso7933_dynamic",
+    "condition": "CON",
+    "gear": "none",
+    "air_speed_m_s": 0.1,
+    "model_treadmill_rate_c_per_min": 0.0224,
+    "measured_treadmill_rate_c_per_min": 0.037,
+    "measured_sd": 0.015,
+    "treadmill_error_c_per_min": -0.0146,
+    "treadmill_error_in_sd": -0.98,
+    "model_whole_protocol_rate_c_per_min": 0.0158,
+    "measured_whole_protocol_rate_c_per_min": 0.026,
+    "measured_whole_sd": 0.008,
+    "model_rise_c": 1.14,
+    "measured_rise_c": 1.81,
+    "measured_rise_sd": 0.4,
+    "model_end_core_c": 38.34,
+    "fitted": false,
+    "fitted_metric": null
+   },
+   {
+    "clothing_mode": "iso7933_dynamic",
+    "condition": "CON",
+    "gear": "none",
+    "air_speed_m_s": 0.5,
+    "model_treadmill_rate_c_per_min": 0.0219,
+    "measured_treadmill_rate_c_per_min": 0.037,
+    "measured_sd": 0.015,
+    "treadmill_error_c_per_min": -0.0151,
+    "treadmill_error_in_sd": -1.01,
+    "model_whole_protocol_rate_c_per_min": 0.0151,
+    "measured_whole_protocol_rate_c_per_min": 0.026,
+    "measured_whole_sd": 0.008,
+    "model_rise_c": 1.09,
+    "measured_rise_c": 1.81,
+    "measured_rise_sd": 0.4,
+    "model_end_core_c": 38.29,
+    "fitted": false,
+    "fitted_metric": null
+   },
+   {
+    "clothing_mode": "iso7933_dynamic",
+    "condition": "CON",
+    "gear": "none",
+    "air_speed_m_s": 1.0,
+    "model_treadmill_rate_c_per_min": 0.0211,
+    "measured_treadmill_rate_c_per_min": 0.037,
+    "measured_sd": 0.015,
+    "treadmill_error_c_per_min": -0.0159,
+    "treadmill_error_in_sd": -1.06,
+    "model_whole_protocol_rate_c_per_min": 0.0141,
+    "measured_whole_protocol_rate_c_per_min": 0.026,
+    "measured_whole_sd": 0.008,
+    "model_rise_c": 1.02,
+    "measured_rise_c": 1.81,
+    "measured_rise_sd": 0.4,
+    "model_end_core_c": 38.22,
+    "fitted": false,
+    "fitted_metric": null
+   },
+   {
+    "clothing_mode": "iso7933_dynamic",
+    "condition": "FULL",
+    "gear": "full_pads",
+    "air_speed_m_s": 0.1,
+    "model_treadmill_rate_c_per_min": 0.0399,
+    "measured_treadmill_rate_c_per_min": 0.071,
+    "measured_sd": 0.032,
+    "treadmill_error_c_per_min": -0.0311,
+    "treadmill_error_in_sd": -0.97,
+    "model_whole_protocol_rate_c_per_min": 0.0265,
+    "measured_whole_protocol_rate_c_per_min": 0.042,
+    "measured_whole_sd": 0.01,
+    "model_rise_c": 1.48,
+    "measured_rise_c": 2.37,
+    "measured_rise_sd": 0.45,
+    "model_end_core_c": 38.68,
+    "fitted": false,
+    "fitted_metric": null
+   },
+   {
+    "clothing_mode": "iso7933_dynamic",
+    "condition": "FULL",
+    "gear": "full_pads",
+    "air_speed_m_s": 0.5,
+    "model_treadmill_rate_c_per_min": 0.0307,
+    "measured_treadmill_rate_c_per_min": 0.071,
+    "measured_sd": 0.032,
+    "treadmill_error_c_per_min": -0.0403,
+    "treadmill_error_in_sd": -1.26,
+    "model_whole_protocol_rate_c_per_min": 0.0196,
+    "measured_whole_protocol_rate_c_per_min": 0.042,
+    "measured_whole_sd": 0.01,
+    "model_rise_c": 1.1,
+    "measured_rise_c": 2.37,
+    "measured_rise_sd": 0.45,
+    "model_end_core_c": 38.3,
+    "fitted": false,
+    "fitted_metric": null
+   },
+   {
+    "clothing_mode": "iso7933_dynamic",
+    "condition": "FULL",
+    "gear": "full_pads",
+    "air_speed_m_s": 1.0,
+    "model_treadmill_rate_c_per_min": 0.0292,
+    "measured_treadmill_rate_c_per_min": 0.071,
+    "measured_sd": 0.032,
+    "treadmill_error_c_per_min": -0.0418,
+    "treadmill_error_in_sd": -1.31,
+    "model_whole_protocol_rate_c_per_min": 0.0183,
+    "measured_whole_protocol_rate_c_per_min": 0.042,
+    "measured_whole_sd": 0.01,
+    "model_rise_c": 1.03,
+    "measured_rise_c": 2.37,
+    "measured_rise_sd": 0.45,
+    "model_end_core_c": 38.23,
+    "fitted": false,
+    "fitted_metric": null
+   },
+   {
+    "clothing_mode": "gagge_static",
+    "condition": "CON",
+    "gear": "none",
+    "air_speed_m_s": 0.1,
+    "model_treadmill_rate_c_per_min": 0.0314,
+    "measured_treadmill_rate_c_per_min": 0.037,
+    "measured_sd": 0.015,
+    "treadmill_error_c_per_min": -0.0056,
+    "treadmill_error_in_sd": -0.37,
+    "model_whole_protocol_rate_c_per_min": 0.023,
+    "measured_whole_protocol_rate_c_per_min": 0.026,
+    "measured_whole_sd": 0.008,
+    "model_rise_c": 1.66,
+    "measured_rise_c": 1.81,
+    "measured_rise_sd": 0.4,
+    "model_end_core_c": 38.86,
+    "fitted": false,
+    "fitted_metric": null
+   },
+   {
+    "clothing_mode": "gagge_static",
+    "condition": "CON",
+    "gear": "none",
+    "air_speed_m_s": 0.5,
+    "model_treadmill_rate_c_per_min": 0.0362,
+    "measured_treadmill_rate_c_per_min": 0.037,
+    "measured_sd": 0.015,
+    "treadmill_error_c_per_min": -0.0008,
+    "treadmill_error_in_sd": -0.06,
+    "model_whole_protocol_rate_c_per_min": 0.0258,
+    "measured_whole_protocol_rate_c_per_min": 0.026,
+    "measured_whole_sd": 0.008,
+    "model_rise_c": 1.86,
+    "measured_rise_c": 1.81,
+    "measured_rise_sd": 0.4,
+    "model_end_core_c": 39.06,
+    "fitted": false,
+    "fitted_metric": null
+   },
+   {
+    "clothing_mode": "gagge_static",
+    "condition": "CON",
+    "gear": "none",
+    "air_speed_m_s": 1.0,
+    "model_treadmill_rate_c_per_min": 0.0381,
+    "measured_treadmill_rate_c_per_min": 0.037,
+    "measured_sd": 0.015,
+    "treadmill_error_c_per_min": 0.0011,
+    "treadmill_error_in_sd": 0.07,
+    "model_whole_protocol_rate_c_per_min": 0.0271,
+    "measured_whole_protocol_rate_c_per_min": 0.026,
+    "measured_whole_sd": 0.008,
+    "model_rise_c": 1.95,
+    "measured_rise_c": 1.81,
+    "measured_rise_sd": 0.4,
+    "model_end_core_c": 39.15,
+    "fitted": false,
+    "fitted_metric": null
+   },
+   {
+    "clothing_mode": "gagge_static",
+    "condition": "FULL",
+    "gear": "full_pads",
+    "air_speed_m_s": 0.1,
+    "model_treadmill_rate_c_per_min": 0.0568,
+    "measured_treadmill_rate_c_per_min": 0.071,
+    "measured_sd": 0.032,
+    "treadmill_error_c_per_min": -0.0142,
+    "treadmill_error_in_sd": -0.44,
+    "model_whole_protocol_rate_c_per_min": 0.0395,
+    "measured_whole_protocol_rate_c_per_min": 0.042,
+    "measured_whole_sd": 0.01,
+    "model_rise_c": 2.21,
+    "measured_rise_c": 2.37,
+    "measured_rise_sd": 0.45,
+    "model_end_core_c": 39.41,
+    "fitted": false,
+    "fitted_metric": null
+   },
+   {
+    "clothing_mode": "gagge_static",
+    "condition": "FULL",
+    "gear": "full_pads",
+    "air_speed_m_s": 0.5,
+    "model_treadmill_rate_c_per_min": 0.0602,
+    "measured_treadmill_rate_c_per_min": 0.071,
+    "measured_sd": 0.032,
+    "treadmill_error_c_per_min": -0.0108,
+    "treadmill_error_in_sd": -0.34,
+    "model_whole_protocol_rate_c_per_min": 0.0417,
+    "measured_whole_protocol_rate_c_per_min": 0.042,
+    "measured_whole_sd": 0.01,
+    "model_rise_c": 2.34,
+    "measured_rise_c": 2.37,
+    "measured_rise_sd": 0.45,
+    "model_end_core_c": 39.54,
+    "fitted": false,
+    "fitted_metric": null
+   },
+   {
+    "clothing_mode": "gagge_static",
+    "condition": "FULL",
+    "gear": "full_pads",
+    "air_speed_m_s": 1.0,
+    "model_treadmill_rate_c_per_min": 0.0615,
+    "measured_treadmill_rate_c_per_min": 0.071,
+    "measured_sd": 0.032,
+    "treadmill_error_c_per_min": -0.0095,
+    "treadmill_error_in_sd": -0.3,
+    "model_whole_protocol_rate_c_per_min": 0.0426,
+    "measured_whole_protocol_rate_c_per_min": 0.042,
+    "measured_whole_sd": 0.01,
+    "model_rise_c": 2.38,
+    "measured_rise_c": 2.37,
+    "measured_rise_sd": 0.45,
+    "model_end_core_c": 39.58,
+    "fitted": false,
+    "fitted_metric": null
+   },
+   {
+    "clothing_mode": "jos3",
+    "condition": "CON",
+    "gear": "none",
+    "air_speed_m_s": 0.1,
+    "model_treadmill_rate_c_per_min": 0.0336,
+    "measured_treadmill_rate_c_per_min": 0.037,
+    "measured_sd": 0.015,
+    "treadmill_error_c_per_min": -0.0034,
+    "treadmill_error_in_sd": -0.22,
+    "model_whole_protocol_rate_c_per_min": 0.0265,
+    "measured_whole_protocol_rate_c_per_min": 0.026,
+    "measured_whole_sd": 0.008,
+    "model_rise_c": 1.88,
+    "measured_rise_c": 1.81,
+    "measured_rise_sd": 0.4,
+    "model_end_core_c": 39.63,
+    "fitted": false,
+    "fitted_metric": null
+   },
+   {
+    "clothing_mode": "jos3",
+    "condition": "CON",
+    "gear": "none",
+    "air_speed_m_s": 0.5,
+    "model_treadmill_rate_c_per_min": 0.0234,
+    "measured_treadmill_rate_c_per_min": 0.037,
+    "measured_sd": 0.015,
+    "treadmill_error_c_per_min": -0.0136,
+    "treadmill_error_in_sd": -0.91,
+    "model_whole_protocol_rate_c_per_min": 0.0188,
+    "measured_whole_protocol_rate_c_per_min": 0.026,
+    "measured_whole_sd": 0.008,
+    "model_rise_c": 1.34,
+    "measured_rise_c": 1.81,
+    "measured_rise_sd": 0.4,
+    "model_end_core_c": 39.08,
+    "fitted": false,
+    "fitted_metric": null
+   },
+   {
+    "clothing_mode": "jos3",
+    "condition": "CON",
+    "gear": "none",
+    "air_speed_m_s": 1.0,
+    "model_treadmill_rate_c_per_min": 0.0211,
+    "measured_treadmill_rate_c_per_min": 0.037,
+    "measured_sd": 0.015,
+    "treadmill_error_c_per_min": -0.0159,
+    "treadmill_error_in_sd": -1.06,
+    "model_whole_protocol_rate_c_per_min": 0.0171,
+    "measured_whole_protocol_rate_c_per_min": 0.026,
+    "measured_whole_sd": 0.008,
+    "model_rise_c": 1.21,
+    "measured_rise_c": 1.81,
+    "measured_rise_sd": 0.4,
+    "model_end_core_c": 38.96,
+    "fitted": false,
+    "fitted_metric": null
+   },
+   {
+    "clothing_mode": "jos3",
+    "condition": "FULL",
+    "gear": "full_pads",
+    "air_speed_m_s": 0.1,
+    "model_treadmill_rate_c_per_min": 0.0396,
+    "measured_treadmill_rate_c_per_min": 0.071,
+    "measured_sd": 0.032,
+    "treadmill_error_c_per_min": -0.0314,
+    "treadmill_error_in_sd": -0.98,
+    "model_whole_protocol_rate_c_per_min": 0.0284,
+    "measured_whole_protocol_rate_c_per_min": 0.042,
+    "measured_whole_sd": 0.01,
+    "model_rise_c": 1.56,
+    "measured_rise_c": 2.37,
+    "measured_rise_sd": 0.45,
+    "model_end_core_c": 39.31,
+    "fitted": false,
+    "fitted_metric": null
+   },
+   {
+    "clothing_mode": "jos3",
+    "condition": "FULL",
+    "gear": "full_pads",
+    "air_speed_m_s": 0.5,
+    "model_treadmill_rate_c_per_min": 0.0332,
+    "measured_treadmill_rate_c_per_min": 0.071,
+    "measured_sd": 0.032,
+    "treadmill_error_c_per_min": -0.0378,
+    "treadmill_error_in_sd": -1.18,
+    "model_whole_protocol_rate_c_per_min": 0.0241,
+    "measured_whole_protocol_rate_c_per_min": 0.042,
+    "measured_whole_sd": 0.01,
+    "model_rise_c": 1.33,
+    "measured_rise_c": 2.37,
+    "measured_rise_sd": 0.45,
+    "model_end_core_c": 39.07,
+    "fitted": false,
+    "fitted_metric": null
+   },
+   {
+    "clothing_mode": "jos3",
+    "condition": "FULL",
+    "gear": "full_pads",
+    "air_speed_m_s": 1.0,
+    "model_treadmill_rate_c_per_min": 0.0308,
+    "measured_treadmill_rate_c_per_min": 0.071,
+    "measured_sd": 0.032,
+    "treadmill_error_c_per_min": -0.0402,
+    "treadmill_error_in_sd": -1.26,
+    "model_whole_protocol_rate_c_per_min": 0.0225,
+    "measured_whole_protocol_rate_c_per_min": 0.042,
+    "measured_whole_sd": 0.01,
+    "model_rise_c": 1.24,
+    "measured_rise_c": 2.37,
+    "measured_rise_sd": 0.45,
+    "model_end_core_c": 38.99,
+    "fitted": false,
+    "fitted_metric": null
+   }
+  ]
+ },
+ "field_plausibility": {
+  "computed_by": "validation/field_plausibility.py",
+  "computed_at": "2026-10-03T19:24:47+00:00",
+  "model": "twonode-v1",
+  "synthetic": false,
+  "field_summary": "group-mean practice peaks 38.2\u201338.8 \u00b0C; individual maxima 39.1\u201339.3 \u00b0C; no reading \u2265 40 \u00b0C reported",
+  "scenarios": [
+   {
+    "study": "Godek 2006 (NFL, AM full equipment)",
+    "group": "linemen",
+    "measured_peak_mean_c": 38.65,
+    "measured_peak_sd_c": 0.48,
+    "measured_p95_c": 39.44,
+    "measured_max_individual_c": 39.29,
+    "model_p50_peak_c": {
+     "overcast": 39.5,
+     "clear": 40.64
+    },
+    "model_p95_peak_c": {
+     "overcast": 39.98,
+     "clear": 41.16
+    },
+    "p50_minus_measured_mean_c": {
+     "overcast": 0.85,
+     "clear": 1.99
+    },
+    "inputs": {
+     "air_temp_c": 25.0,
+     "rh_pct": 83.4,
+     "wbgt_c": null
+    },
+    "note": "RH 83.4 % from dry/wet bulb 25.0/22.8 \u00b0C (highest pair reported); age 26 assumed"
+   },
+   {
+    "study": "Godek 2006 (NFL, AM full equipment)",
+    "group": "backs",
+    "measured_peak_mean_c": 38.44,
+    "measured_peak_sd_c": 0.32,
+    "measured_p95_c": 38.97,
+    "measured_max_individual_c": 39.08,
+    "model_p50_peak_c": {
+     "overcast": 39.34,
+     "clear": 40.6
+    },
+    "model_p95_peak_c": {
+     "overcast": 40.51,
+     "clear": 41.78
+    },
+    "p50_minus_measured_mean_c": {
+     "overcast": 0.9,
+     "clear": 2.16
+    },
+    "inputs": {
+     "air_temp_c": 25.0,
+     "rh_pct": 83.4,
+     "wbgt_c": null
+    },
+    "note": "RH 83.4 % from dry/wet bulb 25.0/22.8 \u00b0C (highest pair reported); age 26 assumed"
+   },
+   {
+    "study": "Fowkes Godek 2004 (Div II, PM full pads)",
+    "group": "all",
+    "measured_peak_mean_c": 38.6,
+    "measured_peak_sd_c": null,
+    "measured_p95_c": null,
+    "measured_max_individual_c": 39.11,
+    "model_p50_peak_c": {
+     "overcast": 39.82,
+     "clear": 40.91
+    },
+    "model_p95_peak_c": {
+     "overcast": 40.19,
+     "clear": 41.45
+    },
+    "p50_minus_measured_mean_c": {
+     "overcast": 1.22,
+     "clear": 2.31
+    },
+    "inputs": {
+     "air_temp_c": 34.0,
+     "rh_pct": 41.0,
+     "wbgt_c": null
+    },
+    "note": "group value read from a figure (SECONDARY), SD not available; age 20 assumed"
+   },
+   {
+    "study": "McClelland 2018 (Div III, WBGT 29.1\u201331.4 \u00b0C)",
+    "group": "demo roster vs study cohort",
+    "measured_peak_mean_c": 38.56,
+    "measured_peak_sd_c": 0.32,
+    "measured_p95_c": 39.09,
+    "measured_max_individual_c": null,
+    "model_p50_peak_c": {
+     "demo_forecast": 40.23,
+     "demo_range": [
+      39.72,
+      40.95
+     ]
+    },
+    "model_p95_peak_c": {
+     "demo_forecast": 41.1,
+     "demo_range": [
+      40.51,
+      41.65
+     ]
+    },
+    "p50_minus_measured_mean_c": {
+     "demo_forecast": 1.67
+    },
+    "inputs": {
+     "wbgt_c": "demo forecast 28.3\u201330.0"
+    },
+    "note": "matched on WBGT band only: different roster (high school, NATA-phased gear) and practice plan"
+   },
+   {
+    "study": "DeMartini-Nolan 2018 (Div I, WBGT \u2248 28.75 \u00b0C)",
+    "group": "demo roster vs study cohort",
+    "measured_peak_mean_c": 38.83,
+    "measured_peak_sd_c": 0.42,
+    "measured_p95_c": 39.52,
+    "measured_max_individual_c": null,
+    "model_p50_peak_c": {
+     "demo_forecast": 40.23,
+     "demo_range": [
+      39.72,
+      40.95
+     ]
+    },
+    "model_p95_peak_c": {
+     "demo_forecast": 41.1,
+     "demo_range": [
+      40.51,
+      41.65
+     ]
+    },
+    "p50_minus_measured_mean_c": {
+     "demo_forecast": 1.4
+    },
+    "inputs": {
+     "wbgt_c": "demo forecast 28.3\u201330.0"
+    },
+    "note": "matched on WBGT band only: different roster (high school, NATA-phased gear) and practice plan"
+   },
+   {
+    "study": "Yeargin 2010 (high school, heat-acclimatized)",
+    "group": "all",
+    "measured_peak_mean_c": 38.7,
+    "measured_peak_sd_c": 0.3,
+    "measured_p95_c": 39.19,
+    "measured_max_individual_c": null,
+    "model_p50_peak_c": {
+     "forecast_evening": 40.44
+    },
+    "model_p95_peak_c": {
+     "forecast_evening": 41.95
+    },
+    "p50_minus_measured_mean_c": {
+     "forecast_evening": 1.73
+    },
+    "inputs": {
+     "wbgt_c": "fixture forecast 17:00\u201319:48, 27.8 \u2192 25.6 \u00b0C (study warm days 25 \u00b1 1)"
+    },
+    "note": "matched on WBGT band only (Ta/RH not in the paper): Gainesville fixture evening hours; full pads after the 3-day phase-in; fully acclimatized (day 14); slightly warmer than the study"
+   }
+  ],
+  "sensitivity_demo": [
+   {
+    "case": "baseline (conservative mode, as planned)",
+    "p50": 40.23,
+    "p95": 41.1
+   },
+   {
+    "case": "hard/max drills at the 'moderate' MET (activity level)",
+    "p50": 37.91,
+    "p95": 38.82,
+    "delta_p50": -2.32,
+    "delta_p95": -2.27
+   },
+   {
+    "case": "all drills in shade (no solar load)",
+    "p50": 39.42,
+    "p95": 40.21,
+    "delta_p50": -0.81,
+    "delta_p95": -0.88
+   },
+   {
+    "case": "ISO-dynamic clothing (no gear surcharge)",
+    "p50": 39.2,
+    "p95": 39.91,
+    "delta_p50": -1.03,
+    "delta_p95": -1.19
+   },
+   {
+    "case": "every athlete fully acclimatized (day 14)",
+    "p50": 39.9,
+    "p95": 40.73,
+    "delta_p50": -0.33,
+    "delta_p95": -0.37
+   },
+   {
+    "case": "no ensemble spread (met/thermo SD = 0)",
+    "p50": 40.25,
+    "p95": 40.25,
+    "delta_p50": 0.02,
+    "delta_p95": -0.85
+   },
+   {
+    "case": "walking-ventilation credit on (owner rule turned it off)",
+    "p50": 39.29,
+    "p95": 39.93,
+    "delta_p50": -0.94,
+    "delta_p95": -1.16
+   }
+  ],
+  "notes": [
+   "Practice structure in the studies is not reported; the fixture plan's drill mix (40 min at 'hard' = 8 MET, 12 min at 'max' = 11 MET) is used, scaled to each study's duration (gassers run in the study's gear).",
+   "NFL/college acclimatization is set to the camp day (no heat exposure before camp assumed) \u2014 pushes the model up ~0.2 \u00b0C.",
+   "WBGT-only rows run the demo roster and plan, not the study cohorts: McClelland is hotter than the demo (gap understated), Yeargin's matched evening is warmer than the study days (gap overstated).",
+   "The sweep shows sensitivities one at a time; the largest is not proven to be the cause of the gap.",
+   "Sun is bracketed (overcast vs clear) because cloud cover is not reported.",
+   "Study peaks are group means of individual maxima; the model's p50 is the median peak for the mean participant.",
+   "estimate \u2014 planning only"
+  ]
+ }
+}

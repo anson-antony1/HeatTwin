@@ -2,6 +2,7 @@
 # status: VERIFIED  = checked against the cited source
 #         SECONDARY = from a secondary summary; confirm against the primary source before quoting on a slide
 #         TODO      = placeholder; a sub-agent must find and cite a source before the demo uses it
+#         DESIGN    = a modelling/product choice (not a sourced fact); an AT/coach should own it, and the UI labels it
 
 fhsaa_wbgt_zones:   # Florida statewide WBGT chart, practices
   status: SECONDARY
@@ -43,8 +44,16 @@ nata_ehs:
   acclimatization_days: [7, 14]
 
 planning_limit_core_c:
-  status: TODO
-  note: "Planning threshold for p95 predicted core temp (e.g. 39.0–39.5 °C). Must cite a source (e.g. occupational heat-strain limits, PSI scale anchor 39.5 °C) and be presented as an illustrative threshold an AT would own."
+  status: VERIFIED
+  source: "NIOSH [2016] Criteria for a Recommended Standard: Occupational Exposure to Heat and Hot Environments. DHHS (NIOSH) Publication 2016-106 (read by source-checker)"
+  url: "https://www.cdc.gov/niosh/docs/2016-106/pdfs/2016-106.pdf"
+  quote_or_location: "p.125 §10.2: 39 °C 'should be considered reason to terminate exposure'; p.97 (WHO 1969): 'In closely controlled conditions, the deep body temperature may be allowed to rise to 39°C'"
+  value: 39.0
+  note: "Illustrative planning threshold an athletic trainer owns, applied to the model's p95 estimate. Not a diagnostic or treatment threshold (EHS diagnosis: >40.5 °C rectal + CNS dysfunction, NATA 2015)."
+  alternatives:
+    - {value: 38.0, source: "NIOSH 2016 p.97 quoting WHO 1969 ('inadvisable ... to exceed 38°C ... prolonged daily exposure to heavy work'); p.101 ACGIH; Malchaire 2006 Ind Health 44:383 (PHS mean rectal limit)", status: VERIFIED}
+    - {value: 38.5, source: "NIOSH 2016 p.101 (ACGIH): acclimatized workers under supervision, core 'not to exceed 38.5°C'", status: VERIFIED}
+  field_context: "Godek et al. 2006 J Athl Train 41:8 — NFL preseason practice max core 38.65 ± 0.48 °C (linemen), 38.44 ± 0.32 °C (backs)"
 
 psi:
   status: VERIFIED
@@ -67,16 +76,58 @@ ect_buller_2013:     # OPTIONAL MODULE — method appears patented
   patent: "Method and System for Indirectly Determining Core Body Temperature Using Heart Rate (priority 61/739,765, Dec 2012)"
 
 drill_met:
-  status: TODO
-  note: "Map intensity → MET using the Compendium of Physical Activities (cite activity codes). Football practice values needed for rest/light/moderate/hard/max."
+  status: DESIGN
+  source: "Herrmann SD, Willis EA, Ainsworth BE et al. (2024) 2024 Adult Compendium of Physical Activities. J Sport Health Sci 13(1):6-12 (PMID 38242596); values read on pacompendium.com category tables by source-checker"
+  url: "https://pacompendium.com/"
+  quote_or_location: "codes 07040, 02024, 15232, 15210, 02078 (see values)"
+  note: "Each MET value is VERIFIED against the Compendium. The intensity → code mapping is a judgement (DESIGN): the Compendium has no American-football practice/drill codes and covers adults 19-59, so use for ages 15-18 is an extrapolation (the Youth Compendium uses a different, BMR-based scale and has no football entry). Context: Hitchcock et al. 2007 J Strength Cond Res 21:710 measured a simulated practice in collegiate linemen at 'averaged 55%VO(2)max (6.7 METS) overall', range 30-81% VO2max."
+  values:
+    rest:     {met: 1.3,  code: "07040", description: "Standing quietly (standing in a line)", status: VERIFIED}
+    light:    {met: 2.8,  code: "02024", description: "Calisthenics (e.g., curl ups, abdominal crunches, plank), light effort", status: VERIFIED}
+    moderate: {met: 4.0,  code: "15232", description: "Football, touch, flag, light effort", status: VERIFIED, compendium_flag: "estimated value (red) in the Compendium"}
+    hard:     {met: 8.0,  code: "15210", description: "Football, competitive", status: VERIFIED}
+    max:      {met: 11.0, code: "02078", description: "Shuttle running, forward/backward/lateral", status: VERIFIED}
+
+metabolic:
+  status: VERIFIED
+  source: "Youth Compendium FAQ (NCCOR) and Jetté M, Sidney K, Blümchen G (1990) Clin Cardiol 13:555 (abstract)"
+  url: "https://www.nccor.org/tools-youthcompendium/ ; https://pubmed.ncbi.nlm.nih.gov/2204507/"
+  quote_or_location: "'In adults, 1 MET represents an oxygen uptake of 3.5 mL·kg-1·min-1 or 1 kcal·kg-1·hr-1'"
+  kcal_per_kg_h_per_met: 1.0
 
 gear_clothing:
-  status: TODO
-  note: "clo and evaporative resistance for: shorts+tee, helmet only, helmet+shoulder pads, full pads. Search manikin studies of American football uniforms; Armstrong et al. 2010 (J Athl Train, PMC2838463) for physiological comparison."
+  status: VERIFIED
+  source: "McCullough EA, Kenney WL (2003) Thermal insulation and evaporative resistance of football uniforms. Med Sci Sports Exerc 35(5):832-837, Tables 1-3 (read by source-checker)"
+  url: "https://journals.lww.com/acsm-msse/fulltext/2003/05000/thermal_insulation_and_evaporative_resistance_of.17.aspx"
+  quote_or_location: "Table 2 (I_t, I_cl, f_cl; I_a = 0.61 clo) and Table 3 (R_e,cl, i_m). Stationary manikin, still air (dry 20 °C, 0.2 m/s; wet 26.7 °C, 0.15 m/s): 'These data were collected under still air conditions with a stationary manikin.'"
+  note: "Static values. In the default clothing mode (model_options.clothing_mode = iso7933_dynamic) I_t and i_m are corrected for wind and body movement per ISO 7933 (constants.iso7933_dynamic) before use; r_ecl_m2kpa_w is used only in the static mode."
+  i_a_static_m2k_w: 0.0946   # manikin still-air layer: Table 2 footnote 'Icl was calculated using an Ia value of 0.61 clo' (0.61 × 0.155)
+  levels:
+    none:                  {ensemble: "Reference: T-shirt, briefs, shorts, ankle socks, athletic shoes", i_t_clo: 0.90, i_cl_clo: 0.35, f_cl: 1.10, r_ecl_m2kpa_w: 0.009, i_m: 0.42, mapping: "good match (athletic shoes, not cleats)"}
+    helmet:                {ensemble: "NOT MEASURED — uses P2 (helmet + shoulder pads) values", i_t_clo: 1.14, i_cl_clo: 0.63, f_cl: 1.20, r_ecl_m2kpa_w: 0.017, i_m: 0.40, status: TODO, mapping: "DESIGN: no published helmet-only ensemble; conservatively takes P2 (overestimates heat strain)"}
+    helmet_shoulder_pads:  {ensemble: "P2 practice: helmet, shoulder pads, cut-off T-shirt, mesh jersey, mesh shorts", i_t_clo: 1.14, i_cl_clo: 0.63, f_cl: 1.20, r_ecl_m2kpa_w: 0.017, i_m: 0.40, mapping: "good match (P2 also has a mesh jersey)"}
+    full_pads:             {ensemble: "G1 warm-weather game uniform (P1 + pants with knee pads)", i_t_clo: 1.28, i_cl_clo: 0.79, f_cl: 1.25, r_ecl_m2kpa_w: 0.022, i_m: 0.37, mapping: "judgement call: lightest full uniform; P1 (0.71 clo, 0.020) would fit 'shells'"}
 
 hr_max_formula:
-  status: TODO
-  note: "Pick one (e.g. Tanaka 208 − 0.7×age) and cite."
+  status: VERIFIED
+  source: "Tanaka H, Monahan KD, Seals DR (2001) Age-predicted maximal heart rate revisited. J Am Coll Cardiol 37:153-156 (full text); youth check: Cicone ZS et al. (2019) Res Q Exerc Sport 90:417 (abstract)"
+  url: "https://pubmed.ncbi.nlm.nih.gov/11153730/ ; https://pubmed.ncbi.nlm.nih.gov/31157608/"
+  quote_or_location: "'208 - 0.7 x age in healthy adults' (derived in adults 18-81). Cicone 2019: in youth Tanaka underestimates HRmax by 2.7 bpm; 'if the use of age-based equations cannot be avoided, we recommend using the Tanaka equation.'"
+  note: "See hr_met.hr_max (the values the code reads)."
+
+hr_met:
+  status: VERIFIED
+  source: "Swain DP & Leutholtz BC (1997) Med Sci Sports Exerc 29:410 (abstract); Swain et al. (1998) MSSE 30:318 (abstract); Tanaka et al. 2001; Jetté et al. 1990; Boden BP et al. (2022) Sports Health 14:490 (abstract, PMC9214909)"
+  url: "https://pubmed.ncbi.nlm.nih.gov/9139182/ ; https://pubmed.ncbi.nlm.nih.gov/34806472/"
+  quote_or_location: "Swain 1997: '%HRR versus %VO2R, the mean intercept and slope were -0.1 +/- 0.6 and 1.00 +/- 0.01'. Boden 2022: VO2peak all 38.5 ± 8.6, linemen 32.8 ± 6.4, non-linemen 41.8 ± 7.9 mL/kg/min (79 high-school players)."
+  note: "%HRR ≈ %VO2R shown in adults only; extrapolated to 15-18."
+  hr_max: {intercept_bpm: 208.0, age_coeff_bpm_per_yr: 0.7}
+  ml_o2_per_kg_min_per_met: 3.5
+  vo2max_default_ml_kg_min: 38.5
+  vo2max_by_group_ml_kg_min: {linemen: 32.8, non_linemen: 41.8}
+  linemen_positions: ["OL", "DL"]
+  sustained_vo2max_fraction: 0.81
+  sustained_vo2max_fraction_source: "Hitchcock KM et al. (2007) J Strength Cond Res 21:710 (abstract): simulated football practice drills 'ranged from 30 to 81% VO(2)max but averaged 55%VO(2)max'. Used as the ceiling on drill-average metabolic rate (DESIGN use of a VERIFIED number): the highest drill intensity measured in football practice."
 
 wbgt_model:
   status: VERIFIED
@@ -86,3 +137,488 @@ wbgt_model:
 wbgt_globe_height_m:
   status: TODO
   note: "Confirm standard measurement height for standing subjects (ISO 7243)."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# WS2 physiology (engine/physio). Equations: engine/physio/MODEL.md
+# ─────────────────────────────────────────────────────────────────────────────
+
+physical:
+  status: VERIFIED
+  source: "CODATA 2018 (NIST) and NIST SP 811 Appendix B.9 conversion factors"
+  url: "https://physics.nist.gov/cgi-bin/cuu/Value?sigma ; https://www.nist.gov/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b9"
+  quote_or_location: "sigma = 5.670 374 419 x 10^-8 W m^-2 K^-4 (exact); mmHg (conventional) -> Pa 1.333 224 E+02; kcal_th -> J 4.184 E+03; T/K = t/°C + 273.15"
+  stefan_boltzmann_w_m2_k4: 5.670374419e-8
+  kelvin_offset: 273.15
+  pa_per_mmhg: 133.3224
+  j_per_kcal: 4184.0
+  s_per_h: 3600.0
+  standard_gravity_m_s2: 9.80665   # NIST CODATA 'standard acceleration of gravity 9.806 65 m s^-2 (exact)' — physics.nist.gov/cgi-bin/cuu/Value?gn
+  f_per_c: 1.8          # T/°F = 1.8·t/°C + 32 (SI Appendix B.9 temperature relations)
+  f_offset: 32.0
+
+gagge_1986:
+  status: SECONDARY
+  source: "Gagge AP, Fobelets AP, Berglund LG (1986) A standard predictive index of human response to the thermal environment. ASHRAE Trans 92(2B):709-731 — values read from the reference implementation pythermalcomfort v3.8.0 models/two_nodes_gagge.py (Tartarini & Schiavon 2020, SoftwareX 12:100578). Primary paper not read."
+  url: "https://github.com/CenterForTheBuiltEnvironment/pythermalcomfort/blob/master/pythermalcomfort/models/two_nodes_gagge.py"
+  quote_or_location: "two_nodes_gagge.py lines 244-419 (v3.8.0): c_sw = 170, c_dil = 120, c_str = 0.5, temp_skin_neutral = 33.7, temp_core_neutral = 36.8, skin_blood_flow_neutral = 6.3, ..."
+  t_sk_neutral_c: 33.7
+  t_cr_neutral_c: 36.8
+  alpha0: 0.1
+  skbf_neutral_l_m2_h: 6.3
+  skbf_min_l_m2_h: 0.5
+  skbf_max_l_m2_h: 90.0
+  c_dil_l_m2_h_k: 120.0
+  c_str_per_k: 0.5
+  c_sw_g_m2_h_k: 170.0
+  m_rsw_max_g_m2_h: 500.0
+  sweat_skin_exp_k: 10.7
+  c_body_wh_kg_k: 0.97
+  k_cs_w_m2_k: 5.28
+  c_blood_wh_l_k: 1.163
+  latent_sweat_wh_g: 0.68
+  shiver_w_m2_k2: 19.4
+  alpha_a0: 0.0417737
+  alpha_a1: 0.7451833
+  alpha_a2: 0.585417
+  met_factor_w_m2: 58.2
+  external_work_met: 0.0
+  lewis_ratio_k_mmhg: 2.2
+  p_atm_atm: 1.0                  # DESIGN: sea-level pressure assumed (Gainesville elevation ~50 m)
+  resp_sensible_coeff: 0.0014
+  resp_sensible_ref_c: 34.0
+  resp_latent_coeff: 0.0023
+  resp_latent_ref_mmhg: 44.0
+  hc_natural_coeff: 3.0
+  hc_forced_coeff: 8.600001
+  hc_pressure_exp: 0.53
+  hc_act_coeff: 5.66
+  hc_act_met_offset: 0.85
+  hc_act_exp: 0.39
+  hr_initial_w_m2_k: 4.7
+  emissivity_clothing: 0.95       # code comment cites ASHRAE Fundamentals Ch. 9.7 Eq. 35
+  ar_ad_standing: 0.73
+  ar_ad_sitting: 0.70
+  clo_to_m2k_w: 0.155
+  fcl_per_clo: 0.15
+  icl_clothed: 0.45
+  icl_nude: 1.0
+  wcrit_clothed_coeff: 0.59
+  wcrit_clothed_exp: -0.08
+  wcrit_nude_coeff: 0.38
+  wcrit_nude_exp: -0.29
+  w_diffusion: 0.06
+  min_air_speed_m_s: 0.1
+  psat_a: 18.6686                 # p_sat[mmHg] = exp(a - b/(T + c))
+  psat_b: 4030.183
+  psat_c: 235.0
+  tcl_tolerance_k: 0.01
+  initial_esk_per_met: 0.1
+  reference_sim_minutes: 59       # reference loop runs n = 2..60 → 59 one-minute steps
+  reference_body_mass_kg: 70.0
+  reference_bsa_m2: 1.8258
+
+body_surface_area:
+  status: SECONDARY
+  source: "DuBois D, DuBois EF (1916) Arch Intern Med 17:863-871 — coefficients read from pythermalcomfort v3.8.0 utilities.body_surface_area (formula='dubois'); primary paper not read"
+  url: "https://pythermalcomfort.readthedocs.io/en/latest/reference/pythermalcomfort.html#body-surface-area"
+  quote_or_location: "return 0.202 * (weight**0.425) * (height**0.725)"
+  coeff: 0.202
+  mass_exp: 0.425
+  height_exp: 0.725
+
+solar_position:
+  status: VERIFIED
+  source: "NOAA Global Monitoring Division, 'General Solar Position Calculations' (Spencer 1971 Fourier series)"
+  url: "https://gml.noaa.gov/grad/solcalc/solareqns.PDF"
+  quote_or_location: "page 1: gamma, eqtime = 229.18*(0.000075 + 0.001868cos(g) - 0.032077sin(g) - 0.014615cos(2g) - 0.040849sin(2g)), decl = 0.006918 - 0.399912cos(g) + ..., ha = tst/4 - 180"
+  eqtime_scale_min: 229.18
+  eqtime_coeffs: [0.000075, 0.001868, -0.032077, -0.014615, -0.040849]   # c0, cos g, sin g, cos 2g, sin 2g
+  decl_coeffs: [0.006918, -0.399912, 0.070257, -0.006758, 0.000907, -0.002697, 0.00148]  # c0, cos g, sin g, cos 2g, sin 2g, cos 3g, sin 3g
+  minutes_per_degree_longitude: 4.0
+
+solarcal:
+  status: SECONDARY
+  source: "Arens E et al. (2015) Modeling the comfort effects of short-wave solar radiation indoors. Building and Environment 88:3-9, Eqs. 1, 6, 7 (open-access PDF read by source-checker); f_p table from pythermalcomfort v3.8.0 models/solar_gain.py; ASHRAE 55-2020 Appendix C not read"
+  url: "https://github.com/CenterForTheBuiltEnvironment/pythermalcomfort/blob/master/pythermalcomfort/models/solar_gain.py"
+  quote_or_location: "Arens Eq.1 'ERF = feff hr (MRT - Ta)'; Eq.6 ERF_solar = (0.5 feff fsvv (Idiff + ITH Rfloor) + Ap fbes Idir/AD) Tsol (αSW/αLW); Eq.7 'Ap= feff fp AD'; f_eff '0.725 for a standing person'; αLW 'typically equal to 0.95'"
+  f_eff_standing: 0.725
+  alpha_lw: 0.95
+  alpha_sw: 0.7                   # pythermalcomfort & ladybug default; Arens 2015: '≈0.67 for (white) skin and average clothing'; range 0.57-0.84 (Blum 1945 via pythermalcomfort)
+  h_r_w_m2_k: 6.012               # ladybug-comfort solarcal.mrt_delta_from_erf citing ASHRAE 55 (SECONDARY); pythermalcomfort uses 6
+  sky_hemisphere_fraction: 0.5
+  f_svv_open_field: 1.0           # DESIGN: open field, whole sky vault in view
+  transmittance_open: 1.0         # DESIGN: no glazing outdoors
+  f_bes_open: 1.0                 # DESIGN: whole body exposed to sun
+  fp_alt_grid_deg: [0, 15, 30, 45, 60, 75, 90]
+  fp_az_grid_deg: [0, 15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165, 180]
+  fp_table_standing:              # rows = SHARP azimuth (fp_az_grid), cols = altitude (fp_alt_grid)
+    - [0.35, 0.35, 0.314, 0.258, 0.206, 0.144, 0.082]
+    - [0.342, 0.342, 0.31, 0.252, 0.2, 0.14, 0.082]
+    - [0.33, 0.33, 0.3, 0.244, 0.19, 0.132, 0.082]
+    - [0.31, 0.31, 0.275, 0.228, 0.175, 0.124, 0.082]
+    - [0.283, 0.283, 0.251, 0.208, 0.16, 0.114, 0.082]
+    - [0.252, 0.252, 0.228, 0.188, 0.15, 0.108, 0.082]
+    - [0.23, 0.23, 0.214, 0.18, 0.148, 0.108, 0.082]
+    - [0.242, 0.242, 0.222, 0.18, 0.153, 0.112, 0.082]
+    - [0.274, 0.274, 0.245, 0.203, 0.165, 0.116, 0.082]
+    - [0.304, 0.304, 0.27, 0.22, 0.174, 0.121, 0.082]
+    - [0.328, 0.328, 0.29, 0.234, 0.183, 0.125, 0.082]
+    - [0.344, 0.344, 0.304, 0.244, 0.19, 0.128, 0.082]
+    - [0.347, 0.347, 0.308, 0.246, 0.191, 0.128, 0.082]
+
+shade_model:
+  status: DESIGN
+  note: "Shaded drills / cooling area: mean radiant temperature = air temperature (canopy blocks all shortwave; hot-ground longwave ignored). Biases in-shade predictions low. See MODEL.md §6.3."
+  mrt_equals_air_temp: true
+
+non_participant:
+  status: DESIGN
+  note: "Athletes not listed in a drill's participants rest in the shaded cooling area, keeping the drill's gear. Coach/AT should confirm this matches how the team rotates players."
+  intensity: rest
+  shade: true
+
+near_limit_margin_c:
+  status: DESIGN
+  note: "UI band: status 'near_limit' when peak p95 is within this margin of the planning limit. Product choice; AT owns it."
+  value: 0.3
+
+ensemble_defaults:
+  status: DESIGN
+  note: "Truncation of ensemble draws at ±k SD, floor above zero. Numerical choice, not physiology."
+  truncate_sd: 3.0
+  min_scale: 0.05
+
+clear_sky_fallback:
+  status: SECONDARY
+  source: "Clear sky: Haurwitz B (1945) J Meteorol 2:154-166 — coefficients read from pvlib-python clearsky.haurwitz (main). Cloud: Kasten F, Czeplak G (1980) Solar Energy 24:177-190 — formula as quoted in CSBE/SCGAB 2017 meeting paper CSBE17057, eq. (1). Primary papers not read."
+  url: "https://github.com/pvlib/pvlib-python/blob/main/pvlib/clearsky.py ; https://library.csbe-scgab.ca/docs/meetings/2017/CSBE17057.pdf"
+  quote_or_location: "pvlib: ghi_clear = 1098.0 * cos_zenith * np.exp(-0.059/cos_zenith); CSBE17057 eq.(1): Ig = Igc (1 - 0.75 (N/8)^3.4), N in octas"
+  note: "Used only when the forecast has no solar_w_m2 and engine/wbgt.py (WS1) is absent; output is labelled."
+  haurwitz_a: 1098.0
+  haurwitz_b: 0.059
+  kc_a: 0.75
+  kc_b: 3.4
+
+model_options:
+  status: DESIGN
+  note: "cap_mode 'consistent' = skin evaporation capped at w_crit·E_max (definition of wettedness); 'ashrae55_reference' reproduces pythermalcomfort/ASHRAE 55 code, which allows (w_crit + 0.06)·E_max. See MODEL.md §7.3."
+  cap_mode: consistent
+  max_internal_dt_s: 30           # numerical: integration sub-step; outputs stay on the step_min grid (Euler lag at drill boundaries)
+  clothing_mode: conservative      # 'conservative' (default: ISO structure, wind credit kept, walking-ventilation credit off, calibrated gear surcharge) | 'iso7933_dynamic' (alternate) | 'gagge_static' (reference structure)
+
+acclimatization:
+  status: DESIGN
+  enabled: true
+  note: "Magnitudes are VERIFIED in the cited (mostly laboratory) studies; the piecewise-linear time course and their transfer to adolescent football players are modelling choices. MODEL.md §8."
+  setpoint_shift:
+    status: VERIFIED
+    source: "Buono MJ et al. (1998) Am J Physiol 274:R1295 (abstract); Mee JA et al. (2018) J Sci Med Sport 21:190 (abstract)"
+    url: "https://pubmed.ncbi.nlm.nih.gov/9644042/ ; https://pubmed.ncbi.nlm.nih.gov/28739443/"
+    quote_or_location: "Buono: resting Tre 'decreased from 37 +/- 0.3 to 36.7 +/- 0.4 degrees C' (range -0.1 to -0.5); Mee: resting Tre -0.28±0.16 °C and Tre at sweating onset -0.29±0.17 °C"
+  sweat_gain:
+    status: VERIFIED
+    source: "Poirier MP et al. (2015) Med Sci Sports Exerc 47:390-400 (abstract)"
+    url: "https://pubmed.ncbi.nlm.nih.gov/24870585/"
+    quote_or_location: "whole-body evaporative heat loss +4.9 to +9.0% by day 7, +7.6 to +11.2% by day 14; 'can improve by as much as approximately 11%'"
+  time_course:
+    status: VERIFIED
+    source: "Périard JD, Racinais S, Sawka MN (2015) Scand J Med Sci Sports 25(S1):20-38; Casa DJ et al. (2009) J Athl Train 44(3):332 (PMC2681206)"
+    url: "https://onlinelibrary.wiley.com/doi/full/10.1111/sms.12408"
+    quote_or_location: "Périard: '75–80% of the adaptations occur in the first 4–7 days', complete after 10–14 days; Casa 2009: acclimatization period = 'the initial 14 consecutive days of preseason practice'"
+  decay:
+    status: VERIFIED
+    source: "Daanen HAM, Racinais S, Périard JD (2018) Sports Med 48:409-430 (abstract, PMC5775394)"
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC5775394/"
+    quote_or_location: "'For every decay day, ~ 2.5% of the adaptations in HR and Tc are lost'"
+  full_setpoint_shift_c: 0.3          # lowers T_cr,n (and so T_b,n, resting core and sweating onset) at full adaptation
+  full_sweat_gain_increase: 0.11      # sweat-gain multiplier 1 + 0.11 at full adaptation
+  fraction_curve_day: [1, 6, 14]      # DESIGN: day 1 = first heat day (no adaptation); ~75% by day 6 (Périard 4–7 d); 100% by day 14
+  fraction_curve_value: [0.0, 0.75, 1.0]
+  decay_per_day_without_heat: 0.025   # fraction of adaptation lost per day beyond the first since the last heat session
+
+ensemble_priors:
+  status: DESIGN
+  note: "Prior SDs when an athlete has no calibration. Derived (by the source-checker) from verified tables; using them as SDs of the model's scale factors is an inference."
+  met_scale_sd: 0.20
+  met_scale_source: "Kozey SL et al. (2010) Med Sci Sports Exerc 42:1776, Table 3 (PMC2924952): between-person CV of measured METs, median ~20% (range 12–31%) across 23 activities"
+  thermo_scale_sd: 0.15
+  thermo_scale_source: "Armstrong LE et al. (2010) J Athl Train 45:117 (PMC2838463): sweat-rate CV 13–17% in linemen under controlled lab conditions (field CVs 22–47% also include body size and metabolic rate, which the model already represents)"
+
+solarcal_ground:
+  status: SECONDARY
+  source: "Grass: Allen RG et al. (1998) FAO Irrigation and Drainage Paper 56, Ch. 3 (VERIFIED). Turf: Singh G et al. (2024) Int J Biometeorol 68:1235, Table 1, tabulating Loveday et al. 2019b (primary not read)"
+  url: "https://www.fao.org/3/x0490e/x0490e07.htm ; https://doi.org/10.1007/s00484-024-02679-5"
+  quote_or_location: "FAO-56: 'A green vegetation cover has an albedo of about 0.20-0.25. For the green grass reference crop, a is assumed to have a value of 0.23.' Singh 2024 Table 1 (Loveday 2019b): synthetic grass 0.10, 0.12, 0.11; natural 0.20, 0.22, 0.22"
+  reflectance_grass: 0.23
+  reflectance_turf: 0.11
+
+irradiance_split:
+  status: SECONDARY
+  source: "Erbs DG, Klein SA, Duffie JA (1982) Solar Energy 28:293-302 — coefficients from pvlib irradiance.erbs and Reindl 1988 MS thesis Eq. 3.14 (primary paywalled). Solar constant: IAU 2015 Resolution B3 (VERIFIED, arXiv:1510.07674). Earth-sun distance factor: ASCE form 1 + 0.033 cos(2π·doy/365) as in pvlib get_extra_radiation(method='asce') citing Allen et al. (ASCE standardized reference ET)."
+  url: "https://github.com/pvlib/pvlib-python/blob/main/pvlib/irradiance.py ; https://arxiv.org/abs/1510.07674"
+  quote_or_location: "kt<=0.22: 1-0.09kt; 0.22<kt<=0.80: 0.9511-0.1604kt+4.388kt^2-16.638kt^3+12.336kt^4; kt>0.80: 0.165. IAU: 'S⊙ = 1361 W m−2'"
+  solar_constant_w_m2: 1361.0
+  eccentricity_amp: 0.033
+  days_per_year: 365.0
+  erbs_kt_breaks: [0.22, 0.80]
+  erbs_low: [1.0, -0.09]
+  erbs_mid: [0.9511, -0.1604, 4.388, -16.638, 12.336]
+  erbs_high: 0.165
+  kt_max: 1.0                     # numerical guard (DESIGN): clearness index cannot exceed 1
+  min_sun_elevation_deg: 3.0      # pvlib erbs sets DNI = 0 for zenith > 87°
+
+wind_profile:
+  status: SECONDARY
+  source: "z0: WMO Codes Registry, Davenport roughness class 'open' (VERIFIED). Log law for 10 m → body height: NWS/MDL Boyer TR (2022) NDFD WBGT Algorithm and Software Design (VERIFIED). 1.1 m standing abdomen height: ISO 7243/7726 as applied in Oliveira et al. 2018 Ind Health 56:62 and Ahmed et al. 2020 Ind Health 58:170 (ISO text paywalled)."
+  url: "https://codes.wmo.int/wmdr/SurfaceRoughnessDavenport/open ; https://vlab.noaa.gov/documents/6609493/7858379/NDFD%2BWBGT%2BDescription%2BDocument.pdf"
+  quote_or_location: "WMO: 'Level country with low vegetation (e.g. grass) and isolated obstacles … (zo 0.03)'; NDFD: 'To downscale the 10m winds to 2m, the NDFD application applies the Log Law.'; Oliveira 2018: measurements 'at 0.1, 1.1 and 1.7 m'"
+  z_ref_m: 10.0
+  z_body_m: 1.1
+  z0_open_grass_m: 0.03
+
+iso7933_dynamic:
+  status: SECONDARY
+  source: "ISO 7933:2004 Predicted Heat Strain, dynamic clothing corrections (Havenith, Holmér & Parsons 1999; Holmér et al. 1999) — equations read from pythermalcomfort v3.8.0 models/phs.py (ISO text paywalled, not read)"
+  url: "https://github.com/CenterForTheBuiltEnvironment/pythermalcomfort/blob/master/pythermalcomfort/models/phs.py"
+  quote_or_location: "phs.py: walk_sp = 0.0052*(met-58) capped 0.7; corr_cl = 1.044*exp((0.066*v_ux-0.398)*v_ux+(0.094*w_a_ux-0.378)*w_a_ux) (v_ux<=3, w_a_ux<=1.5), <=1; corr_ia = exp((0.047*v_r-0.472)*v_r+(0.117*w_a_ux-0.342)*w_a_ux), <=1; corr_tot blends below 0.6 clo; corr_e = (2.6*corr_tot-6.5)*corr_tot+4.9; im_dyn = min(i_mst*corr_e, 0.9); r_t_dyn = i_tot_dyn/im_dyn/16.7; i_a_st = 0.111; w_max = 0.85 (unacclimatized) or 1 (acclimatized)"
+  note: "Applied because McCullough & Kenney's manikin was stationary in still air; ISO 7933 is the standard route from static to dynamic clothing values. Walking speed uses ISO's default from metabolic rate (capped at 0.7 m/s), which under-represents running — conservative."
+  walk_coeff_m_s_per_w_m2: 0.0052
+  walk_met_offset_w_m2: 58.0
+  walk_cap_m_s: 0.7
+  v_cap_m_s: 3.0
+  w_cap_m_s: 1.5
+  corr_cl: {scale: 1.044, v2: 0.066, v1: -0.398, w2: 0.094, w1: -0.378}
+  corr_ia: {v2: 0.047, v1: -0.472, w2: 0.117, w1: -0.342}
+  blend_below_clo: 0.6
+  corr_e: [2.6, -6.5, 4.9]          # corr_e = (a*corr_tot + b)*corr_tot + c
+  im_dyn_max: 0.9
+  lewis_k_per_kpa: 16.7
+  i_a_static_m2k_w: 0.111
+  w_max_unacclimatized: 0.85
+  w_max_acclimatized: 1.0          # interpolated with constants.acclimatization fraction (DESIGN)
+
+optimizer:
+  status: DESIGN
+  note: "WS4 search settings and product requirements. Not physiology; coach/AT-owned where marked. MODEL.md does not apply."
+  priority_weights: {1: 3.0, 2: 2.0, 3: 1.0}      # objective weight per drill priority (product choice)
+  p1_min_kept_fraction: 0.9                       # WS4 brief: priority-1 drills kept at ≥ 90 % of their minutes
+  max_added_minutes: 20                           # practice may grow by at most this much (coach's time window)
+  inserted_break_gear: same_as_previous          # athletes keep the previous drill's gear on an added break (conservative)
+  gear_floor_by_intensity: {hard: helmet, max: none}   # contact drills keep at least a helmet (coach-owned; PLAN.md demo: "team period drops to helmets-only")
+  trim_step_min: 5
+  lengthen_step_min: 4
+  min_split_part_min: 5
+  beam_width: 3
+  beam_depth: 12
+  beam_candidates_per_state: 40
+  capped_beam_width: 6                          # fewest_changes preset: wider beam that never exceeds the change cap
+  capped_beam_candidates_per_state: 80
+  swap_probability: 0.5                          # at the change cap, share of SA proposals that undo one change and make another
+  repair_loss_floor_pct: 1.0                     # beam ranks fixes by infeasibility removed per % load lost (+ this floor)
+  beam_time_fraction: 0.35
+  sa_time_fraction_end: 0.75
+  sa_max_iterations: 1500
+  sa_restarts: 8                                 # multi-start; the time budget is split across restarts
+  sa_t0: 3.0
+  sa_t_end: 0.03
+  infeasibility_weight: 100.0                    # energy per unit infeasibility (1 FHSAA violation or 0.1 °C over)
+  heat_excess_per_unit_c: 0.1
+  change_penalty: 0.02                           # tie-break: energy per change (≪ 1 % of load)
+  default_budget_s: 8.0
+  top_changes_k: 3                               # 'top changes by heat reduction' summary for the UI / voice agent
+
+nata_gear_phasing:
+  status: VERIFIED
+  source: "Casa DJ, Csillan D et al. (2009) Preseason heat-acclimatization guidelines for secondary school athletics. J Athl Train 44(3):332-333 (PMC2681206), read by source-checker"
+  url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC2681206/"
+  quote_or_location: "Days 1-2: 'a helmet should be the only protective equipment permitted'; days 3-5: 'only helmets and shoulder pads should be worn'; day 6 onward: 'all protective equipment may be worn'"
+  note: "Applied per athlete from acclimatization_day. An explicit athlete.gear_limit can only tighten the limit. Breaks count: athletes keep the gear they wear."
+  phases:
+    - {first_day: 1, last_day: 2, max_gear: helmet}
+    - {first_day: 3, last_day: 5, max_gear: helmet_shoulder_pads}
+    - {first_day: 6, last_day: 9999, max_gear: full_pads}
+
+armstrong_2010:
+  status: VERIFIED
+  source: "Armstrong LE, Johnson EC, Casa DJ et al. (2010) The American football uniform: uncompensable heat stress and hyperthermic exhaustion. J Athl Train 45(2):117-127 (PMC2838463) — Methods text and Tables 1, 3, 4 read (table images)"
+  url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC2838463/"
+  quote_or_location: "'Ten men ... (age = 23.8 ± 4.3 years, height = 183.9 ± 6.3 cm, mass = 117.41 ± 12.59 kg, body fat = 30.1% ± 5.5%)'; chamber '33°C, 48%–49% relative humidity'; box lifting 20.4 kg, 10 lifts/min for 10 min; 10 min seated; treadmill '5.6 km/h, 5% grade' to 60 min or termination. Table 4 (treadmill only): CON 0.037 ± 0.015, PART 0.052 ± 0.012, FULL 0.071 ± 0.032 °C/min. Table 3: exposure 71.7 ± 13.4 / 63.1 ± 15.6 / 56.2 ± 13.2 min; rise 1.81 / 2.36 / 2.37 °C; start Tre 37.2 °C."
+  participants: {age_yr: 23.8, height_m: 1.839, mass_kg: 117.41, body_fat_pct: 30.1, sex: male}
+  chamber: {air_temp_c: 33.0, rh_pct: 48.5}
+  protocol_min: {box_lifting: 10, seated: 10, treadmill_max: 60}
+  treadmill: {speed_km_h: 5.6, grade: 0.05}   # Methods: "walked briskly on a treadmill (5.6 km/h, 5% grade)"
+  start_rectal_c: 37.2
+  exposure_min: {CON: 71.7, PART: 63.1, FULL: 56.2}
+  treadmill_rate_c_per_min: {CON: [0.037, 0.015], PART: [0.052, 0.012], FULL: [0.071, 0.032]}   # [mean, SD]
+  whole_protocol_rate_c_per_min: {CON: [0.026, 0.008], PART: [0.034, 0.006], FULL: [0.042, 0.010]}
+  rise_c: {CON: [1.81, 0.40], PART: [2.36, 0.24], FULL: [2.37, 0.45]}   # Table 3, whole protocol
+  not_reported: "chamber air velocity, metabolic rate (VO2 not measured), heat-acclimatization status"
+
+armstrong_2010_reproduction:
+  status: DESIGN
+  note: "Assumptions needed to simulate Armstrong 2010 (validation/armstrong_2010.py). MET values VERIFIED on pacompendium.com (2024 Adult Compendium); the task→code mapping and the air speed are judgement calls."
+  met: {box_lifting: 4.0, seated: 1.0, treadmill: 5.3}   # treadmill 5.3 = Compendium 17034 (alternative; not used)
+  treadmill_met_method: acsm         # ACSM walking equation at the reported 5.6 km/h, 5 % grade → 6.067 MET (constants.acsm_walking)
+  met_codes: {box_lifting: "11820 Walking or walk downstairs or standing, carrying objects about 25 to 49 lbs", seated: "07021 Sitting quietly, general", treadmill: "17034 Climbing hills, no load, 1 to 5% grade, moderate-to-brisk pace"}
+  air_speed_m_s: 0.1                 # not reported → Gagge's still-air floor
+  air_speed_sensitivity_m_s: [0.1, 0.5, 1.0]
+  gear_map: {CON: none, FULL: full_pads}   # PART (pants + pads, no helmet/shoulder pads) has no matching gear level
+  acclimatization_day: 1             # status not reported → treated as unacclimatized
+
+clothing_conservative:
+  status: DESIGN
+  note: "Planning-default clothing mode ('conservative' is the historical name; it is now the Armstrong-calibrated mode). ISO 7933 dynamic structure with the wind credit kept and the walking-ventilation credit off (with the ACSM treadmill MET and the 5 % grade's external work subtracted, credit off reproduces Armstrong CON; credit on under-predicts it by ~1 SD) plus a gear load surcharge on metabolic heat, M × (1 + δ·w(gear)), δ fitted to Armstrong 2010's mean FULL whole-protocol rise (2.37 °C). The surcharge is metabolic: applied before the VO2max ceiling and inside the live-HR observation model. δ lumps uniform weight, pad coverage and sweat-soaking (Armstrong and Hitchcock 2007 attribute extra metabolic cost to the uniform); it is a calibration, not a measured quantity. Safety margin lives in p95 + the AT-owned limit, not in the median physics."
+  calibrated_by: "validation/armstrong_2010.py --calibrate"
+  calibration_metric: whole_rise    # owner decision Oct 3: fit Table 3 whole-protocol FULL rise (2.37 °C); safety margin lives in p95 + the AT limit, not in median physics
+  calibration_target: "armstrong_2010.rise_c.FULL (mean, 2.37 °C over 56.2 min)"
+  alternative_fit_treadmill_rate: 0.1348   # δ fitted to Table 4 FULL treadmill rate 0.071 °C/min (mean of individual rates; early terminations bias it high) — reported, not used
+  iso_correction_fraction: 1.0
+  walk_credit_fraction: 0.0          # owner rule (Oct 3): keep or drop by which reproduces Armstrong CON — with the ACSM treadmill MET and the grade's external work subtracted, credit off fits CON (−0.08 SD rate, +0.10 SD rise) and credit on does not (−0.98 / −1.67 SD); see validation results walk_credit_check
+  surcharge_weight_by_gear:        # DESIGN: share of the full-pads surcharge per gear level
+    none: 0.0
+    helmet: 0.0                    # helmet-only already borrows the helmet + shoulder-pads clothing values (TODO); no extra surcharge until a helmet-only ensemble is measured
+    helmet_shoulder_pads: 0.636    # intrinsic-insulation interpolation (0.63 − 0.35)/(0.79 − 0.35)
+    full_pads: 1.0
+  gear_met_surcharge_full_pads: 0.0486   # computed by validation/armstrong_2010.py --calibrate (FULL whole-protocol rise 2.37 °C)
+
+demo_mode:
+  status: DESIGN
+  note: "?demo=1: reproducible runs for presentations — fixed seed and a fixed iteration cap instead of a time budget (the budget below is only a safety stop well above the expected run time)."
+  seed: 0
+  n_ensemble: 30
+  sa_iterations: 600
+  sa_restarts: 10
+  preset_overrides: {}             # per-preset overrides of the demo caps (none needed at 10 × 600)
+  safety_budget_s: 120.0
+
+hr_model:
+  status: DESIGN
+  note: "Observation model for live calibration (WS3): HR = HR_rest + %VO2R × (HR_max − HR_rest), %VO2R = (MET − 1)/(VO2max/3.5 − 1) — the inverse of hr_met (Swain & Leutholtz 1997, VERIFIED). Cardiovascular drift with rising core temperature is NOT modelled (coefficient 0 until a source is found), so HR late in a hot session reads as higher metabolic rate: met_scale may be biased high, the conservative direction."
+  drift_bpm_per_c_core: 0.0
+  drift_status: TODO
+
+calibration:
+  status: DESIGN
+  note: "WS3 live-calibration tuning (Relay-style gates). Product choices, not physiology; labelled in outputs."
+  update_interval_s: 60
+  window_s: 60
+  obs_sd_bpm: 8.0                 # combined sensor + model error of a 60-s mean HR (tuning value)
+  n_ensemble: 64
+  expected_reading_interval_s: 1  # BLE Heart Rate Service notifies about once per second
+  min_coverage_fraction: 0.5      # gate (c): share of expected readings present in the window
+  min_updates_before_flag: 2
+  persistence_min: 3              # gate (b): p95 must stay at/above the limit this many consecutive minutes
+  plausible_hr_bpm: [30, 230]     # readings outside are dropped as artefacts
+  replay_speed: 10
+
+acsm_walking:
+  status: SECONDARY
+  source: "ACSM metabolic equation for walking (ACSM's Guidelines for Exercise Testing and Prescription; book not read) as quoted in Moore CC et al. (2021) Development of a Cadence-Based Metabolic Equation for Walking. Med Sci Sports Exerc 53(1):165-173, Eq. [1] (PMC7896743, read)"
+  url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC7896743/"
+  quote_or_location: "Moore 2021 Introduction: 'VO2 = [0.1 • Speed] + [1.8 • Speed • Grade] + 3.5', Speed in m/min, Grade in decimal form, VO2 in mL/kg/min"
+  horizontal_ml_kg_per_m: 0.1
+  vertical_ml_kg_per_m: 1.8
+  resting_ml_kg_min: 3.5
+
+optimizer_presets:
+  status: DESIGN
+  note: "max_load (default): maximize retained load, tie-break fewest changes. fewest_changes: hard cap on the number of changes (coach-friendly diff), maximize load under it (owner decision Oct 3: cap 6)."
+  max_load: {max_changes: null}
+  fewest_changes: {max_changes: 6}
+
+field_core_temp_studies:
+  status: VERIFIED
+  note: "Ingestible-pill core temperatures during American football practice, collected by the source-checker (Oct 3) from full texts/abstracts it read. Entries marked SECONDARY inside were read from a figure or inferred. Used by validation/field_plausibility.py."
+  godek_2006:
+    citation: "Godek SF, Bartolozzi AR et al. (2006) J Athl Train 41(1):8-14 (PMC1421487)"
+    level: NFL
+    preseason_days: [2, 3]
+    duration_min: 120
+    am: {start: "08:45", gear: full_pads, dry_bulb_c: 25.0, wet_bulb_c: 22.8}   # highest dry/wet bulb pair reported for the camp
+    linemen: {n: 8, mass_kg: 134.8, tc_max: [38.65, 0.48], tc_max_range: [37.47, 39.29]}
+    backs: {n: 6, mass_kg: 95.6, tc_max: [38.44, 0.32], tc_max_range: [37.81, 39.08]}
+    quote: "Tcmax ... 38.65 ± 0.48°C, range = 37.47 to 39.29°C (linemen); 38.44 ± 0.32°C (backs); WBGT not reported"
+  godek_2004:
+    citation: "Fowkes Godek S, Godek JJ, Bartolozzi AR (2004) J Athl Train 39(3):235-240 (PMC522145)"
+    level: NCAA Division II
+    n: 10
+    mass_kg: 116.6
+    preseason_days: [4, 8]
+    pm: {start: "15:15", duration_min: 135, gear: full_pads, air_temp_c: 34.0, rh_pct: 41.0}   # Table 2: 34 ± 0.6 °C, RH 37–45 %
+    tc_max_individual: 39.11
+    tc_group_after_practice_approx: 38.6      # SECONDARY: read by eye from Fig. 2
+  mcclelland_2018:
+    citation: "McClelland, Godek et al. (2018) J Strength Cond Res 32(6):1662-1670 (abstract)"
+    level: NCAA Division III
+    wbgt_c: [29.07, 30.93, 31.39]
+    tc_max: [38.56, 0.32]
+  demartini_nolan_2018:
+    citation: "DeMartini-Nolan, Casa, Coris et al. (2018) J Strength Cond Res 32(10):2888-2896 (abstract); conditions SECONDARY via DeMartini 2011 (same camp inferred)"
+    level: NCAA Division I
+    wbgt_c_secondary: 28.75
+    tc_max: [38.83, 0.42]
+  yeargin_2010:
+    citation: "Yeargin SW, Casa DJ et al. (2010) J Athl Train 45(2):136-146 (PMC2838465)"
+    level: high school
+    n: 25
+    mass_kg: 81.4
+    age_yr: 15
+    heat_acclimatized: true
+    duration_min: 168                           # 2.8 ± 0.5 h
+    wbgt_max_warm_days_c: [25.0, 1.0]
+    tc_max: [38.7, 0.3]
+  summary: "group-mean practice peaks 38.2–38.8 °C; individual maxima 39.1–39.3 °C; no reading ≥ 40 °C reported"
+
+field_plausibility_assumptions:
+  status: DESIGN
+  note: "Inputs the field studies do not report, stated explicitly: practice structure = the fixture plan's drill sequence and intensities scaled to the study's duration; sun bracketed by overcast (0 W/m²) and clear sky (Haurwitz); wind 2 m/s at 10 m; date mid-August at the study site's latitude; height of the nearest-mass fixture athlete when not reported."
+  practice_template: fixture_plan
+  wind_m_s: 2.0
+  date: "2026-08-15"
+  sites: {godek_2006: [40.61, -75.38], godek_2004: [39.95, -75.60], gainesville: [29.65, -82.32]}
+
+drill_types:
+  status: DESIGN
+  note: "Drill type for the duty-cycle model: Drill.drill_type (CONTRACTS v1.2, optional) if given, else the first name keyword that matches, else from intensity."
+  name_keywords:            # checked in order, case-insensitive substring of the drill name
+    - [special, special_teams]
+    - [kick, special_teams]
+    - [punt, special_teams]
+    - [condition, conditioning]
+    - [gasser, conditioning]
+    - [sprint, conditioning]
+    - [warm, warmup]
+    - [cool, cooldown]
+    - [stretch, cooldown]
+    - [team, team]
+    - [scrimmage, team]
+    - [inside run, team]
+    - [7-on-7, team]
+    - [11-on-11, team]
+    - [individual, individual]
+    - [indy, individual]
+  by_intensity: {rest: break, light: warmup, moderate: individual, hard: team, max: conditioning}
+
+drill_duty_cycle:
+  status: TODO
+  enabled: false
+  note: "MET_eff = f_active × MET_active + (1 − f_active) × MET_between per drill type. Workload search (Oct 3, 25-min timebox) did NOT find enough to enable it: no sourced MET_active for a 5–6 s play (Compendium 15210 'football, competitive' 8.0 is a whole-game average that already contains the rest between plays — using it as MET_active would double-count rest), and no practice f_active for individual, special-teams or conditioning periods. Kept disabled; intensity METs (drill_met) remain in use. Found evidence is recorded below for the next attempt."
+  found:
+    team_f_active_hs_scrimmage:
+      value: 0.145
+      status: VERIFIED
+      source: "Gleason BH et al. (2017) J Strength Cond Res 31(8):2183 (PMID 28731979), abstract: 'Average play duration was 5.7 ± 2.1 seconds, whereas the rest interval was 33.4 ± 13.6 seconds between plays, for an overall exercise-to-rest ratio of 1:5.9' (f = 1/(1+5.9))"
+    team_f_active_game_proxy:
+      value: {high_school: 0.154, college: 0.141, nfl: 0.139}
+      status: VERIFIED
+      source: "Rhea MR, Hunter RL, Hunter TJ (2006) J Strength Cond Res 20(1):58-61 (PMID 16503692), abstract: work-to-recovery 1:5.5 (HS), 1:6.1 (college), 1:6.2 (NFL)"
+    between_drill_recovery:
+      status: VERIFIED
+      source: "Hitchcock KM et al. (2007) J Strength Cond Res 21:710 (abstract): %VO2max 'only during recovery between drills with HS (61.4 +/- 3.7%) compared with H (53.3 +/- 6.9%) and S (40.1 +/- 8.5%)' — recovery between drills is far above standing (1.3 MET), so a standing MET_between would be anti-conservative"
+    met_between_candidates:
+      status: VERIFIED
+      source: "2024 Adult Compendium (pacompendium.com): 07040 standing quietly 1.3; 07041 standing fidgeting 1.5; 17151 walking <2.0 mph 2.3; 17152 walking 2.0–2.4 mph 2.8"
+    drill_lengths_ncaa:
+      status: VERIFIED
+      source: "Mamon et al. (accepted manuscript, LJMU repository): drill length 'indy: 13.5 ± 3.4 mins … ST: 7.8 ± 1.7 mins; team: 9.4 ± 3.4 mins' — no active-time fractions"
+  types: {}
