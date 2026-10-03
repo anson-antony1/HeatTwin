@@ -21,6 +21,7 @@ import type { OfflineResult } from '../offline/standIn'
 import { PlanEditor } from '../components/PlanEditor'
 import { NumberTicker } from '../components/NumberTicker'
 import { OfflineBadge, OfflineBanner } from '../components/OfflineBadge'
+import { ProvenanceLabels } from '../components/ProvenanceLabels'
 import { IconCheck, IconClose, IconSpark } from '../components/Icons'
 import { clockLabel, heatColor, type HeatScale } from '../lib/heat'
 import { useHeatScale, useNearMargin } from '../lib/useHeatScale'
@@ -182,6 +183,15 @@ export function PlanView() {
 
       {offline && <OfflineBanner />}
 
+      <ProvenanceLabels
+        labels={
+          p.sim
+            ? [...(p.opt && p.source === 'optimized' ? (p.opt.labels ?? []) : []), ...p.sim.labels]
+            : (p.offline?.labels ?? [])
+        }
+        title={p.sim ? (p.source === 'optimized' ? 'Engine /optimize' : 'Engine /simulate') : 'Offline'}
+      />
+
       {p.phase === 'error' && !editing && (
         <div className="plan__error" role="alert">
           {p.error}
@@ -205,7 +215,8 @@ export function PlanView() {
           value={p.sim ? hottestPeakP95(p.sim) : offline && now ? Math.max(...now.rows.map((r) => r.peak)) : null}
           was={before ? hottestPeakP95(before) : null}
           unit=" °C"
-          decimals={1}
+          // Two decimals so a peak just under the line (e.g. 38.98) never reads as the line itself.
+          decimals={2}
           offline={offline}
         />
         <Metric

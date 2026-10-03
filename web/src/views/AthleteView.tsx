@@ -19,6 +19,7 @@ import { NumberTicker } from '../components/NumberTicker'
 import { StatusPill } from '../components/StatusPill'
 import { TempChart } from '../components/TempChart'
 import { OfflineBadge, OfflineBanner } from '../components/OfflineBadge'
+import { ProvenanceLabels } from '../components/ProvenanceLabels'
 import { IconDrop, IconHeart, IconResponse } from '../components/Icons'
 import { chartDomain, clockLabel, cToF, heatColor } from '../lib/heat'
 import { useHeatScale, useNearMargin } from '../lib/useHeatScale'
@@ -55,6 +56,7 @@ export function AthleteView({ athleteId, onSelect, onCollapse }: Props) {
       <div className="twin__provenance">
         <span className="twin__tag">demo playback — not live</span>
         {replayLabel(s.replay) && <span className="twin__tag twin__tag--replay">{replayLabel(s.replay)}</span>}
+        <ProvenanceLabels labels={s.labels} title={s.source === 'offline' ? 'Offline' : s.replay.status === 'ready' ? 'Engine /live/replay' : 'Engine /simulate'} />
       </div>
 
       <AnimatePresence mode="wait" initial={false}>
@@ -594,7 +596,7 @@ function AthletePlanCard({ athleteId, minute }: { athleteId: string; minute: num
 
       <div className="dayplan__foot faint">
         {simA
-          ? `Peak per block is the engine’s p95 estimate for this athlete — ${ESTIMATE_LABEL}.`
+          ? `Peak per block is the engine’s p95 estimate for this athlete — ${ESTIMATE_LABEL}. The line is an illustrative default an athletic trainer owns.`
           : offA
             ? 'OFFLINE FALLBACK — stand-in curve, not the validated model.'
             : `Tap the mic and describe today’s practice to ${AI_NAME} to model it on the engine.`}

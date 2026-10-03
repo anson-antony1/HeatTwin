@@ -88,6 +88,14 @@
   margin: 0;
 }
 
+.field__prov {
+  margin-top: 10px;
+}
+
+.field__prov .prov__chip {
+  max-width: 100%;
+}
+
 @media (max-width: 1100px) {
   .field {
     display: none;

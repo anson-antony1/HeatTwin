@@ -1,0 +1,59 @@
+.prov {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  font-size: 11.5px;
+  min-width: 0;
+}
+
+.prov__title {
+  color: var(--ink-3);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 10.5px;
+}
+
+.prov__list {
+  display: contents;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.prov__chip {
+  max-width: 260px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--ink-4);
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.prov.is-open .prov__chip {
+  max-width: none;
+  white-space: normal;
+  border-radius: 10px;
+}
+
+.prov__chip--estimate {
+  background: var(--ink);
+  color: white;
+  max-width: none;
+}
+
+.prov__chip--warn {
+  background: var(--watch-bg);
+  color: var(--watch);
+}
+
+.prov__chip--offline {
+  background: var(--alert);
+  color: white;
+}
+
+.prov__more {
+  font-size: 11.5px;
+}

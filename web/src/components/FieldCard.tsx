@@ -5,6 +5,7 @@ import { zoneColor } from '../data/constants'
 import { FHSAA_CITATION, zoneRule, zoneRuleText } from '../data/selectors'
 import { NumberTicker } from './NumberTicker'
 import { OfflineBadge } from './OfflineBadge'
+import { ProvenanceLabels } from './ProvenanceLabels'
 import './FieldCard.css'
 
 /** How often the sidebar re-reads GET /node/latest (a node may start recording mid-demo). UI refresh cadence. */
@@ -90,7 +91,17 @@ export function FieldCard() {
             </div>
           </dl>
         )}
-        {node && node.labels.length > 0 && reading && <div className="field__cite faint">{node.labels.join(' · ')}</div>}
+      </div>
+      <div className="field__prov">
+        <ProvenanceLabels
+          estimate={false}
+          title="Sources"
+          labels={[
+            ...(w ? [w.source === 'field_node' ? 'field node reading' : `forecast hour (${w.source === 'fixture' ? 'cached NWS fixture' : w.source})`] : []),
+            ...s.labels.filter((l) => /forecast|weather|NWS|solar|offline/i.test(l)),
+            ...(node?.labels ?? []),
+          ]}
+        />
       </div>
     </section>
   )

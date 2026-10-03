@@ -11,6 +11,7 @@ import { NumberTicker } from '../components/NumberTicker'
 import { StatusPill } from '../components/StatusPill'
 import { TempChart } from '../components/TempChart'
 import { OfflineBadge, OfflineBanner } from '../components/OfflineBadge'
+import { ProvenanceLabels } from '../components/ProvenanceLabels'
 import { IconArrow, IconDrop, IconHeart, IconResponse } from '../components/Icons'
 import { chartDomain, clockLabel, type HeatScale } from '../lib/heat'
 import { useHeatScale } from '../lib/useHeatScale'
@@ -98,6 +99,8 @@ export function CoachDashboard({ acked, onAck, onOpenAthlete, onCollapse }: Prop
           </AnimatePresence>
         </div>
       </LayoutGroup>
+
+      <ProvenanceLabels labels={s.labels} title={s.source === 'offline' ? 'Offline' : s.replay.status === 'ready' ? 'Engine /live/replay' : 'Engine /simulate'} />
 
       <div className="roster" role="table" aria-label="Roster heat status">
         <div className="roster__head" role="row">
