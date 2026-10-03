@@ -29,7 +29,7 @@ from typing import Any, Mapping, Sequence
 
 import numpy as np
 
-from engine import consts, fhsaa_adapter
+from engine import consts, fhsaa_adapter, gear_rules
 from engine.physio import clothing, metabolic, twonode
 
 GEAR_DOWN = {"full_pads": "helmet_shoulder_pads", "helmet_shoulder_pads": "helmet", "helmet": "none"}
@@ -56,6 +56,10 @@ class Seg:
     priority: int
     movable: bool
     participants: tuple[str, ...] | None
+    gear_by: tuple[tuple[str, str], ...] | None = None   # per-athlete gear (CONTRACTS v1.1 gear_by_athlete)
+
+    def gear_of(self, athlete_id: str) -> str:
+        return dict(self.gear_by or ()).get(athlete_id, self.gear)
 
     @staticmethod
     def from_drill(d: Mapping[str, Any]) -> "Seg":
@@ -64,7 +68,8 @@ class Seg:
                    intensity=d["intensity"], met_override=d.get("met_override"), gear=d["gear"],
                    shade=bool(d.get("shade", False)), is_break=bool(d.get("is_break", False)),
                    priority=int(d.get("priority", 2)), movable=bool(d.get("movable", True)),
-                   participants=tuple(sorted(p)) if p is not None else None)
+                   participants=tuple(sorted(p)) if p is not None else None,
+                   gear_by=tuple(sorted((d.get("gear_by_athlete") or {}).items())) or None)
 
     def to_drill(self) -> dict[str, Any]:
         d: dict[str, Any] = {"id": self.id, "name": self.name, "duration_min": self.duration,
@@ -74,6 +79,8 @@ class Seg:
             d["met_override"] = self.met_override
         if self.participants is not None:
             d["participants"] = list(self.participants)
+        if self.gear_by:
+            d["gear_by_athlete"] = dict(self.gear_by)
         return d
 
 
@@ -229,7 +236,7 @@ class Problem:
             return self.cache[key]
         self.evaluations += 1
         plan = self.to_plan(st)
-        viol = fhsaa_adapter.violations(plan, self.weather)
+        viol = fhsaa_adapter.violations(plan, self.weather, self.roster)
         tl = twonode.build_timeline(plan["drills"], self.R.ids, self.step_min)
         core = twonode.simulate_arrays(tl, self.env, self.R, self.D).core
         p95 = np.round(np.percentile(core, 95.0, axis=0), 3)        # [N, T] — same rounding as SimulationResult
@@ -265,9 +272,10 @@ class Problem:
     def new_break(self, after: Seg | None, minutes: int) -> Seg:
         self.added += 1
         gear = after.gear if (after is not None and _opt("inserted_break_gear") == "same_as_previous") else "none"
+        gear_by = after.gear_by if (after is not None and gear == after.gear) else None
         return Seg(id=f"ib{self.added}", src=None, part=1, name="Water break (shade, added)", duration=minutes,
                    intensity="rest", met_override=None, gear=gear, shade=True, is_break=True, priority=1,
-                   movable=True, participants=None)
+                   movable=True, participants=None, gear_by=gear_by)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -306,7 +314,28 @@ def mv_gear_down(P: Problem, st: State, i: int) -> State | None:
     s = st[i]
     if s.gear not in GEAR_DOWN:
         return None
-    return _replace_at(st, i, replace(s, gear=GEAR_DOWN[s.gear]))
+    new = GEAR_DOWN[s.gear]
+    order = clothing.GEAR_LEVELS
+    per = tuple((a, g) for a, g in (s.gear_by or ()) if order.index(g) < order.index(new)) or None
+    return _replace_at(st, i, replace(s, gear=new, gear_by=per))
+
+
+def mv_phase_gear_all(P: Problem, st: State) -> State | None:
+    """Apply per-athlete NATA gear caps to every drill at once (one coaching instruction)."""
+    out = st
+    for i in range(len(st)):
+        out = mv_phase_gear(P, out, i) or out
+    return out if out != st else None
+
+
+def mv_phase_gear(P: Problem, st: State, i: int) -> State | None:
+    """Cap each athlete's gear in drill i at their NATA acclimatization limit (per-athlete gear)."""
+    s = st[i]
+    per = gear_rules.capped_gear_by_athlete(s.to_drill(), P.roster)
+    new = tuple(sorted(per.items())) or None
+    if new == s.gear_by:
+        return None
+    return _replace_at(st, i, replace(s, gear_by=new))
 
 
 def mv_trim(P: Problem, st: State, i: int, step: int | None = None) -> State | None:
@@ -467,6 +496,9 @@ def targeted_moves(P: Problem, st: State, ev: Eval) -> list[State]:
         if "breaks_per_hour" in rule:
             fix += [mv_insert_break(P, st, k) for k in range(1, len(st) + 1)]
             fix += [mv_lengthen_break(P, st, i) for i, s in enumerate(st) if s.is_break]
+        elif rule == gear_rules.RULE:
+            fix += [mv_phase_gear(P, st, i) for i, s in enumerate(st) if s.id == v["drill_id"]]
+            fix.append(mv_phase_gear_all(P, st))
         elif rule.endswith("_gear") or "protective_gear" in rule:
             fix += [mv_gear_down(P, st, i) for i, s in enumerate(st) if s.id == v["drill_id"]]
         elif "conditioning" in rule or "max_duration" in rule:
@@ -587,6 +619,17 @@ def diff(P: Problem, st: State, with_times: bool = False) -> list[dict[str, str]
             new = " / ".join(GEAR_LABEL[g] for g in sorted(gears, key=clothing.GEAR_LEVELS.index))
             ch.append({"kind": "gear_change", "move": "gear_down", "drill_id": src,
                        "detail": f"'{o.name}': {GEAR_LABEL[o.gear]} → {new}"})
+        per_new = {a: g for p in parts for a, g in (p.gear_by or ())}
+        per_old = dict(o.gear_by or ())
+        if per_new != per_old:
+            changed = {a: g for a, g in per_new.items() if per_old.get(a) != g}
+            if changed:
+                by_gear: dict[str, list[str]] = {}
+                for a, g in changed.items():
+                    by_gear.setdefault(g, []).append(P.R.names[P.R.ids.index(a)])
+                ch.append({"kind": "gear_change", "move": "gear_per_athlete", "drill_id": src,
+                           "detail": f"'{o.name}': per-athlete gear to meet NATA acclimatization phasing — "
+                                     + "; ".join(f"{GEAR_LABEL[g]}: {', '.join(sorted(n))}" for g, n in by_gear.items())})
         if any(p.shade != o.shade for p in parts):
             ch.append({"kind": "shade", "move": "shade", "drill_id": src, "detail": f"'{o.name}' moved to shade"})
         if not platoon and any(g != base for g in groups):

@@ -419,3 +419,14 @@ optimizer:
   heat_excess_per_unit_c: 0.1
   change_penalty: 0.02                           # tie-break: energy per change (≪ 1 % of load)
   default_budget_s: 8.0
+
+nata_gear_phasing:
+  status: VERIFIED
+  source: "Casa DJ, Csillan D et al. (2009) Preseason heat-acclimatization guidelines for secondary school athletics. J Athl Train 44(3):332-333 (PMC2681206), read by source-checker"
+  url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC2681206/"
+  quote_or_location: "Days 1-2: 'a helmet should be the only protective equipment permitted'; days 3-5: 'only helmets and shoulder pads should be worn'; day 6 onward: 'all protective equipment may be worn'"
+  note: "Applied per athlete from acclimatization_day. An explicit athlete.gear_limit can only tighten the limit. Breaks count: athletes keep the gear they wear."
+  phases:
+    - {first_day: 1, last_day: 2, max_gear: helmet}
+    - {first_day: 3, last_day: 5, max_gear: helmet_shoulder_pads}
+    - {first_day: 6, last_day: 9999, max_gear: full_pads}

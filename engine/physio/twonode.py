@@ -33,7 +33,7 @@ MODEL_BLOCKS = (
     "gagge_1986", "physical", "body_surface_area", "metabolic", "drill_met", "gear_clothing",
     "solar_position", "solarcal", "solarcal_ground", "irradiance_split", "wind_profile", "shade_model",
     "non_participant", "acclimatization", "ensemble_priors", "planning_limit_core_c", "iso7933_dynamic",
-    "model_options", "hr_met",
+    "model_options", "hr_met", "nata_gear_phasing",
 )
 
 
@@ -584,7 +584,8 @@ def build_timeline(drills: Sequence[Mapping[str, Any]], athlete_ids: Sequence[st
         met[:, sl] = np.where(mask, dm, rest_met)[:, None]
         part[:, sl] = mask[:, None]
         shade[:, sl] = np.where(mask, bool(d.get("shade", False)), rest_shade)[:, None]
-        gear[:, sl] = clothing.gear_index(d["gear"])
+        per = d.get("gear_by_athlete") or {}
+        gear[:, sl] = np.array([clothing.gear_index(per.get(a, d["gear"])) for a in athlete_ids])[:, None]
         is_break[sl] = bool(d.get("is_break", False))
         s0 += n
     return Timeline(S, drill_of_step, met, part, shade, gear, is_break)
@@ -711,7 +712,7 @@ def assemble_result(plan, roster, weather, tl: Timeline, env: Environment, R: Ro
         "weather": [h for h in weather if _hour_overlaps(h, env.t0, T * step_min)],
         "athletes": athletes,
         "limit_core_c": limit,
-        "fhsaa_violations": fhsaa_adapter.violations(plan, weather),
+        "fhsaa_violations": fhsaa_adapter.violations(plan, weather, roster),
         "training_load_met_min": round(training_load_met_min(tl, step_min), 1),
         "model": {"name": MODEL_NAME, "params_ref": PARAMS_REF},
         "labels": labels,
