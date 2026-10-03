@@ -1,7 +1,6 @@
 import { useId, useMemo, useRef, type KeyboardEvent, type PointerEvent } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
-import type { Drill } from '../data/types'
-import { THRESHOLDS } from '../data/constants'
+import type { ContractDrill } from '../data/llmPlan'
 import { bandPath, downsample, splinePath, type Pt } from '../lib/spline'
 import { clockLabel, HEAT_STOPS, heatColor } from '../lib/heat'
 import { ease } from '../lib/motion'
@@ -26,7 +25,9 @@ interface Props {
   live: number
   compact?: boolean
   reveal?: boolean
-  drills?: Drill[]
+  drills?: ContractDrill[]
+  /** Planning line (the result's `limit_core_c`); null hides it. */
+  limit: number | null
   domain?: [number, number]
   /** Optional comparison series (e.g. original plan) drawn faint. */
   ghost?: number[]
@@ -47,6 +48,7 @@ export function TempChart({
   compact = false,
   reveal = false,
   drills,
+  limit,
   domain = [36.8, 39.6],
   ghost,
   view,
@@ -142,8 +144,8 @@ export function TempChart({
     if (scrub == null || !drills) return null
     let t = 0
     for (const d of drills) {
-      if (scrub < t + d.minutes) return d
-      t += d.minutes
+      if (scrub < t + d.duration_min) return d
+      t += d.duration_min
     }
     return drills[drills.length - 1] ?? null
   })()
@@ -195,19 +197,19 @@ export function TempChart({
             let t = 0
             return drills.map((d) => {
               const x0 = x(t)
-              t += d.minutes
+              t += d.duration_min
               const x1 = x(t)
               return (
                 <rect
                   key={d.id}
-                  className={`chart__drill chart__drill--${d.kind}`}
+                  className={`chart__drill chart__drill--${drillTone(d)}`}
                   x={x0 + 0.5}
                   y={pad.t + h + 26}
                   width={Math.max(0, x1 - x0 - 1)}
                   height={6}
                   rx={3}
                 >
-                  <title>{`${d.name} · ${d.minutes} min`}</title>
+                  <title>{`${d.name} · ${d.duration_min} min`}</title>
                 </rect>
               )
             })
@@ -215,18 +217,16 @@ export function TempChart({
         </g>
       )}
 
-      {/* Alert line */}
-      <line
-        className="chart__threshold"
-        x1={pad.l}
-        x2={pad.l + w}
-        y1={y(THRESHOLDS.alertC)}
-        y2={y(THRESHOLDS.alertC)}
-      />
-      {!compact && (
-        <text className="chart__threshold-label" x={pad.l + w} y={y(THRESHOLDS.alertC) - 7} textAnchor="end">
-          {THRESHOLDS.alertC.toFixed(1)}° alert line
-        </text>
+      {/* Planning line (result limit_core_c, AT-owned) */}
+      {limit != null && (
+        <>
+          <line className="chart__threshold" x1={pad.l} x2={pad.l + w} y1={y(limit)} y2={y(limit)} />
+          {!compact && (
+            <text className="chart__threshold-label" x={pad.l + w} y={y(limit) - 7} textAnchor="end">
+              {limit.toFixed(1)}° planning line (AT-owned)
+            </text>
+          )}
+        </>
       )}
 
       {paths.ghost && <path className="chart__ghost" d={paths.ghost} />}
@@ -342,4 +342,12 @@ export function TempChart({
       )}
     </div>
   )
+}
+
+/** CSS tone for a plan block on the chart's drill underlay (display only). */
+function drillTone(d: ContractDrill): string {
+  if (d.is_break) return 'break'
+  if (d.intensity === 'max') return 'conditioning'
+  if (d.intensity === 'hard') return 'team'
+  return 'individual'
 }

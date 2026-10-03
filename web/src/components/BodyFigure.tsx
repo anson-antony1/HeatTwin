@@ -3,10 +3,11 @@ import { motion, useReducedMotion } from 'motion/react'
 import { heatColor } from '../lib/heat'
 import './BodyFigure.css'
 
-// The athlete's "twin": a stylised figure whose thermal gradient is driven by
-// estimated core temperature — hottest at the core, cooling toward the limbs.
+// The athlete's "twin": a stylised figure coloured by the engine's estimated
+// core temperature (one colour — nothing models limb temperature).
 // Replaces the stock mannequin in the Figma (which carried a watermark).
-// Only the heart marker moves on its own, at the athlete's real heart rate.
+// The heart marker beats only when there is an HR value (the HR replay);
+// athletes without HR get no heartbeat.
 
 // Right half of a front-view figure as cubic segments, from the neck down to
 // the crotch; the left half is its mirror. One closed path keeps the outline
@@ -59,11 +60,10 @@ export function BodyFigure({ coreC, hr }: { coreC: number; hr: number | null }) 
       <div className="body__aura" style={{ background: `radial-gradient(closest-side, ${heatColor(coreC, 0.42)}, transparent)` }} />
       <svg viewBox="0 0 200 500" className="body__svg" role="img" aria-label={`Thermal figure, estimated core ${coreC.toFixed(1)} °C`}>
         <defs>
+          {/* One colour: the core estimate. Nothing models limb or skin temperature, so the figure doesn't pretend to. */}
           <radialGradient id={`thermal-${uid}`} gradientUnits="userSpaceOnUse" cx="100" cy="170" r="300">
             <stop offset="0" stopColor={heatColor(coreC)} />
-            <stop offset="0.22" stopColor={heatColor(coreC - 0.35)} />
-            <stop offset="0.48" stopColor={heatColor(coreC - 0.9)} />
-            <stop offset="0.8" stopColor={heatColor(coreC - 1.6)} />
+            <stop offset="0.8" stopColor={heatColor(coreC)} stopOpacity={0.82} />
           </radialGradient>
           <linearGradient id={`sheen-${uid}`} x1="0" y1="0" x2="1" y2="0">
             <stop offset="0" stopColor="white" stopOpacity="0.55" />

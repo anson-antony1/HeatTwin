@@ -1,0 +1,115 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import planFile from '../../../../fixtures/plan.json'
+import rosterFile from '../../../../fixtures/roster.json'
+import { basisLabel } from '../selectors'
+import { OFFLINE_LABEL, offlineAthleteAt, offlineSimulate } from '../../offline/standIn'
+import type { PracticePlan } from '../llmPlan'
+import type { RosterAthlete } from '../engineApi'
+
+// planStore.boot(): the app's first paint reads engine numbers — GET
+// /demo/inputs then POST /simulate?demo=1 for that plan — and falls back to the
+// badged stand-in only when the engine can't be reached.
+
+const plan = planFile.plan as unknown as PracticePlan
+const roster = rosterFile.roster as RosterAthlete[]
+
+function engineSim(planId: string) {
+  return {
+    plan_id: planId,
+    step_min: 1,
+    times: ['t'],
+    weather: [],
+    athletes: roster.map((a) => ({ id: a.id, name: a.name, core_c_p50: [1], core_c_p95: [2], first_cross_min: null, peak_core_c_p95: 2, status: 'below_limit' })),
+    limit_core_c: 3,
+    fhsaa_violations: [],
+    training_load_met_min: 0,
+    labels: ['estimate — planning only'],
+  }
+}
+
+async function freshStores() {
+  vi.resetModules()
+  const { planStore } = await import('../planStore')
+  const { engineMeta } = await import('../engineMeta')
+  const { engine } = await import('../engine')
+  return { planStore, engineMeta, engine }
+}
+
+afterEach(() => vi.unstubAllGlobals())
+
+describe('planStore.boot', () => {
+  it('shows the engine demo plan and its /simulate result before any coach confirm', async () => {
+    const enginePlan = { ...plan, id: 'plan-from-engine' }
+    const calls: string[] = []
+    vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
+      calls.push(`${init?.method ?? 'GET'} ${url}`)
+      const body = url.includes('/demo/inputs')
+        ? { plan: enginePlan, roster, weather: [], labels: ['synthetic plan (fixture)'], synthetic: { plan: true, roster: true, weather: false } }
+        : url.includes('/simulate')
+          ? engineSim(JSON.parse(String(init?.body)).plan.id)
+          : url.includes('/settings')
+            ? { owner: 'athletic trainer', settings: [] }
+            : url.includes('/node/latest')
+              ? { reading: null, series: [], file: null, labels: ['no field recording yet'] }
+              : {}
+      return new Response(JSON.stringify(body), { status: 200 })
+    })
+    const { planStore, engineMeta, engine } = await freshStores()
+    await planStore.boot()
+    const s = planStore.get()
+    expect(s.plan.id).toBe('plan-from-engine')
+    expect(s.sim?.plan_id).toBe('plan-from-engine')
+    expect(s.offline).toBeNull()
+    expect(s.phase).toBe('ready')
+    expect(engineMeta.get().link).toBe('online')
+    expect(calls).toContain('POST /engine/simulate?demo=1')
+    // The session reads the engine result, not a browser model.
+    const live = engine.getSnapshot()
+    expect(live.source).toBe('engine')
+    expect(Object.keys(live.athletes)).toHaveLength(roster.length)
+    expect(live.limitC).toBe(3)
+  })
+
+  it('falls back to the stand-in, badged OFFLINE FALLBACK, only when the engine is unreachable', async () => {
+    vi.stubGlobal('fetch', async () => {
+      throw new TypeError('Failed to fetch')
+    })
+    const { planStore, engineMeta, engine } = await freshStores()
+    await planStore.boot()
+    const s = planStore.get()
+    expect(s.sim).toBeNull()
+    expect(s.offline?.labels[0]).toBe(OFFLINE_LABEL)
+    expect(engineMeta.get().link).toBe('offline')
+    const live = engine.getSnapshot()
+    expect(live.source).toBe('offline')
+    const one = Object.values(live.athletes)[0]
+    expect(one.basis).toBe('offline')
+    expect(basisLabel(one)).toBe(OFFLINE_LABEL)
+  })
+
+  it('does not go offline when the engine answers with an error (it shows the error instead)', async () => {
+    vi.stubGlobal('fetch', async (url: string) =>
+      url.includes('/simulate')
+        ? new Response(JSON.stringify({ detail: 'roster is empty' }), { status: 422 })
+        : new Response(JSON.stringify({ plan, roster, weather: [], labels: [], synthetic: { plan: true, roster: true, weather: false } }), { status: 200 }),
+    )
+    const { planStore } = await freshStores()
+    await planStore.boot()
+    const s = planStore.get()
+    expect(s.phase).toBe('error')
+    expect(s.error).toBe('roster is empty')
+    expect(s.offline).toBeNull()
+  })
+})
+
+describe('offline stand-in', () => {
+  it('labels every result and athlete OFFLINE FALLBACK and generates no heart rate', () => {
+    const off = offlineSimulate(plan, roster)
+    expect(off.labels).toContain(OFFLINE_LABEL)
+    expect(off.athletes).toHaveLength(roster.length)
+    const a = offlineAthleteAt(off, roster[0].id, 30)!
+    expect(a.basis).toBe('offline')
+    expect(a.hr).toBeNull()
+    expect(a.flag).toBe(false)
+  })
+})

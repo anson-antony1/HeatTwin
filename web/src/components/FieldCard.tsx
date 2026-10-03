@@ -1,33 +1,28 @@
 import { useSession } from '../data/engine'
-import { ZONES, ZONE_COLOR } from '../data/constants'
+import { zoneColor } from '../data/constants'
 import { NumberTicker } from './NumberTicker'
+import { OfflineBadge } from './OfflineBadge'
 import './FieldCard.css'
 
-// Bottom-left card from the Figma: on-field conditions at a glance.
+// Bottom-left card: the engine's forecast hour at the demo clock.
 export function FieldCard() {
   const s = useSession()
-  const zoneIdx = ZONES.findIndex((z) => z.id === s.zone.id)
+  const w = s.weather
+  const field = w?.source === 'field_node'
   return (
     <section className="field glass" aria-label="Field conditions">
       <div className="field__top">
-        <span className="eyebrow">WBGT · field</span>
-        <span className="field__src">Forecast</span>
+        <span className="eyebrow">{field ? 'WBGT · field node' : 'Forecast WBGT (cached NWS)'}</span>
+        {s.source === 'offline' && <OfflineBadge compact />}
       </div>
       <div className="field__value display-lg">
-        <NumberTicker value={s.wbgtF} decimals={1} suffix="°F" />
+        {w ? <NumberTicker value={w.wbgt_f} decimals={1} suffix="°F" /> : <span className="faint">—</span>}
       </div>
-      <div className="field__zones" role="img" aria-label={`FHSAA zone: ${s.zone.label}`}>
-        {ZONES.map((z, i) => (
-          <span
-            key={z.id}
-            className={`field__zone ${i === zoneIdx ? 'is-on' : ''}`}
-            style={{ background: ZONE_COLOR[z.id] }}
-          />
-        ))}
-      </div>
-      <div className="field__label">
-        <span style={{ color: ZONE_COLOR[s.zone.id] }}>●</span> {s.zone.label}
-      </div>
+      {w && (
+        <div className="field__label">
+          <span style={{ color: zoneColor(w.fhsaa_zone) }}>●</span> FHSAA zone {w.fhsaa_zone}
+        </div>
+      )}
     </section>
   )
 }

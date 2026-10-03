@@ -1,20 +1,18 @@
-import type { Zone, ZoneId } from './types'
+// Display-only constants. No physiological, regulatory or physical numbers
+// belong here: thresholds come from the engine result (`limit_core_c`) and GET
+// /settings; FHSAA zones from the engine's WeatherHour.fhsaa_zone; rule text
+// from GET /sources.
 
-// Every number here is a placeholder until engine/constants.yaml lands with
-// citations. The UI reads thresholds from this one place so swapping them in
-// is a single edit. Status column mirrors the engine's convention.
+export type ZoneId = 'green' | 'yellow' | 'orange' | 'red' | 'black'
 
-export const THRESHOLDS = {
-  /** Estimated core temp where a card moves to "watch". °C — placeholder, AT-owned. */
-  watchC: 38.5,
-  /** Estimated core temp alert line. °C — placeholder, AT-owned. */
-  alertC: 39.0,
-  /** Minutes over the line before we raise an alert (persistence gate). */
-  persistMin: 2,
-  /** Once raised, an alert holds until the estimate drops this far below the line. */
-  clearBelowC: 0.3,
-  baselineC: 37.0,
-} as const
+export interface Zone {
+  id: ZoneId
+  label: string
+  minWbgtF: number
+  maxPracticeMin: number | null
+  breaksPerHour: number
+  gearRule: string
+}
 
 // FHSAA heat-stress zones by WBGT (°F). Values need verifying against the
 // current FHSAA policy before anyone relies on them.
@@ -40,5 +38,20 @@ export const ZONE_COLOR: Record<ZoneId, string> = {
   black: 'var(--zone-black)',
 }
 
+/** Colour for an FHSAA zone number (1–5) from the engine. Display only. */
+const ZONE_COLOR_BY_NUMBER: Record<number, string> = {
+  1: ZONE_COLOR.green,
+  2: ZONE_COLOR.yellow,
+  3: ZONE_COLOR.orange,
+  4: ZONE_COLOR.red,
+  5: ZONE_COLOR.black,
+}
+
+export function zoneColor(zone: number | null | undefined): string {
+  return (zone != null && ZONE_COLOR_BY_NUMBER[zone]) || 'var(--ink-4)'
+}
+
+export const ESTIMATE_LABEL = 'estimate — planning only'
+
 export const SAFETY_LINE =
-  'Estimated core temperature is for planning and early warning only. It never diagnoses, and it never decides when to stop cooling — only rectal temperature does.'
+  'Estimated core temperature is an estimate — planning only. It never diagnoses, and it never decides when to stop cooling — only rectal temperature does.'

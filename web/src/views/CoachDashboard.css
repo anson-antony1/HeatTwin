@@ -316,6 +316,12 @@
   transform: translateY(-1px);
 }
 
+.guide__text {
+  margin: 12px 0 0;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
 .guide__foot {
   margin-top: 14px;
   padding-top: 12px;
