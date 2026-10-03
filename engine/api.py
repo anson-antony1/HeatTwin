@@ -184,6 +184,14 @@ def _forecast_for(plan: dict, labels: list[str], demo: bool = False) -> list[dic
     return hours
 
 
+def _demo_req(req: SimulateRequest, demo: bool) -> SimulateRequest:
+    """Demo mode: the fixed seed and ensemble size from constants.demo_mode."""
+    if not demo:
+        return req
+    dm = consts.get("demo_mode")
+    return req.model_copy(update={"seed": int(dm["seed"]), "n_ensemble": int(dm["n_ensemble"])})
+
+
 def _settings(req: SimulateRequest) -> at_settings.AtSettings:
     try:
         return at_settings.resolve(req.settings)
@@ -207,6 +215,10 @@ class HrReading(_Model):
     hr_bpm: float
     device: Optional[str] = None
     replay: bool = False
+
+
+class LiveReplayRequest(SimulateRequest):
+    file: Optional[str] = Field(default=None, description="v1.3: HR file under fixtures/; default newest real, else synthetic")
 
 
 class LiveStart(SimulateRequest):
@@ -238,10 +250,7 @@ def health() -> dict[str, Any]:
 @app.post("/simulate")
 def simulate(req: SimulateRequest | None = None, demo: bool = Query(False, description="fixed seed (demo mode)")
              ) -> dict[str, Any]:
-    req = req or SimulateRequest()
-    if demo:
-        dm = consts.get("demo_mode")
-        req = req.model_copy(update={"seed": int(dm["seed"]), "n_ensemble": int(dm["n_ensemble"])})
+    req = _demo_req(req or SimulateRequest(), demo)
     plan, roster, weather, labels = _inputs(req, demo)
     return _guard(twonode.simulate_roster(roster, plan, weather, step_min=req.step_min, n_ensemble=req.n_ensemble,
                                           seed=req.seed, extra_labels=labels, settings=_settings(req)))
@@ -337,6 +346,60 @@ def field_conditions() -> dict[str, Any]:
     plan, roster, weather, labels = _inputs(req)
     res = twonode.simulate_roster(roster[:1], plan, weather, n_ensemble=5, extra_labels=labels)
     return voice_tools.field_conditions(res)
+
+
+@app.get("/demo/inputs")
+def demo_inputs() -> dict[str, Any]:
+    """v1.3: the plan, roster and weather that /simulate?demo=1 uses with no body (so the web shows the same ones)."""
+    plan, roster, weather, labels = _inputs(SimulateRequest(), demo=True)
+    srcs = {h.get("source") for h in weather}
+    if "fixture" in srcs and "forecast is fixture" not in labels:
+        labels.append("forecast is fixture")
+    return {"plan": plan, "roster": roster, "weather": weather, "labels": [twonode.ESTIMATE_LABEL, *labels],
+            "synthetic": {"plan": fixtures.plan_is_synthetic(), "roster": fixtures.roster_is_synthetic(),
+                          "weather": "fixture" in srcs and bool(fixtures.forecast_meta().get("synthetic", False))}}
+
+
+_REPLAY_CACHE: dict[str, dict[str, Any]] = {}
+
+
+@app.post("/live/replay")
+def live_replay(req: LiveReplayRequest | None = None, demo: bool = Query(False, description="fixed seed (demo mode)")
+                ) -> dict[str, Any]:
+    """v1.3: replay a recorded (or the synthetic) HR file through live calibration → per-update frames (deterministic)."""
+    from engine import demo_data
+    req = _demo_req(req or LiveReplayRequest(), demo)
+    key = f"{demo}|{req.model_dump_json()}"
+    if key in _REPLAY_CACHE:
+        return _REPLAY_CACHE[key]
+    plan, roster, weather, labels = _inputs(req, demo)
+    try:
+        out = demo_data.run_replay(plan, roster, weather, settings=_settings(req), seed=req.seed,
+                                   n_ensemble=req.n_ensemble, extra_labels=labels, file=req.file)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e)) from e
+    out["plan_forecast"] = _guard(out["plan_forecast"])
+    from engine import guard
+    out["labels"] = guard.guard_strings(out["labels"], "replay")
+    _REPLAY_CACHE[key] = out
+    return out
+
+
+@app.post("/node")
+def node(reading: dict[str, Any]) -> dict[str, Any]:
+    """v1.3: one field-node reading (engine/node_bridge.py node_payload) → {ok, hour: WeatherHour source field_node}."""
+    from engine import demo_data
+    if not reading.get("ts"):
+        raise HTTPException(422, "reading needs ts")
+    plan = fixtures.plan()
+    return demo_data.post_node(reading, fixtures.forecast(), plan["site"]["lat"], plan["site"]["lon"])
+
+
+@app.get("/node/latest")
+def node_latest() -> dict[str, Any]:
+    """v1.3: newest data/node_<date>.csv or the last POST /node; else {reading: null, labels: ["no field recording yet"]}."""
+    from engine import demo_data
+    return demo_data.node_latest()
 
 
 @app.post("/guard")
