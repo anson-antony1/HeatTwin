@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { animate, AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { replayLabel, useSession } from '../data/engine'
+import { replayHeldNote, replayLabel, useSession } from '../data/engine'
 import { useEngineMeta } from '../data/engineMeta'
 import { useRoster } from '../data/roster'
 import { ESTIMATE_LABEL, SAFETY_LINE } from '../data/constants'
@@ -46,6 +46,7 @@ export function AthleteView({ athleteId, onSelect, onCollapse }: Props) {
   const reduce = useReducedMotion()
   const s = useSession()
   const meta = useEngineMeta()
+  const heldNote = replayHeldNote(s.replay, usePlanState().source)
   return (
     <div className="twin">
       {s.source === 'offline' && <OfflineBanner />}
@@ -59,6 +60,7 @@ export function AthleteView({ athleteId, onSelect, onCollapse }: Props) {
       <div className="twin__provenance">
         <span className="twin__tag">demo playback — not live</span>
         {replayLabel(s.replay) && <span className="twin__tag twin__tag--replay">{replayLabel(s.replay)}</span>}
+        {heldNote && <span className="twin__tag twin__tag--held">{heldNote}</span>}
         <ProvenanceLabels labels={withPlanLabel(s.labels, s.plan, meta.inputs)} title={s.source === 'offline' ? 'Offline' : s.replay.status === 'ready' ? 'Engine /live/replay' : 'Engine /simulate'} />
       </div>
 

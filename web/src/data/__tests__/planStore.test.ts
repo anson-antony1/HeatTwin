@@ -102,6 +102,53 @@ describe('planStore.boot', () => {
   })
 })
 
+describe('the HR replay follows the plan it was recorded on (S1)', () => {
+  it('replays on the demo plan, not on the optimized plan, and again after Undo', async () => {
+    const replayBody = {
+      source: { file: 'fixtures/hr_a07_synthetic.csv', synthetic: true, athletes: ['a07'], n_readings: 1, first_ts: '', last_ts: '', aligned_to_plan_start: false },
+      plan_forecast: engineSim(plan.id),
+      frames: [],
+      hr_series: { a07: [[0, 100]] },
+      labels: ['replay', 'synthetic HR (not a real athlete)'],
+    }
+    // Same id, different drills — what /optimize returns for the demo plan.
+    const optimizedPlan = { ...plan, drills: [...plan.drills].reverse() }
+    const calls: string[] = []
+    vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
+      calls.push(`${init?.method ?? 'GET'} ${url}`)
+      const body = url.includes('/demo/inputs')
+        ? { plan, roster, weather: [], labels: [], synthetic: { plan: true, roster: true, weather: false } }
+        : url.includes('/simulate')
+          ? engineSim(plan.id)
+          : url.includes('/optimize')
+            ? { original: engineSim(plan.id), optimized: engineSim(plan.id), plan: optimizedPlan, changes: [], load_kept_pct: 90, feasible: true }
+            : url.includes('/live/replay')
+              ? replayBody
+              : url.includes('/settings')
+                ? { owner: 'athletic trainer', settings: [] }
+                : {}
+      return new Response(JSON.stringify(body), { status: 200 })
+    })
+    const { planStore, engine } = await freshStores()
+    const replays = () => calls.filter((c) => c.includes('/live/replay')).length
+
+    await planStore.boot()
+    await vi.waitFor(() => expect(engine.getSnapshot().replay.status).toBe('ready'))
+    expect(replays()).toBe(1)
+
+    await planStore.optimize()
+    expect(planStore.get().source).toBe('optimized')
+    expect(engine.getSnapshot().replay.status).toBe('other_plan')
+    expect(engine.getSnapshot().athletes.a07.basis).toBe('plan_forecast')
+    expect(replays()).toBe(1)
+
+    planStore.undo()
+    await vi.waitFor(() => expect(engine.getSnapshot().replay.status).toBe('ready'))
+    expect(replays()).toBe(2)
+    expect(calls.filter((c) => c.includes('/live/replay')).every((c) => c === 'POST /engine/live/replay?demo=1')).toBe(true)
+  })
+})
+
 describe('offline stand-in', () => {
   it('labels every result and athlete OFFLINE FALLBACK and generates no heart rate', () => {
     const off = offlineSimulate(plan, roster)

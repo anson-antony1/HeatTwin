@@ -3,7 +3,8 @@ import type { ContractGear, PlanDraft, PracticePlan } from './llmPlan'
 import { isUnreachable, optimizePlan, simulatePlan, type OptimizeResult, type SimulationResult } from './engineApi'
 import { DEFAULT_CONTRACT_PLAN, FIXTURE_ROSTER } from './fixtures'
 import { engineMeta } from './engineMeta'
-import { engine } from './engine'
+import { engine, type ReplayFor } from './engine'
+import { isDemoPlan } from './selectors'
 import { offlineSimulate, type OfflineResult } from '../offline/standIn'
 
 // Today's plan, plus what the engine said about it.
@@ -81,12 +82,19 @@ function forget() {
   }
 }
 
+/** The HR file was recorded on the engine's demo plan: replay it only while that plan (same id and drills) is on screen. */
+function replayFor(plan: PracticePlan): ReplayFor {
+  const inputs = engineMeta.get().inputs
+  if (!inputs) return 'unknown'
+  return isDemoPlan(plan, inputs) ? 'this_plan' : 'other_plan'
+}
+
 /** Hand the plan and its engine result (or the offline stand-in) to the live session, keeping play state. */
 function apply(plan: PracticePlan, sim: SimulationResult | null) {
   const wasRunning = engine.getSnapshot().running
-  if (sim) engine.setPlan(plan, sim)
+  if (sim) engine.setPlan(plan, sim, replayFor(plan))
   else if (state.offline) engine.setOffline(plan, state.offline)
-  else engine.setPlan(plan, null)
+  else engine.setPlan(plan, null, 'unknown')
   if (wasRunning) engine.play()
 }
 

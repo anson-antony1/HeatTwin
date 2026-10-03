@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'motion/react'
 import type { RosterAthlete } from '../data/engineApi'
-import { replayLabel, useSession, type SessionState } from '../data/engine'
+import { replayHeldNote, replayLabel, useSession, type SessionState } from '../data/engine'
+import { usePlanState } from '../data/planStore'
 import { useEngineMeta } from '../data/engineMeta'
 import { useRoster } from '../data/roster'
 import { ESTIMATE_LABEL, zoneColor } from '../data/constants'
@@ -166,6 +167,7 @@ function SessionHeader({
   const w = s.weather
   const meta = useEngineMeta()
   const rule = zoneRule(meta.sources?.fhsaa_wbgt_zones?.zones, w?.fhsaa_zone)
+  const heldNote = replayHeldNote(s.replay, usePlanState().source)
 
   return (
     <motion.section layout transition={spring.move} className="session glass" aria-label="Practice session">
@@ -176,6 +178,7 @@ function SessionHeader({
             <span className="session__src">demo playback — not live</span>
             {replayLabel(s.replay) && <span className="session__src session__src--replay">{replayLabel(s.replay)}</span>}
             {s.replay.status === 'loading' && <span className="session__src">loading HR replay…</span>}
+            {heldNote && <span className="session__src session__src--held">{heldNote}</span>}
             {s.replay.status === 'error' && (
               <span className="session__src" title={s.replay.error ?? undefined}>
                 HR replay unavailable — plan forecast only
