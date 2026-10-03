@@ -42,12 +42,71 @@
   line-height: 1.2;
 }
 
+.demobar__scrub {
+  position: relative;
+  margin-top: 2px;
+  padding: 5px 0;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  outline: none;
+  border-radius: 4px;
+}
+
+.demobar__scrub:focus-visible {
+  box-shadow: 0 0 0 3px rgb(120 100 255 / 0.4);
+}
+
+.demobar__scrub.is-scrubbing {
+  cursor: grabbing;
+}
+
 .demobar__track {
   height: 4px;
-  margin-top: 6px;
   border-radius: 2px;
   background: var(--ink-4);
   overflow: hidden;
+  transition: transform var(--dur-small) var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .demobar__scrub:hover .demobar__track {
+    transform: scaleY(1.5);
+  }
+}
+
+.demobar__scrub.is-scrubbing .demobar__track {
+  transform: scaleY(1.5);
+}
+
+.demobar__thumb-dot {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 0 0 1px var(--hairline), var(--shadow-sm);
+  transform: translateY(-50%) scale(0.5);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity var(--dur-small) ease,
+    transform var(--dur-small) var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .demobar__scrub:hover .demobar__thumb-dot {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+  }
+}
+
+.demobar__scrub.is-scrubbing .demobar__thumb-dot,
+.demobar__scrub:focus-visible .demobar__thumb-dot {
+  opacity: 1;
+  transform: translateY(-50%) scale(1.15);
 }
 
 .demobar__fill {

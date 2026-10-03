@@ -47,7 +47,7 @@ export function TempChart({
   compact = false,
   reveal = false,
   drills,
-  domain = [36.8, 39.6],
+  domain: domainProp,
   ghost,
   view,
   startHour,
@@ -60,6 +60,26 @@ export function TempChart({
   const pad = compact ? { l: 2, r: 6, t: 6, b: 6 } : { l: 44, r: 16, t: 18, b: drills ? 40 : 26 }
   const w = Math.max(0, width - pad.l - pad.r)
   const h = Math.max(0, height - pad.t - pad.b)
+
+  // Fit the vertical range to the data (estimate, forecast + p95 band), in
+  // half-degree steps so it doesn't creep as the live forecast updates. Never
+  // narrower than 36.8–39.6, so the alert line always has context.
+  const domain = useMemo<[number, number]>(() => {
+    if (domainProp) return domainProp
+    let lo = Infinity
+    let hi = -Infinity
+    for (let i = 0; i < forecast.length; i++) {
+      const b = band[i] ?? 0
+      lo = Math.min(lo, forecast[i] - b)
+      hi = Math.max(hi, forecast[i] + b)
+    }
+    for (const v of history) {
+      lo = Math.min(lo, v)
+      hi = Math.max(hi, v)
+    }
+    if (!Number.isFinite(lo)) return [36.8, 39.6]
+    return [Math.min(36.8, Math.floor((lo - 0.1) * 2) / 2), Math.max(39.6, Math.ceil((hi + 0.15) * 2) / 2)]
+  }, [domainProp, forecast, band, history])
 
   const v0 = view?.[0] ?? 0
   const v1 = view?.[1] ?? total
@@ -102,11 +122,14 @@ export function TempChart({
     }
     // x/y are pure functions of the inputs listed here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [history, forecast, band, now, live, w, h, total, compact, ghost, v0, v1])
+  }, [history, forecast, band, now, live, w, h, total, compact, ghost, v0, v1, domain])
 
   const gradTop = y(HEAT_STOPS[HEAT_STOPS.length - 1][0])
   const gradBottom = y(HEAT_STOPS[0][0])
-  const ticks = compact ? [] : [37, 37.5, 38, 38.5, 39, 39.5].filter((t) => t > domain[0] && t < domain[1])
+  const tickStepC = domain[1] - domain[0] > 4 ? 1 : 0.5
+  const ticks = compact
+    ? []
+    : Array.from({ length: 20 }, (_, i) => 36 + i * tickStepC).filter((t) => t > domain[0] && t < domain[1])
   const tickStep = span <= 32 ? 5 : span <= 64 ? 10 : 15
   const timeTicks = compact
     ? []
@@ -168,7 +191,8 @@ export function TempChart({
           <path d={paths.area} fill={`url(#wash-${uid})`} />
         </mask>
         <clipPath id={`plot-${uid}`}>
-          <rect x={pad.l - 12} y={0} width={w + 24} height={height} />
+          {/* Curves never draw outside the plot (the svg itself allows overflow for the head glow). */}
+          <rect x={pad.l - 12} y={pad.t - 6} width={w + 24} height={h + pad.b + 6} />
         </clipPath>
       </defs>
 
@@ -187,7 +211,7 @@ export function TempChart({
         </text>
       ))}
 
-      <g clipPath={view ? `url(#plot-${uid})` : undefined}>
+      <g clipPath={`url(#plot-${uid})`}>
       {/* Drill underlay */}
       {drills && (
         <g>

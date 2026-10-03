@@ -71,6 +71,12 @@ class Engine {
   getSnapshot = () => this.snapshot
 
   reset() {
+    this.rewind()
+    this.publish()
+  }
+
+  /** Back to minute 0 without publishing (seek uses it to replay up to a point). */
+  private rewind() {
     this.session++
     this.minute = 0
     this.tracks = ROSTER.map((athlete) => {
@@ -89,7 +95,6 @@ class Engine {
       t.pending = this.project(t, 0)
       return t
     })
-    this.publish()
   }
 
   /** Swap today's plan. Pass the plan's /simulate result to drive forecasts from the engine. */
@@ -127,9 +132,15 @@ class Engine {
     this.publish()
   }
 
-  /** Jump forward (demo control). */
+  /**
+   * Jump to any practice minute (demo scrubbing). Going back replays the
+   * session from the start up to the target — deterministic, so the same minute
+   * always shows the same state — and clears acknowledgements so alerts can be
+   * shown again.
+   */
   seek(toMinute: number) {
-    const target = Math.min(toMinute, totalMinutes(this.plan))
+    const target = Math.max(0, Math.min(toMinute, totalMinutes(this.plan)))
+    if (Math.floor(target) < Math.floor(this.minute)) this.rewind()
     for (let m = Math.floor(this.minute); m < Math.floor(target); m++) this.advanceMinute(m)
     this.minute = target
     this.publish()

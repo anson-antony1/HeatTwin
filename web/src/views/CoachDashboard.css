@@ -126,6 +126,26 @@
   position: relative;
   height: 10px;
   container-type: inline-size;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  border-radius: 6px;
+  outline: none;
+}
+
+/* A taller invisible hit area, so the thin bar is easy to grab. */
+.session__timeline::before {
+  content: '';
+  position: absolute;
+  inset: -12px 0;
+}
+
+.session__timeline:focus-visible {
+  box-shadow: 0 0 0 3px rgb(120 100 255 / 0.4);
+}
+
+.session__timeline.is-scrubbing {
+  cursor: grabbing;
 }
 
 .session__seg {
@@ -162,6 +182,37 @@
   border-radius: 1px;
   background: var(--ink);
   box-shadow: 0 0 0 3px rgb(255 255 255 / 0.8);
+  pointer-events: none;
+}
+
+/* Grab knob: appears on hover, grows while scrubbing. */
+.session__knob {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--ink);
+  box-shadow: 0 0 0 3px rgb(255 255 255 / 0.9), var(--shadow-sm);
+  transform: translate(-50%, -50%) scale(0.4);
+  opacity: 0;
+  transition:
+    opacity var(--dur-small) ease,
+    transform var(--dur-small) var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .session__timeline:hover .session__knob {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.session__timeline.is-scrubbing .session__knob,
+.session__timeline:focus-visible .session__knob {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1.15);
 }
 
 /* ---------- Alert card ---------- */

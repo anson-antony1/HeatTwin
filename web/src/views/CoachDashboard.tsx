@@ -3,6 +3,7 @@ import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'motion/r
 import type { Athlete, AthleteLive, SessionState } from '../data/types'
 import { useSession, usePlan } from '../data/engine'
 import { usePlanState } from '../data/planStore'
+import { useTimelineScrub } from '../lib/useTimelineScrub'
 import { ROSTER, SCHOOL } from '../data/fixtures'
 import { THRESHOLDS, ZONE_COLOR } from '../data/constants'
 import { drillAt } from '../data/model'
@@ -121,6 +122,7 @@ function SessionHeader({
 }) {
   const plan = usePlan()
   const planState = usePlanState()
+  const scrub = useTimelineScrub(s.totalMinutes)
   const { drill } = drillAt(plan, s.minute)
   const progress = s.minute / s.totalMinutes
   const starts = plan.map((_, i) => plan.slice(0, i).reduce((sum, d) => sum + d.minutes, 0))
@@ -188,7 +190,13 @@ function SessionHeader({
         )}
       </motion.div>
 
-      <div className="session__timeline" aria-hidden="true">
+      <div
+        className={`session__timeline ${scrub.scrubbing ? 'is-scrubbing' : ''}`}
+        {...scrub.bind}
+        aria-label="Practice timeline — drag or click to jump to any minute"
+        aria-valuenow={Math.round(s.minute)}
+        aria-valuetext={`${clockLabel(s.startHour, s.minute)}, ${drill.name}`}
+      >
         {plan.map((d, i) => {
           const left = (starts[i] / s.totalMinutes) * 100
           return (
@@ -199,7 +207,9 @@ function SessionHeader({
             />
           )
         })}
-        <span className="session__playhead" style={{ transform: `translateX(${progress * 100}cqw)` }} />
+        <span className="session__playhead" style={{ transform: `translateX(${progress * 100}cqw)` }}>
+          <span className="session__knob" />
+        </span>
       </div>
     </motion.section>
   )

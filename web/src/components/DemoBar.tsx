@@ -1,5 +1,6 @@
 import { motion } from 'motion/react'
 import { engine, useSession } from '../data/engine'
+import { useTimelineScrub } from '../lib/useTimelineScrub'
 import { clockLabel } from '../lib/heat'
 import { spring } from '../lib/motion'
 import { IconPause, IconPlay, IconReset, IconSkip } from './Icons'
@@ -13,6 +14,7 @@ const SPEEDS = [1, 4, 10]
 export function DemoBar() {
   const s = useSession()
   const progress = s.minute / s.totalMinutes
+  const scrub = useTimelineScrub(s.totalMinutes)
   return (
     <div className="demobar glass glass--strong" role="toolbar" aria-label="Demo playback">
       <button
@@ -25,8 +27,17 @@ export function DemoBar() {
 
       <div className="demobar__time">
         <div className="demobar__clock num">{clockLabel(s.startHour, s.minute)}</div>
-        <div className="demobar__track" aria-hidden="true">
-          <div className="demobar__fill" style={{ transform: `scaleX(${progress})` }} />
+        <div
+          className={`demobar__scrub ${scrub.scrubbing ? 'is-scrubbing' : ''}`}
+          {...scrub.bind}
+          aria-label="Replay position — drag or click to jump"
+          aria-valuenow={Math.round(s.minute)}
+          aria-valuetext={clockLabel(s.startHour, s.minute)}
+        >
+          <div className="demobar__track">
+            <div className="demobar__fill" style={{ transform: `scaleX(${progress})` }} />
+          </div>
+          <span className="demobar__thumb-dot" style={{ left: `${progress * 100}%` }} />
         </div>
       </div>
 
