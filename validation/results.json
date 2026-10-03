@@ -112,7 +112,7 @@
   ],
   "calibration_in_use": "whole_rise",
   "computed_by": "validation/armstrong_2010.py",
-  "computed_at": "2026-10-03T19:13:14+00:00",
+  "computed_at": "2026-10-03T19:24:47+00:00",
   "model": "twonode-v1",
   "conservative_gear_met_surcharge_full_pads": 0.0486,
   "synthetic": false,
@@ -609,7 +609,7 @@
  },
  "field_plausibility": {
   "computed_by": "validation/field_plausibility.py",
-  "computed_at": "2026-10-03T19:13:14+00:00",
+  "computed_at": "2026-10-03T19:24:47+00:00",
   "model": "twonode-v1",
   "synthetic": false,
   "field_summary": "group-mean practice peaks 38.2\u201338.8 \u00b0C; individual maxima 39.1\u201339.3 \u00b0C; no reading \u2265 40 \u00b0C reported",

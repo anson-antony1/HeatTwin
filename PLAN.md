@@ -173,6 +173,10 @@ Say "estimate — planning only" out loud once.*
    - **Say:**
      - "All 16 athletes are under 39.0 °C at p95 (max 38.98). Ten sit in the near-limit band."
      - "Zero FHSAA and NATA violations. 75% of the training load kept. Practice is 13 minutes longer."
+   - **Top 3 changes by heat reduction** (from `top_changes`; the voice agent reads `top_changes_text`):
+     1. "Removing the priority-3 gassers takes about 0.9 °C off the estimated team peak."
+     2. "Moving team period to 3:44 takes about 0.6."
+     3. "Splitting it around a shaded break takes about 0.6."
    - **Fewest-changes preset (optional):** "Ask it for 6 changes or fewer: it says no plan within 6 met every rule and shows the 18-change plan instead. It won't trade a rule for a shorter diff."
 4. **(40 s) Watch.**
    - A teammate wears the Amazfit Helio Strap, streaming via Zepp "Heart Rate Push" through `python -m engine.hr_bridge --map a07=Helio`, after `POST /live/start {"start_now": true}`. The fallback is a replay of `fixtures/hr_a07_synthetic.csv`, labelled REPLAY.
@@ -181,7 +185,7 @@ Say "estimate — planning only" out loud once.*
 5. **(30 s) Respond.** Hit Collapse. The clock starts, the voice walks the KSI steps, the tub probe reads the ice water live, and an EMS timeline is generated. Every sentence passes `engine/guard.py`.
 6. **(20 s) Close.** Validation, from `validation/results.json`, said plainly:
    - **Armstrong 2010 (lab):** "Calibrated on the full-uniform rise; it reproduces control clothing within 0.1 SD."
-   - **Football practice pill data (field):** "Our medians run 1.4–1.7 °C above measured practice peaks at the same WBGT. Our drill intensities are game values. In a simulated practice, linemen averaged 55% of VO₂max (Hitchcock 2007). Live HR is how we calibrate that down; until then the estimate errs hot."
+   - **Football practice pill data (field):** "Our medians run 1.4–1.7 °C above measured practice peaks at the same WBGT. Our drill intensities are game values. Published practice workload data doesn't yet give a sourced per-drill duty cycle: plays are about 6 s with about 33 s rest in team periods, but there's no sourced burst intensity. Live HR from the team's own practices is how we calibrate that down; until then the estimate errs hot."
    - Then a $30 node vs. $300-per-athlete wearables, the IP position, and the next step: pilot with one Gainesville high school, then UF I2E.
 
 ---
