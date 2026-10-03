@@ -4,7 +4,12 @@ The coach says or types today's practice → Gemini returns a **draft** `Practic
 coach reviews and confirms → the app sends `plan` to `/simulate` or `/optimize` as usual.
 
 One model handles both speech and structuring: Gemini takes the audio directly and returns the transcript and the
-drills in one call (~5–7 s). No separate speech-to-text model is needed.
+drills in one call (~3–4 s). No separate speech-to-text model is needed.
+
+**Cost:** default model `gemini-3.1-flash-lite`, about **$0.0015 per call** (measured: ~1,000 input tokens for a 22 s
+clip incl. 540 audio tokens, ~650 output; prices from ai.google.dev/gemini-api/docs/pricing on 2026-10-03). Output is
+capped at 2,048 tokens and recordings at 3 min, so one call stays under ~$0.005. `gemini-3.8-flash` gave identical
+drills on the same tests at ~$0.006/call; set `GEMINI_MODEL` to switch.
 
 ```
 browser mic ─MediaRecorder─▶ toWav() 16 kHz mono ─▶ POST /plan/parse_audio ─▶ engine/llm_plan.py ─▶ Gemini
@@ -59,6 +64,8 @@ const v = useVoicePlan()               // optional: useVoicePlan({ date: '2026-1
 
 ## Tested
 - `engine/tests/test_llm_plan.py`: 11 tests with Gemini mocked (contract shape, ids, guard, routes, errors).
+- Model comparison 2026-10-03: `gemini-3.8-flash`, `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite` returned identical
+  drills for the typed and spoken test cases; flash-lite was fastest (~3–3.5 s) and cheapest.
 - Live, 2026-10-03, `gemini-3.8-flash`: typed description → 7 drills, 6.9 s. A 22 s spoken description (generated
   with Gemini TTS) → verbatim transcript and 5 correct drills (gear, priority and must-keep/optional all right), 5.3 s.
 - Web files type-check under the app's `tsconfig.app.json` (checked against `main`). Not yet run in a browser.
