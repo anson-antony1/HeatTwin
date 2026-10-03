@@ -181,16 +181,13 @@ def _settings(req: SimulateRequest) -> at_settings.AtSettings:
 
 
 def _guard(result: dict) -> dict:
-    """Pass generated text through engine/guard.py when it exists (WS owner TBD); always strip nothing silently."""
-    try:
-        from engine import guard  # may not exist yet
-    except ImportError:
-        return result
-    for ch in result.get("changes", []):
-        out = guard.check(ch["detail"]) if hasattr(guard, "check") else None
-        if out is not None and not out.get("ok", True):
-            ch["detail"] = out.get("redacted_text", ch["detail"])
-    return result
+    """Every generated sentence passes engine/guard.py (redacted + logged on a hit)."""
+    from engine import guard
+    return guard.guard_result(result)
+
+
+class GuardRequest(_Model):
+    text: str
 
 
 # ── routes ──
@@ -209,8 +206,8 @@ def simulate(req: SimulateRequest | None = None, demo: bool = Query(False, descr
         dm = consts.get("demo_mode")
         req = req.model_copy(update={"seed": int(dm["seed"]), "n_ensemble": int(dm["n_ensemble"])})
     plan, roster, weather, labels = _inputs(req)
-    return twonode.simulate_roster(roster, plan, weather, step_min=req.step_min, n_ensemble=req.n_ensemble,
-                                   seed=req.seed, extra_labels=labels, settings=_settings(req))
+    return _guard(twonode.simulate_roster(roster, plan, weather, step_min=req.step_min, n_ensemble=req.n_ensemble,
+                                          seed=req.seed, extra_labels=labels, settings=_settings(req)))
 
 
 @app.post("/optimize")
@@ -223,6 +220,12 @@ def optimize(req: OptimizeRequest | None = None,
                              n_ensemble=req.n_ensemble, step_min=req.step_min, extra_labels=labels,
                              settings=_settings(req), demo=demo)
     return _guard(res)
+
+
+@app.post("/guard")
+def guard_text(req: GuardRequest) -> dict[str, Any]:
+    from engine import guard
+    return guard.check(req.text, source="api")
 
 
 @app.get("/settings")
