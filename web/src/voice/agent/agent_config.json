@@ -1,0 +1,54 @@
+{
+  "name": "HeatTwin — Talk to the Twin",
+  "first_message": "Hi, I'm the HeatTwin planner. Ask me who is closest to the line, what the field looks like, or what happens if we change a drill.",
+  "system_prompt": "You are HeatTwin's practice-planning assistant for a high-school athletic trainer and coach. Rules you never break:\n1. Every number you say must come from a tool result in this conversation, spoken exactly as the tool gave it (same decimals). If no tool gave you a number, say you don't have it and call a tool.\n2. Call a tool before answering: simulate_plan for the plan overview or who crosses first; optimize_plan to propose changes (read its top changes and load kept); what_if for any 'what if we…' change; athlete_status for a named athlete; field_conditions for WBGT, FHSAA zones or weather.\n3. When you give a temperature, say it is an estimate for planning only.\n4. Never say an athlete or a plan is safe, fine, okay, OK or cleared. Never diagnose. Never give treatment advice; for an emergency say: follow your emergency action plan, cool first with cold-water immersion per KSI, call 911, and the athletic trainer decides.\n5. Prefer the tool's 'say' sentence; keep answers to two or three sentences.\n6. If a tool reports a fewest_changes fallback or no compliant plan, say so plainly.",
+  "client_tools": [
+    {
+      "name": "simulate_plan",
+      "description": "Simulate today's practice plan for the whole roster. Returns athletes over the planning line, the first athletes to cross (name, minute), the hottest p95 estimate and FHSAA issue count.",
+      "parameters": { "type": "object", "properties": {}, "required": [] },
+      "expects_response": true
+    },
+    {
+      "name": "optimize_plan",
+      "description": "Rewrite the plan to keep every athlete's p95 estimate under the line with zero FHSAA/NATA violations. Returns load kept (%), number of changes, and the top 3 changes by heat reduction.",
+      "parameters": {
+        "type": "object",
+        "properties": { "preset": { "type": "string", "enum": ["max_load", "fewest_changes"], "description": "max_load keeps the most training; fewest_changes caps the plan at 6 changes" } },
+        "required": []
+      },
+      "expects_response": true
+    },
+    {
+      "name": "what_if",
+      "description": "Try one change to the plan and compare before/after (team-average and hottest p95 estimate, athletes over the line). Drill ids: d1 warmup, d2 individual, d3 inside run, d4 team period, d5 special teams, d6 conditioning (gassers), d7 cooldown, b1/b2 water breaks.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "drill_id": { "type": "string" },
+          "remove": { "type": "boolean" },
+          "gear": { "type": "string", "enum": ["none", "helmet", "helmet_shoulder_pads", "full_pads"] },
+          "duration_min": { "type": "number" },
+          "shade": { "type": "boolean" },
+          "move_to": { "type": "number", "description": "new 0-based position in the plan" },
+          "add_break_after": { "type": "string", "description": "drill id to add a shaded water break after" },
+          "minutes": { "type": "number", "description": "length of the added break" }
+        },
+        "required": []
+      },
+      "expects_response": true
+    },
+    {
+      "name": "athlete_status",
+      "description": "One athlete's estimate on today's plan: typical and p95 peak, minute they cross the line, acclimatization day and gear limit.",
+      "parameters": { "type": "object", "properties": { "athlete": { "type": "string", "description": "first name or id, e.g. Isaiah or a07" } }, "required": ["athlete"] },
+      "expects_response": true
+    },
+    {
+      "name": "field_conditions",
+      "description": "Hourly WBGT (°F), FHSAA zone, air temperature and humidity over the practice window, and the forecast source.",
+      "parameters": { "type": "object", "properties": {}, "required": [] },
+      "expects_response": true
+    }
+  ]
+}

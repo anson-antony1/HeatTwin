@@ -8,6 +8,7 @@ import { peakOf, totalMinutes, wbgtAt } from '../data/model'
 import { checkRules, forecastRoster, optimize, type PlanResult } from '../data/optimizer'
 import { NumberTicker } from '../components/NumberTicker'
 import { IconCheck, IconSpark } from '../components/Icons'
+import { VoicePanel } from '../voice'
 import { clockLabel, heatColor } from '../lib/heat'
 import { ease, spring } from '../lib/motion'
 import './PlanView.css'
@@ -73,6 +74,8 @@ export function PlanView() {
           </button>
         </div>
       </header>
+
+      <VoicePanel />
 
       <div className="plan__summary">
         <Metric label="Forecast over the line" before={over(original)} after={optimized ? over(optimized) : null} unit=" athletes" />
