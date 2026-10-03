@@ -32,6 +32,7 @@ from engine.physio import clothing, metabolic, twonode
 ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "validation" / "results.json"
 MODES = ("conservative", "iso7933_dynamic", "gagge_static")
+REFERENCE_MODELS = ("jos3",)
 
 
 def simulate(condition: str, clothing_mode: str, air_speed: float | None = None,
@@ -96,6 +97,42 @@ def simulate(condition: str, clothing_mode: str, air_speed: float | None = None,
     }
 
 
+def simulate_jos3(condition: str, air_speed: float | None = None) -> dict[str, float]:
+    """Same protocol through JOS-3 (pythermalcomfort): par = Compendium metabolic power / JOS-3 BMR, clo = static
+    intrinsic insulation of the mapped gear (uniform over segments), MRT = air temperature, pelvis core node."""
+    from pythermalcomfort.models import JOS3
+
+    A = consts.get("armstrong_2010")
+    S = consts.get("armstrong_2010_reproduction")
+    pt = A["participants"]
+    v = float(S["air_speed_m_s"] if air_speed is None else air_speed)
+    model = JOS3(height=pt["height_m"], weight=pt["mass_kg"], fat=pt["body_fat_pct"], age=int(round(pt["age_yr"])),
+                 sex=pt["sex"])
+    model.posture = "standing"
+    bmr_w = model.bmr * float(np.sum(model.bsa))
+    clo = clothing.gear_props(S["gear_map"][condition]).i_cl_clo
+    pre = A["protocol_min"]["box_lifting"] + A["protocol_min"]["seated"]
+    tread = int(round(A["exposure_min"][condition] - pre))
+    mets = ([S["met"]["box_lifting"]] * A["protocol_min"]["box_lifting"] + [S["met"]["seated"]] * A["protocol_min"]["seated"]
+            + [S["met"]["treadmill"]] * tread)
+    core = []
+    for met in mets:
+        model.par = max(met * metabolic.w_per_kg_per_met() * pt["mass_kg"] / bmr_w, 1.0)
+        model.clo, model.tdb, model.tr = clo, A["chamber"]["air_temp_c"], A["chamber"]["air_temp_c"]
+        model.rh, model.v = A["chamber"]["rh_pct"], v
+        model.simulate(times=1, dtime=60.0, output=False)
+        core.append(float(model.t_core[4]))
+    core0 = core[0]  # JOS-3 starts from its own neutral state; rates are compared, not absolute temperatures
+    n = len(core)
+    return {
+        "treadmill_rate_c_per_min": float((core[n - 1] - core[pre - 1]) / tread),
+        "whole_protocol_rate_c_per_min": float((core[n - 1] - core0) / (n - 1)),
+        "rise_c": float(core[n - 1] - core0),
+        "end_core_c": float(core[n - 1]),
+        "treadmill_min": tread,
+    }
+
+
 def calibrate(tol: float = 1e-5) -> float:
     """Full-pads metabolic surcharge δ ≥ 0 such that the FULL treadmill rate (conservative mode) = measured mean."""
     target = consts.get("armstrong_2010.treadmill_rate_c_per_min.FULL")[0]
@@ -118,10 +155,11 @@ def run() -> dict:
     A = consts.get("armstrong_2010")
     S = consts.get("armstrong_2010_reproduction")
     rows = []
-    for mode in MODES:
+    for mode in MODES + REFERENCE_MODELS:
         for cond in S["gear_map"]:
             for v in S["air_speed_sensitivity_m_s"]:
-                sim = simulate(cond, mode, air_speed=v)
+                sim = simulate_jos3(cond, air_speed=v) if mode == "jos3" else simulate(cond, mode, air_speed=v)
+                rise, rise_sd = A["rise_c"][cond]
                 meas, sd = A["treadmill_rate_c_per_min"][cond]
                 wmeas, wsd = A["whole_protocol_rate_c_per_min"][cond]
                 rows.append({
@@ -132,11 +170,30 @@ def run() -> dict:
                     "treadmill_error_in_sd": round((sim["treadmill_rate_c_per_min"] - meas) / sd, 2),
                     "model_whole_protocol_rate_c_per_min": round(sim["whole_protocol_rate_c_per_min"], 4),
                     "measured_whole_protocol_rate_c_per_min": wmeas, "measured_whole_sd": wsd,
+                    "model_rise_c": round(sim["rise_c"], 2), "measured_rise_c": rise, "measured_rise_sd": rise_sd,
                     "model_end_core_c": round(sim["end_core_c"], 2),
                     "fitted": bool(mode == "conservative" and cond == "FULL" and v == S["air_speed_m_s"]),
                 })
+    summary = {}
+    ref_v = S["air_speed_m_s"]
+    for mode in MODES + REFERENCE_MODELS:
+        rs = [r for r in rows if r["clothing_mode"] == mode and r["air_speed_m_s"] == ref_v]
+        unfitted = [r for r in rs if not r["fitted"]]
+        e_t = [r["treadmill_error_c_per_min"] for r in unfitted]
+        e_w = [r["model_whole_protocol_rate_c_per_min"] - r["measured_whole_protocol_rate_c_per_min"] for r in rs]
+        e_r = [r["model_rise_c"] - r["measured_rise_c"] for r in rs]
+        summary[mode] = {
+            "treadmill_rate_rmse_unfitted_c_per_min": round(float(np.sqrt(np.mean(np.square(e_t)))), 4) if e_t else None,
+            "whole_protocol_rate_rmse_c_per_min": round(float(np.sqrt(np.mean(np.square(e_w)))), 4),
+            "whole_protocol_rate_max_abs_error_c_per_min": round(float(np.max(np.abs(e_w))), 4),
+            "rise_rmse_c": round(float(np.sqrt(np.mean(np.square(e_r)))), 2),
+            "rise_max_abs_error_c": round(float(np.max(np.abs(e_r))), 2),
+            "n_comparisons": len(rs),
+        }
     return {
         "study": "Armstrong et al. 2010, J Athl Train 45:117 (PMC2838463)",
+        "comparison_basis": "summary values only (Table 3 whole-protocol rise and rate, Table 4 treadmill rate); Figure 2's time course is not tabulated and was not digitized, so no time-point RMSE is reported",
+        "summary_at_reference_air_speed": summary,
         "computed_by": "validation/armstrong_2010.py",
         "computed_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "model": twonode.MODEL_NAME,
@@ -147,6 +204,7 @@ def run() -> dict:
             "Conservative mode is calibrated on FULL at the reference air speed (row with fitted=true) — that row is a fit, not a validation.",
             "Air speed and metabolic rate were not reported; METs from the 2024 Compendium (task mapping is a judgement call).",
             "CON maps to gear 'none', which includes a T-shirt that Armstrong's CON did not wear; PART has no matching gear level.",
+            "JOS-3 uses static intrinsic clo of the mapped gear (it takes no evaporative resistance input) and starts from its own neutral state; rates and rises are compared, not absolute temperatures.",
             "estimate — planning only",
         ],
         "rows": rows,
@@ -170,13 +228,14 @@ def main() -> None:
         return
     res = run()
     write(res)
-    print(f"{'mode':16} {'cond':5} {'v':>4} {'model':>7} {'meas':>6} {'±SD':>6} {'err/SD':>7}  whole(model/meas)")
+    print(f"{'mode':16} {'cond':5} {'v':>4} {'model':>7} {'meas':>6} {'±SD':>6} {'err/SD':>7}  whole(model/meas)  rise(model/meas)")
     for r in res["rows"]:
         print(f"{r['clothing_mode']:16} {r['condition']:5} {r['air_speed_m_s']:4.1f} "
               f"{r['model_treadmill_rate_c_per_min']:7.4f} {r['measured_treadmill_rate_c_per_min']:6.3f} "
               f"{r['measured_sd']:6.3f} {r['treadmill_error_in_sd']:7.2f}  "
-              f"{r['model_whole_protocol_rate_c_per_min']:.4f}/{r['measured_whole_protocol_rate_c_per_min']:.3f}"
-              + ("  (fit)" if r["fitted"] else ""))
+              f"{r['model_whole_protocol_rate_c_per_min']:.4f}/{r['measured_whole_protocol_rate_c_per_min']:.3f}  "
+              f"{r['model_rise_c']:.2f}/{r['measured_rise_c']:.2f}" + ("  (fit)" if r["fitted"] else ""))
+    print("summary (reference air speed):", json.dumps(res["summary_at_reference_air_speed"], indent=1))
     print(f"wrote {RESULTS}")
 
 

@@ -443,6 +443,7 @@ armstrong_2010:
   exposure_min: {CON: 71.7, PART: 63.1, FULL: 56.2}
   treadmill_rate_c_per_min: {CON: [0.037, 0.015], PART: [0.052, 0.012], FULL: [0.071, 0.032]}   # [mean, SD]
   whole_protocol_rate_c_per_min: {CON: [0.026, 0.008], PART: [0.034, 0.006], FULL: [0.042, 0.010]}
+  rise_c: {CON: [1.81, 0.40], PART: [2.36, 0.24], FULL: [2.37, 0.45]}   # Table 3, whole protocol
   not_reported: "chamber air velocity, metabolic rate (VO2 not measured), heat-acclimatization status"
 
 armstrong_2010_reproduction:

@@ -166,7 +166,8 @@ def test_results_json_is_computed_by_validation_code():
     from pathlib import Path
     res = json.loads((Path(__file__).resolve().parents[2] / "validation" / "results.json").read_text())["armstrong_2010"]
     assert res["computed_by"] == "validation/armstrong_2010.py" and res["synthetic"] is False
-    assert {r["clothing_mode"] for r in res["rows"]} == {"conservative", "iso7933_dynamic", "gagge_static"}
+    assert {r["clothing_mode"] for r in res["rows"]} == {"conservative", "iso7933_dynamic", "gagge_static", "jos3"}
+    assert "summary values only" in res["comparison_basis"]
 
 
 @pytest.mark.parametrize("mode", ["conservative", "iso7933_dynamic", "gagge_static"])

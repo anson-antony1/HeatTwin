@@ -50,14 +50,18 @@ Three **clothing modes** (constants `model_options.clothing_mode`):
 participant, 33 °C / 48.5 % RH chamber, air speed not reported (still-air floor 0.1 m/s shown; a sweep is in results.json),
 Compendium METs (box lifting 4.0, seated 1.0, treadmill 5.3).
 
-| Mode | Condition | Model treadmill rate | Measured (mean ± SD) | Error / SD | Whole-protocol model / measured |
+| Model | Condition | Treadmill rate (model) | Measured (mean ± SD) | Error / SD | Whole-protocol rise model / measured (°C) |
 |---|---|---|---|---|---|
-| conservative | CON | 0.0349 | 0.037 ± 0.015 | -0.14 | 0.0251 / 0.026 |
-| conservative | FULL | 0.0710 | 0.071 ± 0.032 | -0.00 (fit) | 0.0500 / 0.042 |
-| iso7933_dynamic | CON | 0.0219 | 0.037 ± 0.015 | -1.01 | 0.0156 / 0.026 |
-| iso7933_dynamic | FULL | 0.0390 | 0.071 ± 0.032 | -1.00 | 0.0260 / 0.042 |
-| gagge_static | CON | 0.0313 | 0.037 ± 0.015 | -0.38 | 0.0231 / 0.026 |
-| gagge_static | FULL | 0.0562 | 0.071 ± 0.032 | -0.46 | 0.0393 / 0.042 |
+| conservative | CON | 0.0349 | 0.037 ± 0.015 | -0.14 | 1.81 / 1.81 |
+| conservative | FULL | 0.0710 | 0.071 ± 0.032 | -0.00 (fit) | 2.80 / 2.37 |
+| iso7933_dynamic | CON | 0.0219 | 0.037 ± 0.015 | -1.01 | 1.12 / 1.81 |
+| iso7933_dynamic | FULL | 0.0390 | 0.071 ± 0.032 | -1.00 | 1.46 / 2.37 |
+| gagge_static | CON | 0.0313 | 0.037 ± 0.015 | -0.38 | 1.66 / 1.81 |
+| gagge_static | FULL | 0.0562 | 0.071 ± 0.032 | -0.46 | 2.20 / 2.37 |
+| jos3 | CON | 0.0324 | 0.037 ± 0.015 | -0.31 | 1.81 / 1.81 |
+| jos3 | FULL | 0.0383 | 0.071 ± 0.032 | -1.02 | 1.52 / 2.37 |
+
+Summary values only: Tables 3 and 4. Figure 2's time course isn't tabulated and wasn't digitized. The air speed wasn't reported; results.json has a 0.1 / 0.5 / 1.0 m/s sweep, and it's the largest uncertainty, since conservative CON moves by about 1 SD between 0.1 and 0.5 m/s. JOS-3 behaves like the ISO-dynamic mode: it under-predicts FULL by about 1 SD.
 
 The FULL row in conservative mode is the calibration target, and CON informed dropping the walking credit, so the only
 unfitted checks are the whole-protocol rates. Conservative over-predicts FULL whole-protocol by 0.8 SD (0.050 vs 0.042),
