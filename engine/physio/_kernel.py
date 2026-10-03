@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 
 import numpy as np
-from numba import njit
+from numba import njit, prange
 
 # indices into the packed Gagge parameter vector (see twonode._pack_gagge)
 (G_TSK_N, G_SKBF_N, G_SKBF_MIN, G_SKBF_MAX, G_C_DIL, G_C_STR, G_C_SW, G_MRSW_MAX, G_SWEAT_EXP, G_K_CS, G_C_BL,
@@ -24,7 +24,7 @@ N_GAGGE = 45
 N_ISO = 22
 
 
-@njit(cache=True, fastmath=False)
+@njit(cache=True, fastmath=False, parallel=True)
 def run(met_wm2, met_scale, ta, pa, v, tr, r_cl, r_ecl, f_cl, clothed, mass, bsa, dt_s, s_per_h, c_body,
         theta_sw, theta_dil, tcr_n, tbn, tcr0, met_cap, has_cap, record_every, prsw_cap_off,
         use_iso, i_t, i_m, i_cl_clo, w_max, fraction, walk_credit, max_iter, G, Q):
@@ -33,11 +33,11 @@ def run(met_wm2, met_scale, ta, pa, v, tr, r_cl, r_ecl, f_cl, clothed, mass, bsa
     T = S // record_every
     core = np.empty((E, N, T))
     skin = np.empty((E, N, T))
-    worst_res = 0.0
-    worst_it = 0
+    worst_res_e = np.zeros(E)
+    worst_it_e = np.zeros(E, dtype=np.int64)
     lr = G[G_LR] / G[G_P_ATM]
     hc_nat = G[G_HC_NAT] * G[G_P_ATM] ** G[G_HC_P_EXP]
-    for e in range(E):
+    for e in prange(E):  # ensemble members are independent → parallel
         for n in range(N):
             cap = bsa[n] * dt_s / (c_body * mass[n] * s_per_h)
             tcr = tcr0[n]
@@ -104,10 +104,10 @@ def run(met_wm2, met_scale, ta, pa, v, tr, r_cl, r_ecl, f_cl, clothed, mass, bsa
                     tcl = tcl_new
                     if res <= G[G_TCL_TOL]:
                         break
-                if res > worst_res:
-                    worst_res = res
-                if it > worst_it:
-                    worst_it = it
+                if res > worst_res_e[e]:
+                    worst_res_e[e] = res
+                if it > worst_it_e[e]:
+                    worst_it_e[e] = it
 
                 dry = (tsk - top) / (ra + rcl)
                 qcs = (G[G_K_CS] + G[G_C_BL] * skbf) * (tcr - tsk)
@@ -161,4 +161,4 @@ def run(met_wm2, met_scale, ta, pa, v, tr, r_cl, r_ecl, f_cl, clothed, mass, bsa
                     k = (s + 1) // record_every - 1
                     core[e, n, k] = tcr
                     skin[e, n, k] = tsk
-    return core, skin, worst_res, worst_it
+    return core, skin, worst_res_e.max(), worst_it_e.max()

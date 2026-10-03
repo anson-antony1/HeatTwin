@@ -111,3 +111,16 @@ def test_demo_fixture_reaches_a_compliant_plan():
     _p1_kept(plan, res["plan"])
     total = sum(d["duration_min"] for d in res["plan"]["drills"])
     assert total <= sum(d["duration_min"] for d in plan["drills"]) + consts.get("optimizer.max_added_minutes")
+
+
+def test_fewest_changes_preset_caps_changes():
+    plan, roster, weather = _load("needs_break")
+    res = optimize(plan, roster, weather, preset="fewest_changes", **FAST)
+    cap = consts.get("optimizer_presets.fewest_changes.max_changes")
+    assert res["search"]["preset"] == "fewest_changes" and res["search"]["max_changes"] == cap
+    if res["feasible"]:
+        assert len(res["changes"]) <= cap
+    else:
+        assert any("changes" in r for r in res["infeasible_reasons"]) or res["infeasible_reasons"]
+    with pytest.raises(ValueError):
+        optimize(plan, roster, weather, preset="bogus", **FAST)

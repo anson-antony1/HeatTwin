@@ -203,6 +203,7 @@ class LiveStart(SimulateRequest):
 
 
 _LIVE: dict[str, Any] = {}
+_DEMO_CACHE: dict[tuple, dict] = {}
 
 
 def _live_session():
@@ -236,14 +237,26 @@ def simulate(req: SimulateRequest | None = None, demo: bool = Query(False, descr
 
 @app.post("/optimize")
 def optimize(req: OptimizeRequest | None = None,
-             demo: bool = Query(False, description="fixed seed + fixed iteration cap instead of a time budget")
+             demo: bool = Query(False, description="fixed seed + fixed iteration cap instead of a time budget"),
+             preset: str = Query("max_load", description="max_load | fewest_changes (cap of changes, maximize load)")
              ) -> dict[str, Any]:
     req = req or OptimizeRequest()
+    key = None
+    if demo:  # demo runs are deterministic → cache identical requests (warm before presenting)
+        key = (preset, req.model_dump_json())
+        if key in _DEMO_CACHE:
+            return _DEMO_CACHE[key]
     plan, roster, weather, labels = _inputs(req)
-    res = optimizer.optimize(plan, roster, weather, budget_s=req.budget_s, seed=req.seed,
-                             n_ensemble=req.n_ensemble, step_min=req.step_min, extra_labels=labels,
-                             settings=_settings(req), demo=demo)
-    return _guard(res)
+    try:
+        res = optimizer.optimize(plan, roster, weather, budget_s=req.budget_s, seed=req.seed,
+                                 n_ensemble=req.n_ensemble, step_min=req.step_min, extra_labels=labels,
+                                 settings=_settings(req), demo=demo, preset=preset)
+    except ValueError as e:
+        raise HTTPException(422, str(e)) from e
+    res = _guard(res)
+    if key is not None:
+        _DEMO_CACHE[key] = res
+    return res
 
 
 @app.post("/live/start")

@@ -120,7 +120,8 @@ class Problem:
 
     def __init__(self, plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]],
                  weather: Sequence[Mapping[str, Any]], *, n_ensemble: int = 30, seed: int = 0, step_min: float = 1.0,
-                 settings=None):
+                 settings=None, max_changes: int | None = None):
+        self.max_changes = max_changes
         from engine import settings as at_settings
         self.S = settings or at_settings.resolve()
         self.plan = plan
@@ -249,9 +250,11 @@ class Problem:
         over = p95 >= self.limit
         first = np.where(over.any(axis=1), over.argmax(axis=1), -1)
         excess = float(np.sum(np.maximum(peak - self.limit, 0.0) + (peak >= self.limit) * 1e-3))
-        infeas = self.fhsaa_infeasibility(plan, viol) + excess / float(_opt("heat_excess_per_unit_c"))
-        load = self.weighted_load(st)
         n_ch = len(diff(self, st))
+        over_cap = max(0, n_ch - self.max_changes) if self.max_changes is not None else 0
+        infeas = (self.fhsaa_infeasibility(plan, viol) + excess / float(_opt("heat_excess_per_unit_c"))
+                  + float(over_cap))
+        load = self.weighted_load(st)
         energy = (float(_opt("infeasibility_weight")) * infeas - 100.0 * load / self.load0
                   + float(_opt("change_penalty")) * n_ch)
         at_risk = tuple(a for a, pk in zip(self.R.ids, peak) if pk >= self.limit - self.near)
@@ -455,6 +458,24 @@ def mv_shorten_break(P: Problem, st: State, i: int) -> State | None:
 
 
 def random_move(P: Problem, st: State, ev: Eval, rng: random.Random) -> State | None:
+    if P.max_changes is not None and ev.n_changes >= P.max_changes and rng.random() < float(_opt("swap_probability")):
+        return swap_move(P, st, ev, rng)
+    return _random_move(P, st, ev, rng)
+
+
+def swap_move(P: Problem, st: State, ev: Eval, rng: random.Random) -> State | None:
+    """At the change cap: undo one change (remove an added break / restore an attribute) and make another."""
+    n = len(st)
+    undo = [c for i in range(n) for c in (mv_remove_added_break(P, st, i),
+                                          *(mv_restore(P, st, i, a) for a in ("gear", "participants", "duration")))
+            if c is not None]
+    if not undo:
+        return None
+    mid = rng.choice(undo)
+    return _random_move(P, mid, ev, rng)
+
+
+def _random_move(P: Problem, st: State, ev: Eval, rng: random.Random) -> State | None:
     n = len(st)
     kind = rng.choices(
         ["reorder", "insert", "lengthen", "gear", "trim", "split", "rotate", "platoon", "remove", "untrim",
@@ -531,6 +552,10 @@ def targeted_moves(P: Problem, st: State, ev: Eval) -> list[State]:
                 lossy.append(mv_platoon(P, st, i, ev))
         for k_out in sorted({max(1, len(ev.at_risk) // 2), max(1, n_ath // 4), max(1, n_ath // 2)}):
             lossy.append(mv_rotate_out(P, st, j, hottest(P, ev, k_out)))
+    if P.max_changes is not None and ev.n_changes > P.max_changes:
+        for i in range(len(st)):
+            fix.append(mv_remove_added_break(P, st, i))
+            fix += [mv_restore(P, st, i, a) for a in ("gear", "participants", "duration")]
     out, seen = [], set()
     for c in fix + free + lossy:
         if c is not None and c not in seen and P.valid(c):
@@ -681,6 +706,9 @@ def beam_search(P: Problem, deadline: float, cfg: Mapping[str, Any] | None = Non
     width = int(cfg.get("beam_width", _opt("beam_width")))
     depth = int(cfg.get("beam_depth", _opt("beam_depth")))
     per = int(cfg.get("beam_candidates_per_state", _opt("beam_candidates_per_state")))
+    if P.max_changes is not None:  # capped preset: construct within the cap, wider beam
+        width = max(width, int(_opt("capped_beam_width")))
+        per = max(per, int(_opt("capped_beam_candidates_per_state")))
     start = P.evaluate(P.orig)
     beam, best, iters = [start], start, 0
     for _ in range(depth):
@@ -693,6 +721,8 @@ def beam_search(P: Problem, deadline: float, cfg: Mapping[str, Any] | None = Non
                     break
                 iters += 1
                 ev = P.evaluate(c)
+                if P.max_changes is not None and ev.n_changes > P.max_changes:
+                    continue
                 scored.append((_repair_score(P, cur, ev), ev.rank(), ev))
         if not scored:
             break
@@ -788,32 +818,51 @@ def simplify(P: Problem, best: Eval, deadline: float) -> Eval:
 def optimize(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weather: Sequence[Mapping[str, Any]],
              budget_s: float | None = None, seed: int = 0, n_ensemble: int = 30, step_min: float = 1.0,
              max_iterations: int | None = None, extra_labels: Sequence[str] = (), settings=None,
-             demo: bool = False) -> dict[str, Any]:
+             demo: bool = False, preset: str = "max_load") -> dict[str, Any]:
     """CONTRACTS.md ``OptimizeResult`` (dict), plus additive fields ``infeasible_reasons``, ``labels``, ``settings``.
 
     ``demo=True``: fixed seed, ensemble size and SA iteration cap from constants.demo_mode; the time budget becomes a
     safety stop, so the same inputs always give the same plan.
     """
     beam_cfg: dict[str, Any] = {}
+    demo_cfg: dict[str, Any] = {}
     if demo:
-        dm = consts.get("demo_mode")
+        dm = dict(consts.get("demo_mode"))
+        dm.update((dm.get("preset_overrides") or {}).get(preset, {}))
+        demo_cfg = dm
         beam_cfg = {k: dm[k] for k in ("beam_width", "beam_depth", "beam_candidates_per_state") if k in dm}
         seed, n_ensemble = int(dm["seed"]), int(dm["n_ensemble"])
         max_iterations, budget_s = int(dm["sa_iterations"]), float(dm["safety_budget_s"])
         extra_labels = [*extra_labels, f"demo mode: seed {seed}, {max_iterations} annealing iterations (reproducible)"]
+    presets = consts.get("optimizer_presets")
+    if preset not in presets or preset in ("status", "note"):
+        raise ValueError(f"unknown preset {preset!r}")
+    max_changes = presets[preset]["max_changes"]
+    if max_changes is not None:
+        extra_labels = [*extra_labels, f"preset fewest_changes: at most {max_changes} changes"]
     t_start = time.perf_counter()
     budget = float(budget_s if budget_s is not None else _opt("default_budget_s"))
     deadline = t_start + budget
-    P = Problem(plan, roster, weather, n_ensemble=n_ensemble, seed=seed, step_min=step_min, settings=settings)
-    rng = random.Random(seed)
-
+    P = Problem(plan, roster, weather, n_ensemble=n_ensemble, seed=seed, step_min=step_min, settings=settings,
+                max_changes=max_changes)
     beam_deadline = t_start + budget * float(_opt("beam_time_fraction"))
     sa_deadline = t_start + budget * float(_opt("sa_time_fraction_end"))
     best, beam_iters = beam_search(P, beam_deadline, beam_cfg)
     n_max = int(max_iterations if max_iterations is not None else _opt("sa_max_iterations"))
-    sa_best, sa_iters, best_it, stopped = anneal(P, best, sa_deadline, rng, n_max)
-    if _better(sa_best, best):
-        best = sa_best
+    restarts = int(demo_cfg["sa_restarts"] if demo else _opt("sa_restarts"))
+    beam_best = best
+    sa_iters, best_it, stopped = 0, 0, "iterations"
+    for k in range(restarts):  # multi-start SA: same ensemble draws, different search RNG; alternate start points
+        if time.perf_counter() > sa_deadline:
+            stopped = "time_budget"
+            break
+        start = beam_best if k % 2 == 0 else P.evaluate(P.orig)
+        rng_k = random.Random(seed * 1000 + k)
+        remaining = max(sa_deadline - time.perf_counter(), 0.0) / max(restarts - k, 1)
+        sa_best, it_k, bit_k, stopped = anneal(P, start, time.perf_counter() + remaining, rng_k, n_max)
+        if _better(sa_best, best):
+            best, best_it = sa_best, sa_iters + bit_k
+        sa_iters += it_k
     best = recover(P, best, deadline)
     best = simplify(P, best, deadline + min(1.0, 0.1 * budget))
     if time.perf_counter() > deadline and stopped != "time_budget":
@@ -838,7 +887,7 @@ def optimize(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weath
         "search": {
             "iterations": beam_iters + sa_iters,
             "seconds": round(time.perf_counter() - t_start, 3),
-            "method": f"beam(width={int(_opt('beam_width'))}) warm start + simulated annealing + simplify",
+            "method": f"beam(width={int(_opt('beam_width'))}) warm start + {restarts}× simulated annealing + recover + simplify",
             "evaluations": P.evaluations,
             "cache_hits": P.cache_hits,
             "beam_iterations": beam_iters,
@@ -848,6 +897,8 @@ def optimize(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weath
             "seed": seed,
             "budget_s": budget,
             "demo": demo,
+            "preset": preset,
+            "max_changes": max_changes,
             "weighted_load_kept_pct": round(100.0 * best.load_w / P.load0, 1),
         },
         "infeasible_reasons": reasons,
@@ -889,6 +940,8 @@ def _renumber_added(st: State, P: "Problem | None" = None) -> State:
 
 def _infeasible_reasons(P: Problem, ev: Eval) -> list[str]:
     out = []
+    if P.max_changes is not None and ev.n_changes > P.max_changes:
+        out.append(f"needs {ev.n_changes} changes; the fewest_changes preset allows {P.max_changes}")
     for v in ev.violations:
         out.append(f"FHSAA: {v['rule']} — {v['detail']}")
     for a, pk in zip(P.R.ids, ev.peak_p95):

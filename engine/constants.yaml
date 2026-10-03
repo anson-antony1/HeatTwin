@@ -410,10 +410,14 @@ optimizer:
   beam_width: 3
   beam_depth: 12
   beam_candidates_per_state: 40
+  capped_beam_width: 6                          # fewest_changes preset: wider beam that never exceeds the change cap
+  capped_beam_candidates_per_state: 80
+  swap_probability: 0.5                          # at the change cap, share of SA proposals that undo one change and make another
   repair_loss_floor_pct: 1.0                     # beam ranks fixes by infeasibility removed per % load lost (+ this floor)
   beam_time_fraction: 0.35
   sa_time_fraction_end: 0.75
   sa_max_iterations: 1500
+  sa_restarts: 8                                 # multi-start; the time budget is split across restarts
   sa_t0: 3.0
   sa_t_end: 0.03
   infeasibility_weight: 100.0                    # energy per unit infeasibility (1 FHSAA violation or 0.1 °C over)
@@ -480,7 +484,9 @@ demo_mode:
   note: "?demo=1: reproducible runs for presentations — fixed seed and a fixed iteration cap instead of a time budget (the budget below is only a safety stop well above the expected run time)."
   seed: 0
   n_ensemble: 30
-  sa_iterations: 300
+  sa_iterations: 600
+  sa_restarts: 10
+  preset_overrides: {}             # per-preset overrides of the demo caps (none needed at 10 × 600)
   safety_budget_s: 120.0
 
 hr_model:
@@ -511,3 +517,9 @@ acsm_walking:
   horizontal_ml_kg_per_m: 0.1
   vertical_ml_kg_per_m: 1.8
   resting_ml_kg_min: 3.5
+
+optimizer_presets:
+  status: DESIGN
+  note: "max_load (default): maximize retained load, tie-break fewest changes. fewest_changes: hard cap on the number of changes (coach-friendly diff), maximize load under it (owner decision Oct 3: cap 6)."
+  max_load: {max_changes: null}
+  fewest_changes: {max_changes: 6}
