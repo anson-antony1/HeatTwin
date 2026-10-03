@@ -5,7 +5,7 @@ Hackathon build: only the black-globe thermistor is wired. So for each reading t
   * air temperature, RH and wind from the nearest NWS station's latest observation (KGNV, Gainesville airport),
     refreshed every 10 min — real measurements, but from the airport, not the field (``air_source`` column);
     if the station is unreachable, the hourly NWS forecast at that time (``air_source=nws_forecast``);
-  * a shaded-air thermistor on A1 is used instead when it reads (``air_source=node_a1``).
+  * with ``--use-a1``, a shaded-air thermistor on A1 instead (``air_source=node_a1``); A1 is ignored otherwise.
 The globe thermistor is **uncalibrated** (nominal Beta, see firmware/README.md); every row says so.
 
 Field WBGT uses engine/wbgt.py's globe inversion (weather.node_reading_wbgt) and is logged next to the forecast WBGT
@@ -61,8 +61,11 @@ def parse_line(line: str) -> Optional[dict[str, float]]:
 class AirSource:
     """Latest NWS station observation (cached), falling back to the hourly forecast."""
 
-    def __init__(self, forecast: list[dict[str, Any]], station: str = STATION, offline: bool = False):
-        self.forecast, self.station, self.offline = forecast, station, offline
+    def __init__(self, forecast: list[dict[str, Any]], station: str = STATION, offline: bool = False,
+                 use_a1: bool = False):
+        # use_a1: only when a shaded air thermistor is really wired to A1 — an unconnected analog pin floats and
+        # reads a plausible-looking but meaningless temperature.
+        self.forecast, self.station, self.offline, self.use_a1 = forecast, station, offline, use_a1
         self._obs: Optional[dict[str, Any]] = None
         self._fetched = 0.0
 
@@ -89,7 +92,7 @@ class AirSource:
 
     def at(self, t: datetime, node_air_c: float) -> dict[str, Any]:
         obs = self._station_obs()
-        if not math.isnan(node_air_c):
+        if self.use_a1 and not math.isnan(node_air_c):
             rh = obs["rh_pct"] if obs else weather._interp(self.forecast, "rh_pct", t)
             return {"air_c": node_air_c, "rh_pct": rh, "wind_m_s": None, "air_source": "node_a1"}
         if obs:
@@ -138,11 +141,11 @@ def serial_lines(port: str, baud: int = 115200) -> Iterator[str]:
 
 
 def run(lines: Iterable[str], mode: str, post_url: Optional[str] = None, out_dir: Path = DATA_DIR,
-        offline: bool = False, clock=None) -> Path:
+        offline: bool = False, clock=None, use_a1: bool = False) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     now = (clock or (lambda: datetime.now().astimezone()))
     forecast = weather.get_forecast(SITE["lat"], SITE["lon"], offline=offline)
-    air = AirSource(forecast, offline=offline)
+    air = AirSource(forecast, offline=offline, use_a1=use_a1)
     day = now().date().isoformat()
     path = out_dir / f"node_{day}.csv"
     raw_path = out_dir / f"node_{day}.raw.txt"
@@ -155,6 +158,7 @@ def run(lines: Iterable[str], mode: str, post_url: Optional[str] = None, out_dir
         for line in lines:
             if mode == "live":
                 raw_f.write(line if line.endswith("\n") else line + "\n")   # keep the untouched serial stream
+                raw_f.flush()
             raw = parse_line(line)
             if raw is None:
                 continue
@@ -186,13 +190,14 @@ def main(argv: Optional[list[str]] = None) -> None:
     ap.add_argument("--post", help="engine URL, e.g. http://localhost:8000/node")
     ap.add_argument("--out", type=Path, default=DATA_DIR)
     ap.add_argument("--offline", action="store_true", help="no network: cached forecast for air/RH")
+    ap.add_argument("--use-a1", action="store_true", help="a shaded air thermistor is wired to A1 (ignored otherwise)")
     a = ap.parse_args(argv)
     if a.port:
-        path = run(serial_lines(a.port), "live", a.post, a.out, a.offline)
+        path = run(serial_lines(a.port), "live", a.post, a.out, a.offline, use_a1=a.use_a1)
     else:
         t0 = datetime.now().astimezone()
         ticks = iter(t0 + timedelta(seconds=2 * i) for i in range(10**9))
-        path = run(a.replay.read_text().splitlines(), "replay", a.post, a.out, a.offline, clock=lambda: next(ticks))
+        path = run(a.replay.read_text().splitlines(), "replay", a.post, a.out, a.offline, clock=lambda: next(ticks), use_a1=a.use_a1)
     print(f"logged to {path}")
 
 
