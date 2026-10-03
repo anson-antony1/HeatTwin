@@ -1,0 +1,76 @@
+:root {
+  /* Type */
+  --font-display: 'Clash Display', 'Archivo', system-ui, sans-serif;
+  --font-body: 'Archivo', system-ui, sans-serif;
+
+  /* Ink */
+  --ink: #101018;
+  --ink-2: rgb(16 16 24 / 0.64);
+  --ink-3: rgb(16 16 24 / 0.44);
+  --ink-4: rgb(16 16 24 / 0.12);
+  --hairline: rgb(16 16 24 / 0.07);
+
+  /* Glass — light material for interactive surfaces, heavier for structure */
+  --glass: rgb(255 255 255 / 0.5);
+  --glass-strong: rgb(255 255 255 / 0.7);
+  --glass-edge: rgb(255 255 255 / 0.85);
+  --glass-blur: 24px;
+  --shadow-sm: 0 1px 2px rgb(40 30 80 / 0.05), 0 4px 14px rgb(40 30 80 / 0.05);
+  --shadow-md: 0 1px 2px rgb(40 30 80 / 0.06), 0 12px 40px rgb(40 30 80 / 0.08);
+  --shadow-lg: 0 2px 6px rgb(40 30 80 / 0.08), 0 30px 80px rgb(40 30 80 / 0.16);
+
+  /* Thermal palette — mirrors lib/heat.ts */
+  --heat-0: rgb(139 150 255);
+  --heat-1: rgb(178 140 255);
+  --heat-2: rgb(255 178 107);
+  --heat-3: rgb(255 122 89);
+  --heat-4: rgb(236 56 74);
+
+  /* Status */
+  --steady: #2f9e7d;
+  --steady-bg: rgb(47 158 125 / 0.12);
+  --watch: #d9822b;
+  --watch-bg: rgb(217 130 43 / 0.14);
+  --alert: #ec384a;
+  --alert-bg: rgb(236 56 74 / 0.12);
+
+  /* FHSAA zones */
+  --zone-green: #3fb27f;
+  --zone-yellow: #e9bf3c;
+  --zone-orange: #f2994a;
+  --zone-red: #eb5757;
+  --zone-black: #23232c;
+
+  /* Shape */
+  --r-xl: 32px;
+  --r-lg: 24px;
+  --r-md: 16px;
+  --r-sm: 10px;
+
+  /* Motion — mirrors lib/motion.ts */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-press: 160ms;
+  --dur-small: 180ms;
+  --dur-ui: 240ms;
+  --dur-modal: 300ms;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --glass: rgb(255 255 255 / 0.92);
+    --glass-strong: rgb(255 255 255 / 0.97);
+    --glass-blur: 0px;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --glass: #fff;
+    --glass-strong: #fff;
+    --glass-edge: rgb(16 16 24 / 0.5);
+    --ink-2: rgb(16 16 24 / 0.82);
+    --ink-3: rgb(16 16 24 / 0.7);
+  }
+}

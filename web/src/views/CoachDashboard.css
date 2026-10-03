@@ -1,0 +1,590 @@
+.coach {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+/* ---------- Top band: one wide card, or alert · session · guidance ---------- */
+
+.coach__top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+  min-height: 156px;
+}
+
+.coach__top.has-alert {
+  grid-template-columns: minmax(300px, 1.05fr) minmax(0, 1.25fr) minmax(240px, 0.9fr);
+}
+
+.session {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 24px 28px 22px;
+  min-width: 0;
+}
+
+.session__inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.session__now {
+  min-width: 0;
+}
+
+.session__drill {
+  position: relative;
+  display: grid;
+  margin: 8px 0 6px;
+  overflow: hidden;
+}
+
+.session__drill h2 {
+  grid-area: 1 / 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session__meta {
+  display: flex;
+  gap: 8px;
+  font-size: 13.5px;
+}
+
+.session__stats {
+  display: flex;
+  gap: 36px;
+}
+
+.stat__value {
+  margin-top: 8px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+}
+
+.session__onbreak {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--heat-0);
+}
+
+.session__zone {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.session__zone-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px rgb(255 255 255 / 0.7);
+}
+
+.session__counts {
+  display: inline-flex;
+  gap: 12px;
+}
+
+.session__timeline {
+  position: relative;
+  height: 10px;
+  container-type: inline-size;
+}
+
+.session__seg {
+  position: absolute;
+  top: 2px;
+  height: 6px;
+  border-radius: 3px;
+  background: rgb(16 16 24 / 0.1);
+  transition:
+    background-color var(--dur-ui) ease,
+    transform var(--dur-ui) var(--ease-out);
+}
+
+.session__seg--break {
+  background: rgb(139 150 255 / 0.45);
+}
+.session__seg--conditioning {
+  background: rgb(255 122 89 / 0.35);
+}
+.session__seg.is-now {
+  background: var(--ink);
+  transform: scaleY(1.5);
+}
+.session__seg--break.is-now {
+  background: var(--heat-0);
+}
+
+.session__playhead {
+  position: absolute;
+  top: -3px;
+  left: -1px;
+  width: 2px;
+  height: 16px;
+  border-radius: 1px;
+  background: var(--ink);
+  box-shadow: 0 0 0 3px rgb(255 255 255 / 0.8);
+}
+
+/* ---------- Alert card ---------- */
+
+.alertcard {
+  display: flex;
+  flex-direction: column;
+  padding: 20px 22px;
+  background: linear-gradient(160deg, rgb(255 255 255 / 0.75), rgb(255 235 236 / 0.6));
+  box-shadow:
+    0 0 0 1.5px rgb(236 56 74 / 0.35),
+    0 18px 50px rgb(236 56 74 / 0.18),
+    inset 0 1px 0 var(--glass-edge);
+  transform-origin: center;
+}
+
+.alertcard__top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.alertcard__eyebrow {
+  color: var(--alert);
+}
+
+.alertcard__beacon {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--alert);
+}
+
+/* One quiet ring, ~1 Hz — attention for a genuine alarm, nothing else pulses. */
+.alertcard__beacon::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1.5px solid var(--alert);
+  opacity: 0;
+  animation: beacon 1.2s var(--ease-out) infinite;
+}
+
+@keyframes beacon {
+  0% {
+    opacity: 0.8;
+    transform: scale(0.6);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.8);
+  }
+}
+
+.alertcard__more {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--alert);
+}
+
+.alertcard__who {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  margin-top: 12px;
+  text-align: left;
+  font-size: 13px;
+}
+
+.alertcard__temp {
+  margin-top: 10px;
+  color: var(--alert);
+}
+
+.alertcard__meta {
+  margin-top: 4px;
+  font-size: 13px;
+}
+
+.alertcard__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.btn--alert {
+  background: var(--alert);
+  color: white;
+  box-shadow: 0 6px 18px rgb(236 56 74 / 0.32);
+}
+
+.btn--ink {
+  background: var(--ink);
+  color: white;
+}
+
+.btn--quiet {
+  background: rgb(255 255 255 / 0.75);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+/* ---------- Guidance ---------- */
+
+.guide {
+  padding: 20px 22px;
+}
+
+.guide__steps {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.guide__steps li {
+  counter-increment: step;
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.guide__steps li::before {
+  content: counter(step);
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: white;
+  font-size: 11px;
+  transform: translateY(-1px);
+}
+
+.guide__foot {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--hairline);
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.guide__foot strong {
+  color: var(--alert);
+  font-weight: 400;
+}
+
+/* ---------- Roster ---------- */
+
+.roster {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.roster__head,
+.row {
+  display: grid;
+  grid-template-columns: minmax(190px, 1.5fr) minmax(120px, 0.9fr) minmax(110px, 0.8fr) minmax(110px, 0.9fr) minmax(160px, 1.6fr) 128px;
+  align-items: center;
+  gap: 20px;
+}
+
+.roster__head {
+  padding: 0 24px 2px;
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.roster__head-status {
+  text-align: right;
+}
+
+.row {
+  width: 100%;
+  min-height: 80px;
+  padding: 12px 20px 12px 16px;
+  border-radius: var(--r-lg);
+  text-align: left;
+  background: rgb(255 255 255 / 0.55);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  box-shadow: var(--shadow-sm), inset 0 1px 0 rgb(255 255 255 / 0.9);
+  transition:
+    background-color 400ms ease,
+    color 400ms ease,
+    box-shadow 400ms ease,
+    transform var(--dur-press) var(--ease-out);
+}
+
+.row:active {
+  transform: scale(0.99);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .row:hover {
+    background: rgb(255 255 255 / 0.78);
+  }
+  .row:hover .row__go {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.row--watch {
+  box-shadow: var(--shadow-sm), inset 0 1px 0 rgb(255 255 255 / 0.9), inset 3px 0 0 var(--watch);
+}
+
+/* Figma: the overheating athlete's row goes solid red. */
+.row--alert,
+.row--alert:hover {
+  background: #fc5a5a;
+  color: white;
+  box-shadow: 0 10px 30px rgb(236 56 74 / 0.3), inset 0 1px 0 rgb(255 255 255 / 0.25);
+}
+
+.row__who {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.row__num {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 14px;
+  background: rgb(255 255 255 / 0.85);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 17px;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.row__name {
+  display: block;
+  font-size: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.row__sub {
+  display: block;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+.row--alert .row__sub,
+.row--alert .row__peak,
+.row--alert .row__unit,
+.row--alert .row__acclim-label,
+.row--alert .row__nostrap {
+  color: rgb(255 255 255 / 0.78);
+}
+
+.row--alert .row__num {
+  background: rgb(255 255 255 / 0.2);
+  color: white;
+  box-shadow: none;
+}
+
+.row__acclim {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.row__acclim-label {
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.row__ticks {
+  display: flex;
+  gap: 3px;
+}
+
+.row__ticks span {
+  width: 5px;
+  height: 12px;
+  border-radius: 2px;
+  background: rgb(16 16 24 / 0.1);
+}
+
+.row__ticks span.is-on {
+  background: var(--heat-1);
+}
+
+.row--alert .row__ticks span {
+  background: rgb(255 255 255 / 0.25);
+}
+.row--alert .row__ticks span.is-on {
+  background: white;
+}
+
+.row__hr {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+}
+
+.row__heart {
+  color: var(--alert);
+}
+
+.row--alert .row__heart {
+  color: white;
+}
+
+.row__unit {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.row__nostrap {
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+.row__core {
+  display: flex;
+  flex-direction: column;
+}
+
+.row__core-val {
+  font-size: 22px;
+}
+
+.row__peak {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.row__spark {
+  height: 48px;
+}
+
+.row--alert .row__spark .chart__history,
+.row--alert .row__spark .chart__forecast {
+  stroke: white;
+}
+
+.row--alert .row__spark .chart__band {
+  fill: rgb(255 255 255 / 0.18);
+}
+
+.row--alert .row__spark .chart__threshold {
+  stroke: white;
+  opacity: 0.6;
+}
+
+.row__status {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.row__go {
+  color: var(--ink-3);
+  opacity: 0;
+  transform: translateX(-4px);
+  transition:
+    opacity var(--dur-small) ease,
+    transform var(--dur-small) var(--ease-out);
+}
+
+.row--alert .pill--alert {
+  background: white;
+  color: var(--alert);
+}
+
+.coach__foot {
+  margin: 4px 0 96px;
+  font-size: 12.5px;
+}
+
+@media (max-width: 1280px) {
+  .coach__top.has-alert {
+    grid-template-columns: minmax(280px, 1fr) minmax(0, 1fr);
+  }
+  .coach__top.has-alert .guide {
+    display: none;
+  }
+  .roster__head,
+  .row {
+    grid-template-columns: minmax(170px, 1.4fr) minmax(90px, 0.8fr) minmax(100px, 0.9fr) minmax(130px, 1.4fr) 112px;
+  }
+  .row__acclim,
+  .roster__head > :nth-child(2) {
+    display: none;
+  }
+}
+
+@media (max-width: 860px) {
+  .session__inner {
+    flex-direction: column;
+  }
+  .coach__top.has-alert {
+    grid-template-columns: 1fr;
+  }
+  .roster__head {
+    display: none;
+  }
+  .row {
+    grid-template-columns: 1fr auto;
+    row-gap: 10px;
+  }
+  .row__hr,
+  .row__spark {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alertcard__beacon::after {
+    animation: none;
+    opacity: 0.6;
+    transform: scale(1.4);
+  }
+  .row:active {
+    transform: none;
+  }
+}

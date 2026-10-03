@@ -1,0 +1,64 @@
+.bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: #f7f5fc;
+  overflow: hidden;
+}
+
+.bg__layer {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 1200ms ease;
+}
+
+.bg__layer.is-on {
+  opacity: 1;
+}
+
+/* Figma: white top-left, pink bottom-left, lavender top-centre, lilac right. */
+.bg__coach {
+  background:
+    radial-gradient(60% 55% at 8% 4%, #ffffff 0%, rgb(255 255 255 / 0) 70%),
+    radial-gradient(55% 60% at 12% 92%, #ffd0d4 0%, rgb(255 208 212 / 0) 70%),
+    radial-gradient(45% 45% at 62% 22%, #dcd4fb 0%, rgb(220 212 251 / 0) 75%),
+    radial-gradient(50% 70% at 100% 40%, #f4d8ff 0%, rgb(244 216 255 / 0) 70%),
+    radial-gradient(40% 40% at 98% 100%, #dcdcff 0%, rgb(220 220 255 / 0) 75%),
+    linear-gradient(135deg, #fbf9ff 0%, #f1ecfb 100%);
+}
+
+/* Athlete view: mostly white, with the blue/pink wash sweeping in bottom-right. */
+.bg__athlete {
+  background:
+    radial-gradient(40% 50% at 46% 100%, #f7c8ff 0%, rgb(247 200 255 / 0) 70%),
+    radial-gradient(45% 60% at 68% 70%, #c9dcff 0%, rgb(201 220 255 / 0) 70%),
+    radial-gradient(50% 60% at 98% 96%, #b9b6ff 0%, rgb(185 182 255 / 0) 70%),
+    radial-gradient(35% 40% at 92% 6%, #ece9ff 0%, rgb(236 233 255 / 0) 75%),
+    linear-gradient(180deg, #ffffff 0%, #fbfaff 100%);
+}
+
+/* Heat alert: the same composition, pulled warm. */
+.bg__alert {
+  background:
+    radial-gradient(60% 55% at 8% 4%, #fff6f3 0%, rgb(255 246 243 / 0) 70%),
+    radial-gradient(60% 65% at 12% 92%, #ffb9b5 0%, rgb(255 185 181 / 0) 70%),
+    radial-gradient(45% 45% at 62% 18%, #ffd9cf 0%, rgb(255 217 207 / 0) 75%),
+    radial-gradient(50% 70% at 100% 40%, #ffd0e0 0%, rgb(255 208 224 / 0) 70%),
+    radial-gradient(40% 40% at 98% 100%, #f2d4ff 0%, rgb(242 212 255 / 0) 75%),
+    linear-gradient(135deg, #fff8f6 0%, #fbeaec 100%);
+}
+
+/* A whisper of grain stops the gradients from banding on wide displays. */
+.bg__grain {
+  position: absolute;
+  inset: -50%;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bg__layer {
+    transition-duration: 400ms;
+  }
+}

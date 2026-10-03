@@ -1,0 +1,55 @@
+.field {
+  padding: 18px 18px 16px;
+  border-radius: var(--r-xl);
+}
+
+.field__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.field__src {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.6);
+}
+
+.field__value {
+  margin: 10px 0 12px;
+}
+
+.field__zones {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+}
+
+.field__zone {
+  height: 6px;
+  border-radius: 3px;
+  opacity: 0.22;
+  transform: scaleY(0.7);
+  transition:
+    opacity var(--dur-ui) ease,
+    transform var(--dur-ui) var(--ease-out);
+}
+
+.field__zone.is-on {
+  opacity: 1;
+  transform: scaleY(1);
+}
+
+.field__label {
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+@media (max-width: 1100px) {
+  .field {
+    display: none;
+  }
+}

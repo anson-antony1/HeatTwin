@@ -1,0 +1,64 @@
+.hold {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 48px;
+  padding: 0 22px;
+  border-radius: 999px;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  transition: transform var(--dur-press) var(--ease-out);
+}
+
+.hold--ink {
+  background: rgb(16 16 24 / 0.08);
+  color: var(--ink);
+}
+
+.hold--alert {
+  background: var(--alert-bg);
+  color: var(--alert);
+}
+
+.hold.is-holding {
+  transform: scale(0.97);
+}
+
+.hold__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.hold__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path 200ms var(--ease-out);
+}
+
+.hold--ink .hold__overlay {
+  background: var(--ink);
+}
+.hold--alert .hold__overlay {
+  background: var(--alert);
+}
+
+.hold.is-holding .hold__overlay {
+  clip-path: inset(0 0 0 0);
+  transition: clip-path var(--hold) linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hold.is-holding {
+    transform: none;
+  }
+}

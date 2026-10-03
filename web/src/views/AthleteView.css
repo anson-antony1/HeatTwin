@@ -1,0 +1,398 @@
+.twin {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding-bottom: 96px;
+}
+
+.twin__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.twin__head h1 {
+  margin-top: 6px;
+}
+
+/* ---------- Athlete picker ---------- */
+
+.picker {
+  display: flex;
+  gap: 2px;
+  padding: 5px;
+  border-radius: 999px;
+}
+
+.picker__chip {
+  position: relative;
+  width: 38px;
+  height: 34px;
+  border-radius: 999px;
+  font-size: 13px;
+  color: var(--ink-2);
+  transition: color var(--dur-small) ease;
+}
+
+.picker__chip.is-on {
+  color: white;
+}
+
+.picker__thumb {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: var(--ink);
+}
+
+.picker__label {
+  position: relative;
+}
+
+.picker__flag {
+  position: absolute;
+  top: 4px;
+  right: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--watch);
+  box-shadow: 0 0 0 2px rgb(255 255 255 / 0.9);
+}
+
+.picker__chip--alert .picker__flag {
+  background: var(--alert);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .picker__chip:not(.is-on):hover {
+    color: var(--ink);
+  }
+}
+
+/* ---------- Grid — mirrors the Figma frame ---------- */
+
+.twin__grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 300px) minmax(200px, 1fr) minmax(320px, 1.35fr);
+  grid-template-rows: auto auto auto;
+  grid-template-areas:
+    'vitals figure today'
+    'vitals figure forecast'
+    'acclim acclim forecast'
+    'safety safety safety';
+  gap: 20px;
+}
+
+.card {
+  padding: 22px 24px;
+  min-width: 0;
+}
+
+.vitals {
+  grid-area: vitals;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.vitals__who {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.vitals__num {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 15px;
+  background: var(--ink);
+  color: white;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.vitals__core {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.vitals__temp {
+  margin: 4px 0 2px;
+  transition: color 600ms ease;
+}
+
+.vitals__list {
+  width: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.vitals__list > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 0;
+  border-top: 1px solid var(--hairline);
+  font-size: 13.5px;
+}
+
+.vitals__list dt {
+  color: var(--ink-3);
+}
+
+.vitals__list dd {
+  margin: 0;
+  text-align: right;
+}
+
+.vitals__hr {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+}
+
+.vitals__hr svg {
+  color: var(--alert);
+}
+
+.vitals__cta {
+  margin-top: auto;
+}
+
+.twin__figure {
+  grid-area: figure;
+  position: relative;
+  min-height: 480px;
+}
+
+.twin__callout {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 8px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.75);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow-sm);
+  font-size: 12px;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.twin__callout--core {
+  top: 34%;
+  left: 2%;
+}
+
+.twin__callout--hr {
+  top: 25%;
+  right: 0;
+}
+
+.twin__callout-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--alert);
+  transition: background-color 600ms ease;
+}
+
+.today {
+  grid-area: today;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.today__now {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ring {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  flex: none;
+}
+
+.ring__track {
+  fill: none;
+  stroke: var(--ink-4);
+  stroke-width: 6;
+}
+
+.ring__fill {
+  fill: none;
+  stroke: var(--heat-0);
+  stroke-width: 6;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 600ms var(--ease-out);
+}
+
+.ring__label {
+  position: absolute;
+  top: 0;
+  height: 76px;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 18px;
+  color: var(--ink);
+}
+
+.ring__label svg {
+  color: var(--heat-0);
+}
+
+.ring__cap {
+  font-size: 11.5px;
+  margin-top: 2px;
+}
+
+.forecast {
+  grid-area: forecast;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 420px;
+}
+
+.forecast__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.forecast__head .display-sm {
+  margin-top: 4px;
+}
+
+.forecast__chart {
+  flex: 1;
+  min-height: 280px;
+  max-height: 420px;
+}
+
+.legend {
+  display: flex;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend__swatch {
+  display: inline-block;
+  width: 16px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+.legend__swatch--est {
+  background: linear-gradient(90deg, var(--heat-1), var(--heat-3));
+}
+
+.legend__swatch--fc {
+  background: repeating-linear-gradient(90deg, var(--heat-2) 0 2px, transparent 2px 5px);
+}
+
+.legend__swatch--band {
+  height: 9px;
+  background: rgb(150 130 255 / 0.18);
+}
+
+.acclim {
+  grid-area: acclim;
+}
+
+.acclim__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.acclim__head .display-sm {
+  margin-top: 4px;
+}
+
+.acclim__bsa {
+  font-size: 12.5px;
+}
+
+.acclim__bar {
+  display: grid;
+  grid-template-columns: repeat(14, 1fr);
+  gap: 4px;
+  margin: 16px 0 12px;
+}
+
+.acclim__bar span {
+  height: 10px;
+  border-radius: 3px;
+  background: var(--ink-4);
+}
+
+.acclim__bar span.is-on {
+  background: linear-gradient(90deg, var(--heat-1), var(--heat-0));
+}
+
+.acclim__note {
+  margin: 0;
+  font-size: 13.5px;
+}
+
+.twin__safety {
+  grid-area: safety;
+  margin: 0;
+  font-size: 12.5px;
+}
+
+@media (max-width: 1180px) {
+  .twin__grid {
+    grid-template-columns: minmax(240px, 1fr) minmax(200px, 1fr);
+    grid-template-areas:
+      'vitals figure'
+      'today today'
+      'forecast forecast'
+      'acclim acclim'
+      'safety safety';
+  }
+}
+
+@media (max-width: 760px) {
+  .twin__grid {
+    grid-template-columns: 1fr;
+    grid-template-areas: 'vitals' 'figure' 'today' 'forecast' 'acclim' 'safety';
+  }
+  .picker {
+    overflow-x: auto;
+    max-width: 100%;
+  }
+}
