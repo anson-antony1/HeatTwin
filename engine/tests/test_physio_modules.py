@@ -226,3 +226,13 @@ def test_field_plausibility_results_present():
     res = json.loads((Path(__file__).resolve().parents[2] / "validation" / "results.json").read_text())["field_plausibility"]
     assert res["computed_by"] == "validation/field_plausibility.py" and res["synthetic"] is False
     assert len(res["scenarios"]) >= 5 and res["sensitivity_demo"][0]["case"].startswith("baseline")
+
+
+def test_concurrent_simulations_do_not_crash():
+    """Reviewer bug 1: parallel numba kernel entered from several threads (uvicorn thread pool) must not abort."""
+    from concurrent.futures import ThreadPoolExecutor
+    from engine.physio.twonode import simulate_roster
+    args = (fixtures.roster()[:4], fixtures.plan(), fixtures.forecast())
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        outs = list(ex.map(lambda _: simulate_roster(*args, n_ensemble=10), range(12)))
+    assert all(o["athletes"] == outs[0]["athletes"] for o in outs)

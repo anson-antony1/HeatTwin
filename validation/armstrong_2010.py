@@ -4,7 +4,8 @@ Protocol (constants.armstrong_2010, VERIFIED): linemen (mean 117.4 kg, 1.839 m, 
 10 min repetitive box lifting → 10 min seated → treadmill 5.6 km/h, 5 % grade until 60 min or termination.
 Measured: rate of rectal-temperature rise during treadmill exercise (Table 4) and over the whole protocol (Table 3).
 
-Simulation assumptions (constants.armstrong_2010_reproduction, DESIGN): Compendium METs for each task; air speed not
+Simulation assumptions (constants.armstrong_2010_reproduction, DESIGN): Compendium METs for box lifting and sitting,
+ACSM walking equation for the treadmill; air speed not
 reported (Gagge still-air floor, with a sensitivity sweep); MRT = air temperature (indoor chamber); a deterministic run
 (calibration scales = 1) for the mean participant; start core = measured 37.2 °C; treadmill length = the condition's
 mean exposure time − 20 min; CON → gear 'none' (our 'none' adds a T-shirt), FULL → 'full_pads'; PART has no matching
@@ -13,9 +14,10 @@ gear level.
     python -m validation.armstrong_2010              # run, print, write validation/results.json
     python -m validation.armstrong_2010 --calibrate  # print the conservative-mode gear surcharge δ that matches FULL
 
-Every number written to results.json is computed here from those inputs. The conservative mode is *calibrated* on the
-FULL treadmill mean, so its FULL result is a fit, not an independent validation; CON and the whole-protocol rates are
-not fitted.
+Every number written to results.json is computed here from those inputs. The conservative mode's surcharge is
+*calibrated* on the FULL whole-protocol rise (Table 3), and CON decides the walking-ventilation credit
+(walk_credit_check), so those are fits, not independent validations. The treadmill's external work (m·g·v·grade) is
+subtracted from heat; the treadmill MET comes from the ACSM walking equation.
 """
 from __future__ import annotations
 
@@ -61,8 +63,14 @@ def simulate(condition: str, clothing_mode: str, air_speed: float | None = None,
     mets = np.r_[np.full(A["protocol_min"]["box_lifting"], S["met"]["box_lifting"]),
                  np.full(A["protocol_min"]["seated"], S["met"]["seated"]),
                  np.full(tread, treadmill_met() if treadmill is None else treadmill)]
+    # external mechanical work of walking up the treadmill grade: W = m·g·v·grade (not heat), only on the treadmill
+    t = A["treadmill"]
+    v_ms = t["speed_km_h"] * 1000.0 / consts.get("physical.s_per_h")
+    work_treadmill = mass * consts.get("physical.standard_gravity_m_s2") * v_ms * t["grade"] / bsa   # W/m²
+    work = np.r_[np.zeros(pre), np.full(tread, work_treadmill)]
     sub = max(1, int(np.ceil(60.0 / float(consts.get("model_options.max_internal_dt_s")) - 1e-9)))
     mets = np.repeat(mets, sub)            # same internal sub-step as field simulations
+    work = np.repeat(work, sub)
     n = len(mets)
     one = np.ones((1, n))
     ta = np.full(n, A["chamber"]["air_temp_c"])
@@ -93,7 +101,7 @@ def simulate(condition: str, clothing_mode: str, air_speed: float | None = None,
         clothed=np.full((1, n), bool(gt["clothed"][gi])),
         mass_kg=np.array([mass]), bsa_m2=np.array([bsa]), dt_s=60.0 / sub, record_every=sub,
         theta_sw=R.sw_gain[None, :], setpoint_shift=R.setpoint_shift, tcr0=np.array([A["start_rectal_c"]]),
-        met_cap_wm2=metabolic.met_to_w_m2(R.met_cap, R.mass_kg, R.bsa_m2),
+        met_cap_wm2=metabolic.met_to_w_m2(R.met_cap, R.mass_kg, R.bsa_m2), work_wm2=work[None, :],
         cap_mode=consts.get("model_options.cap_mode"), iso=iso,
     )
     core = np.r_[A["start_rectal_c"], out.core[0, 0]]  # core[k] = state after k minutes
@@ -108,7 +116,8 @@ def simulate(condition: str, clothing_mode: str, air_speed: float | None = None,
 
 
 def simulate_jos3(condition: str, air_speed: float | None = None) -> dict[str, float]:
-    """Same protocol through JOS-3 (pythermalcomfort): par = Compendium metabolic power / JOS-3 BMR, clo = static
+    """Same protocol through JOS-3 (pythermalcomfort): par = (metabolic power − treadmill external work) / JOS-3 BMR
+    (JOS-3 has no work term, so heat = par·BMR), clo = static
     intrinsic insulation of the mapped gear (uniform over segments), MRT = air temperature, pelvis core node."""
     from pythermalcomfort.models import JOS3
 
@@ -125,9 +134,13 @@ def simulate_jos3(condition: str, air_speed: float | None = None) -> dict[str, f
     tread = int(round(A["exposure_min"][condition] - pre))
     mets = ([S["met"]["box_lifting"]] * A["protocol_min"]["box_lifting"] + [S["met"]["seated"]] * A["protocol_min"]["seated"]
             + [treadmill_met()] * tread)
+    t = A["treadmill"]
+    work_w = pt["mass_kg"] * consts.get("physical.standard_gravity_m_s2") * t["speed_km_h"] * 1000.0 \
+        / consts.get("physical.s_per_h") * t["grade"]
     core = []
-    for met in mets:
-        model.par = max(met * metabolic.w_per_kg_per_met() * pt["mass_kg"] / bmr_w, 1.0)
+    for k, met in enumerate(mets):
+        heat_w = met * metabolic.w_per_kg_per_met() * pt["mass_kg"] - (work_w if k >= pre else 0.0)
+        model.par = max(heat_w / bmr_w, 1.0)
         model.clo, model.tdb, model.tr = clo, A["chamber"]["air_temp_c"], A["chamber"]["air_temp_c"]
         model.rh, model.v = A["chamber"]["rh_pct"], v
         model.simulate(times=1, dtime=60.0, output=False)

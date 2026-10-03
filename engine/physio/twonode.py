@@ -14,6 +14,7 @@ Output: estimate — planning only.
 """
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from functools import lru_cache
@@ -186,7 +187,7 @@ def iso_dynamic_resistances(m_act, v, i_t, i_m, i_cl_clo, f_cl, Q: IsoDynamic, f
 
     ``fraction`` λ applies part of the correction: corr_eff = 1 − λ·(1 − corr) for both corr_tot and corr_ia
     (λ = 1 → ISO 7933; λ = 0 → static manikin values). ``walk_credit`` scales ISO's walking-speed term; the
-    conservative mode keeps λ = 1 (wind credit) and sets walk_credit = 0 (constants.clothing_conservative)."""
+    conservative mode keeps λ = 1 (wind credit) and takes walk_credit from constants.clothing_conservative."""
     wa = walk_credit * np.minimum(Q.walk_k * np.maximum(m_act - Q.walk_off, 0.0), Q.walk_cap)
     v_ux = min(v, Q.v_cap)
     w_ux = np.minimum(wa, Q.w_cap)
@@ -241,6 +242,7 @@ def integrate(
     setpoint_shift: np.ndarray | float = 0.0,  # [N] °C, acclimatization: lowers T_cr,n (and T_b,n, resting core)
     tcr0: np.ndarray | float | None = None,  # [N] initial core temperature (default: shifted T_cr,n)
     met_cap_wm2: np.ndarray | None = None,  # [N] aerobic ceiling (VO₂max) in W/m²; M is clipped to it
+    work_wm2: np.ndarray | None = None,     # [N, S] external mechanical work W/m² (e.g. uphill treadmill); default 0
     record_every: int = 1,
     cap_mode: str = "consistent",
     iso: IsoClothing | None = None,
@@ -257,7 +259,7 @@ def integrate(
     if backend in ("auto", "numba") and _numba_kernel() is not None:
         return _integrate_numba(met_wm2, met_scale, ta, pa, v, tr, r_cl, r_ecl, f_cl, clothed, mass_kg, bsa_m2, dt_s,
                                 theta_sw, theta_dil, setpoint_shift, tcr0, met_cap_wm2, record_every, cap_mode, iso,
-                                max_tcl_iter, P)
+                                max_tcl_iter, P, work_wm2)
     if backend == "numba":
         raise RuntimeError("numba backend requested but numba is not importable")
     Q = iso_params() if iso is not None else None
@@ -336,7 +338,7 @@ def integrate(
 
         dry = (tsk - top) / (ra + rcl)
         qcs = (P.k_cs + P.c_bl * skbf) * (tcr - tsk)
-        s_cr = m_act + mshiv - w_ext - resp - qcs
+        s_cr = m_act + mshiv - (w_ext if work_wm2 is None else work_wm2[:, s]) - resp - qcs
         s_sk = qcs - dry - esk
         tcr = tcr + s_cr * cap_core_fac / (1.0 - alpha)
         tsk = tsk + s_sk * cap_core_fac / alpha
@@ -389,6 +391,11 @@ def integrate(
     return IntegrateOut(core=core, skin=skin, tcl_max_residual=worst_res, tcl_iterations_max=worst_it)
 
 
+# numba's default (workqueue) threading layer aborts the process if two threads enter a parallel kernel at once
+# (e.g. a /hr re-forecast during /optimize under uvicorn's thread pool) → serialise kernel calls.
+_KERNEL_LOCK = threading.Lock()
+
+
 @lru_cache(maxsize=1)
 def _numba_kernel():
     try:
@@ -439,7 +446,7 @@ def _pack_iso() -> np.ndarray:
 
 def _integrate_numba(met_wm2, met_scale, ta, pa, v, tr, r_cl, r_ecl, f_cl, clothed, mass_kg, bsa_m2, dt_s,
                      theta_sw, theta_dil, setpoint_shift, tcr0, met_cap_wm2, record_every, cap_mode, iso,
-                     max_tcl_iter, P) -> IntegrateOut:
+                     max_tcl_iter, P, work_wm2=None) -> IntegrateOut:
     K = _numba_kernel()
     if cap_mode not in ("consistent", "ashrae55_reference"):
         raise ValueError(cap_mode)
@@ -454,17 +461,19 @@ def _integrate_numba(met_wm2, met_scale, ta, pa, v, tr, r_cl, r_ecl, f_cl, cloth
     cap = f64(met_cap_wm2 if has_cap else 0.0, (N,))
     use_iso = iso is not None
     z = np.zeros((N, S))
-    core, skin, res, it = K.run(
-        f64(met_wm2, (N, S)), f64(met_scale, (E, N)), f64(ta, (S,)), f64(pa, (S,)), f64(v, (S,)), f64(tr, (N, S)),
-        f64(r_cl, (N, S)), f64(r_ecl, (N, S)), f64(f_cl, (N, S)),
-        np.ascontiguousarray(np.broadcast_to(np.asarray(clothed, dtype=np.bool_), (N, S))),
-        f64(mass_kg, (N,)), f64(bsa_m2, (N,)), float(dt_s), float(P.s_per_h), float(P.c_body),
-        f64(theta_sw, (E, N)), f64(theta_dil, (E, N)), tcr_n, tbn, t0, cap, has_cap, int(record_every),
-        float(P.w_diff if cap_mode == "consistent" else 0.0),
-        use_iso, f64(iso.i_t, (N, S)) if use_iso else z, f64(iso.i_m, (N, S)) if use_iso else z,
-        f64(iso.i_cl_clo, (N, S)) if use_iso else z, f64(iso.w_max, (N,)) if use_iso else np.zeros(N),
-        float(iso.fraction) if use_iso else 1.0, float(iso.walk_credit) if use_iso else 1.0,
-        int(max_tcl_iter), _pack_gagge(P), _pack_iso())
+    work = f64(P.external_work_met * P.met_factor if work_wm2 is None else work_wm2, (N, S))
+    with _KERNEL_LOCK:  # see _KERNEL_LOCK: concurrent entry into the parallel kernel aborts the process
+        core, skin, res, it = K.run(
+            f64(met_wm2, (N, S)), f64(met_scale, (E, N)), f64(ta, (S,)), f64(pa, (S,)), f64(v, (S,)),
+            f64(tr, (N, S)), f64(r_cl, (N, S)), f64(r_ecl, (N, S)), f64(f_cl, (N, S)),
+            np.ascontiguousarray(np.broadcast_to(np.asarray(clothed, dtype=np.bool_), (N, S))),
+            f64(mass_kg, (N,)), f64(bsa_m2, (N,)), float(dt_s), float(P.s_per_h), float(P.c_body),
+            f64(theta_sw, (E, N)), f64(theta_dil, (E, N)), tcr_n, tbn, t0, cap, has_cap, int(record_every),
+            float(P.w_diff if cap_mode == "consistent" else 0.0),
+            use_iso, f64(iso.i_t, (N, S)) if use_iso else z, f64(iso.i_m, (N, S)) if use_iso else z,
+            f64(iso.i_cl_clo, (N, S)) if use_iso else z, f64(iso.w_max, (N,)) if use_iso else np.zeros(N),
+            float(iso.fraction) if use_iso else 1.0, float(iso.walk_credit) if use_iso else 1.0,
+            int(max_tcl_iter), work, _pack_gagge(P), _pack_iso())
     if res > P.tcl_tol:
         raise RuntimeError("clothing temperature did not converge")
     return IntegrateOut(core=core, skin=skin, tcl_max_residual=float(res), tcl_iterations_max=int(it))

@@ -27,7 +27,7 @@ N_ISO = 22
 @njit(cache=True, fastmath=False, parallel=True)
 def run(met_wm2, met_scale, ta, pa, v, tr, r_cl, r_ecl, f_cl, clothed, mass, bsa, dt_s, s_per_h, c_body,
         theta_sw, theta_dil, tcr_n, tbn, tcr0, met_cap, has_cap, record_every, prsw_cap_off,
-        use_iso, i_t, i_m, i_cl_clo, w_max, fraction, walk_credit, max_iter, G, Q):
+        use_iso, i_t, i_m, i_cl_clo, w_max, fraction, walk_credit, max_iter, work, G, Q):
     E, N = met_scale.shape
     S = met_wm2.shape[1]
     T = S // record_every
@@ -111,7 +111,7 @@ def run(met_wm2, met_scale, ta, pa, v, tr, r_cl, r_ecl, f_cl, clothed, mass, bsa
 
                 dry = (tsk - top) / (ra + rcl)
                 qcs = (G[G_K_CS] + G[G_C_BL] * skbf) * (tcr - tsk)
-                s_cr = m_act + mshiv - G[G_W_EXT] - resp - qcs
+                s_cr = m_act + mshiv - work[n, s] - resp - qcs
                 s_sk = qcs - dry - esk
                 tcr = tcr + s_cr * cap / (1.0 - alpha)
                 tsk = tsk + s_sk * cap / alpha

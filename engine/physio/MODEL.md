@@ -37,35 +37,35 @@ What we change relative to the reference (each change is listed in §10):
 
 Three **clothing modes** (constants `model_options.clothing_mode`):
 * `conservative` (**planning default**; the name is historical, as it's now the Armstrong-calibrated mode): ISO 7933 dynamic
-  structure, keeping both wind and walking-ventilation credit, plus a **gear load surcharge** on metabolic heat,
-  `M × (1 + δ·w(gear))`. δ = **0.1151** is fitted to Armstrong 2010's FULL whole-protocol rise (2.37 °C over 56.2 min); that was the
-  owner's decision on Oct 3. The safety margin lives in p95 and the AT-owned limit, not in the median physics. w(gear) is 0 for
-  `none` and `helmet`, 0.636 for `helmet_shoulder_pads` and 1 for `full_pads`. δ lumps uniform weight, pad coverage and
-  sweat-soaking; it's a calibration, not a measurement.
+  structure with the wind credit kept and the **walking-ventilation credit off**, plus a **gear load surcharge** on metabolic
+  heat, `M × (1 + δ·w(gear))`. δ = **0.0486** is fitted to Armstrong 2010's FULL whole-protocol rise (2.37 °C over
+  56.2 min); that was the owner's decision on Oct 3. The safety margin lives in p95 and the AT-owned limit, not in the median
+  physics. w(gear) is 0 for `none` and `helmet`, 0.636 for `helmet_shoulder_pads` and 1 for `full_pads`.
 
-  **Walking credit (owner decision 2).** Armstrong's methods give a treadmill pace of "5.6 km/h, 5% grade". ACSM walking
-  equation (Moore et al. 2021, Eq. 1): speed 5.6 km/h = 93.333 m/min; VO2 = 0.1×93.333 + 1.8×93.333×0.05 + 3.5 = 9.333 + 8.400 + 3.5 = 21.233 mL/kg/min = 6.067 MET. That replaces Compendium 17034's 5.3 MET. With this MET, CON
-  (no surcharge) decides the credit:
+  **Treadmill metabolism and work (owner decision 2).** Armstrong's methods give the treadmill pace as "5.6 km/h, 5% grade".
+  ACSM walking equation (Moore et al. 2021, Eq. 1): speed 5.6 km/h = 93.333 m/min; VO2 = 0.1×93.333 + 1.8×93.333×0.05 + 3.5 = 9.333 + 8.400 + 3.5 = 21.233 mL/kg/min = 6.067 MET. Walking up the grade does external mechanical
+  work, W = m·g·v·grade (≈ 38 W/m² for the mean participant, about 11 % of metabolic rate). That work isn't heat and is
+  subtracted (physio-reviewer, Oct 3). With both corrections, CON (no surcharge) decides the credit:
 
   | walk credit | treadmill MET | CON treadmill rate | error / SD | CON rise (°C) | error / SD |
   |---|---|---|---|---|---|
-  | 1 | acsm | 0.0295 | -0.50 | 1.51 | -0.74 |
-  | 1 | compendium | 0.0219 | -1.01 | 1.12 | -1.73 |
-  | 0 | acsm | 0.0467 | +0.65 | 2.42 | +1.52 |
-  | 0 | compendium | 0.0349 | -0.14 | 1.8 | -0.02 |
+  | 1 | acsm | 0.0224 | -0.98 | 1.14 | -1.67 |
+  | 1 | compendium | 0.0166 | -1.36 | 0.84 | -2.43 |
+  | 0 | acsm | 0.0358 | -0.08 | 1.85 | +0.10 |
+  | 0 | compendium | 0.0241 | -0.86 | 1.24 | -1.42 |
 
-  The credit is **kept**: −0.50 SD against +0.65 SD without it. The earlier choice to drop it only looked right because the
-  Compendium MET was too low.
+  The credit is **off**: −0.08 SD on rate and +0.10 SD on rise with ACSM, against −0.98 / −1.67 SD with the credit on. It
+  flipped twice today. First it was dropped because the Compendium 5.3 MET was too low. Then it was kept on ACSM MET while
+  treadmill work was still counted as heat. Now it's off with both corrections in place.
+  **Tension:** the field data favour more cooling than this (§12b), so this choice raises field predictions by about 1 °C.
 
-  **Both calibration fits** (ACSM MET, credit on):
+  **Both calibration fits** (ACSM MET, work subtracted, credit off):
 
   | Fit target | δ | FULL treadmill rate | FULL rise | CON treadmill rate | CON rise |
   |---|---|---|---|---|---|
-  | whole_rise (in use) | 0.1151 | 0.0626 (meas 0.071 ± 0.032) | 2.37 (meas 2.37 ± 0.45) | 0.0295 (meas 0.037 ± 0.015) | 1.51 (meas 1.81 ± 0.40) |
-  | treadmill_rate | 0.2011 | 0.071 (meas 0.071 ± 0.032) | 2.72 (meas 2.37 ± 0.45) | 0.0295 (meas 0.037 ± 0.015) | 1.51 (meas 1.81 ± 0.40) |
+  | whole_rise (in use) | 0.0486 | 0.0621 (meas 0.071 ± 0.032) | 2.37 (meas 2.37 ± 0.45) | 0.0358 (meas 0.037 ± 0.015) | 1.85 (meas 1.81 ± 0.40) |
+  | treadmill_rate | 0.1348 | 0.071 (meas 0.071 ± 0.032) | 2.76 (meas 2.37 ± 0.45) | 0.0358 (meas 0.037 ± 0.015) | 1.85 (meas 1.81 ± 0.40) |
 
-  Table 4's 0.071 °C/min is a mean of individual rates, and the fast heaters stopped early: 0.071 × 36.2 min = 2.57 °C, more
-  than the 2.37 °C whole-protocol rise. Fitting one mean subject to it overshoots the rise.
 * `iso7933_dynamic` (alternate): the full ISO 7933 dynamic correction, with no surcharge.
 * `gagge_static`: Gagge's own clothing and w_crit structure with static intrinsic manikin values. With Gagge's
   i_cl = 0.45 law and 70 kg / 1.8258 m², this mode reproduces `two_nodes_gagge` (test tolerance 0.01 °C).
@@ -77,23 +77,20 @@ speed and grade).
 
 | Model | Condition | Treadmill rate (model) | Measured (mean ± SD) | Error / SD | Whole-protocol rise model / measured (°C) |
 |---|---|---|---|---|---|
-| conservative | CON | 0.0295 | 0.037 ± 0.015 | -0.50 | 1.51 / 1.81 |
-| conservative | FULL | 0.0626 | 0.071 ± 0.032 | -0.26 | 2.37 / 2.37 (fit) |
-| iso7933_dynamic | CON | 0.0295 | 0.037 ± 0.015 | -0.50 | 1.51 / 1.81 |
-| iso7933_dynamic | FULL | 0.0516 | 0.071 ± 0.032 | -0.61 | 1.90 / 2.37 |
-| gagge_static | CON | 0.0421 | 0.037 ± 0.015 | +0.34 | 2.22 / 1.81 |
-| gagge_static | FULL | 0.0690 | 0.071 ± 0.032 | -0.06 | 2.65 / 2.37 |
-| jos3 | CON | 0.0414 | 0.037 ± 0.015 | +0.29 | 2.28 / 1.81 |
-| jos3 | FULL | 0.0473 | 0.071 ± 0.032 | -0.74 | 1.84 / 2.37 |
+| conservative | CON | 0.0358 | 0.037 ± 0.015 | -0.08 | 1.85 / 1.81 |
+| conservative | FULL | 0.0621 | 0.071 ± 0.032 | -0.28 | 2.37 / 2.37 (fit) |
+| iso7933_dynamic | CON | 0.0224 | 0.037 ± 0.015 | -0.98 | 1.14 / 1.81 |
+| iso7933_dynamic | FULL | 0.0399 | 0.071 ± 0.032 | -0.97 | 1.48 / 2.37 |
+| gagge_static | CON | 0.0314 | 0.037 ± 0.015 | -0.37 | 1.66 / 1.81 |
+| gagge_static | FULL | 0.0568 | 0.071 ± 0.032 | -0.44 | 2.21 / 2.37 |
+| jos3 | CON | 0.0336 | 0.037 ± 0.015 | -0.22 | 1.88 / 1.81 |
+| jos3 | FULL | 0.0396 | 0.071 ± 0.032 | -0.98 | 1.56 / 2.37 |
 
 Summary values only: Tables 3 and 4. Figure 2's time course isn't tabulated and wasn't digitized. The air speed wasn't reported; results.json has a 0.1 / 0.5 / 1.0 m/s sweep, and it's the largest uncertainty, since conservative CON moves by about 1 SD between 0.1 and 0.5 m/s. JOS-3 behaves like the ISO-dynamic mode: it under-predicts FULL by about 1 SD.
 
-The FULL rise in conservative mode is the calibration target, and CON decided the walking credit. Unfitted: FULL treadmill
-0.063 vs 0.071 ± 0.032 (−0.26 SD); CON treadmill −0.50 SD; CON rise 1.51 vs 1.81 ± 0.40 (−0.74 SD). ISO-dynamic (no surcharge)
-under-predicts FULL by 0.6 SD. JOS-3 over-predicts CON slightly and under-predicts FULL by 0.7 SD.
+The FULL rise in conservative mode is the calibration target, and CON decided the walking credit, so the remaining unfitted checks are the FULL treadmill rate (−0.28 SD) and the CON rise (+0.10 SD). ISO-dynamic and JOS-3 both under-predict FULL by about 1 SD.
 
-**Field consequence** (fixture practice, NATA-phased gear, cached NWS forecast). Conservative (planning default): median
-peak 39.2–39.8 °C, p95 39.6–40.5 °C; all 16 athletes cross 39.0 °C at p95 between minutes 47 and 57. ISO-dynamic: median 38.8–39.8 °C, p95 39.5–40.5 °C. In both modes all 16 athletes cross 39.0 °C at p95 on the
+**Field consequence** (fixture practice, NATA-phased gear, cached NWS forecast). Conservative (planning default): median peak 39.7–41.0 °C, p95 40.5–41.7 °C; all 16 athletes cross 39.0 °C at p95 between minutes 45 and 52. ISO-dynamic: median 38.8–39.8 °C, p95 39.5–40.5 °C. In both modes all 16 athletes cross 39.0 °C at p95 on the
 unmodified plan. Field context: Godek 2006 measured NFL preseason practice maxima of 38.65 ± 0.48 °C (adult, acclimatized,
 unknown intensity), so conservative is likely hot in the field while ISO is low in the lab. The truth needs field data with
 measured activity.
@@ -447,8 +444,8 @@ to 0.1 °C and state the seed; the optimizer uses common random numbers, so plan
 - The numba kernel raises on a non-converged T_cl, and stale text is corrected.
 
 **Open judgement calls (owner's decision):**
-1. **Calibration statistic. DECIDED Oct 3:** δ is now fitted to the whole-protocol rise (0.0645). The treadmill-rate fit (0.1673) is reported alongside it above and in results.json.
-2. **Walking-ventilation credit. DECIDED Oct 3:** kept, because with the ACSM treadmill MET it reproduces CON better (see §5 table).
+1. **Calibration statistic. DECIDED Oct 3:** δ is fitted to the whole-protocol rise (now 0.0486; the treadmill-rate fit, 0.1348, is reported alongside it).
+2. **Walking-ventilation credit. DECIDED Oct 3 by the CON rule:** off, once the treadmill's external work is subtracted (see §5 table). Field data pull the other way (§12b).
 3. **The surcharge sits before the VO₂max ceiling.** In the field the ceiling binds for many lineman p95 draws, so δ moves p95 less than the median.
 4. **δ depends on the unreported chamber air speed:** 0.167 at 0.1 m/s, 0.23 at 0.3 m/s, 0.30 at 0.5 m/s. The lowest is used.
 
@@ -478,37 +475,47 @@ to 0.1 °C and state the seed; the optimizer uses common random numbers, so plan
 The model's p50 peak for each study's mean participant is compared with the study's group-mean peak, and its p95 with
 mean + 1.645 SD and the highest individual reading. The papers don't report practice structure, so our fixture drill mix
 (40 min "hard" at 8 MET, 12 min "max" at 11 MET), scaled to each study's duration, is used. Cloud isn't reported either, so
-sun is bracketed: overcast / clear. The WBGT-only studies are compared with the demo practice, whose forecast WBGT
-(28.3–30 °C) falls in their band.
+sun is bracketed: overcast / clear. The WBGT-only rows run the **demo roster and plan**, not the study cohorts. McClelland
+is hotter than the demo forecast, so its gap is understated; the Yeargin evening is warmer than the study days, so its gap is
+overstated.
 
 | Study [group] | Measured peak mean ± SD (°C) | ≈ p95 | Max individual | Model p50 peak | Model p95 peak | p50 − measured mean |
 |---|---|---|---|---|---|---|
-| Godek 2006 (NFL, AM full equipment) [linemen] | 38.65 ± 0.48 | 39.44 | 39.29 | 38.8 / 39.45 | 39.16 / 39.75 | 0.15 / 0.8 |
-| Godek 2006 (NFL, AM full equipment) [backs] | 38.44 ± 0.32 | 38.97 | 39.08 | 38.85 / 39.53 | 39.54 / 40.33 | 0.41 / 1.09 |
-| Fowkes Godek 2004 (Div II, PM full pads) [all] | 38.6 ± 0.0 | 38.6 | 39.11 | 39.03 / 40.04 | 39.43 / 40.51 | 0.43 / 1.44 |
-| McClelland 2018 (Div III, WBGT 29.1–31.4 °C) [demo roster vs study cohort] | 38.56 ± 0.32 | 39.09 | — | 39.4 | 39.97 | 0.84 |
-| DeMartini-Nolan 2018 (Div I, WBGT ≈ 28.75 °C) [demo roster vs study cohort] | 38.83 ± 0.42 | 39.52 | — | 39.4 | 39.97 | 0.57 |
-| Yeargin 2010 (high school, heat-acclimatized) [all] | 38.7 ± 0.3 | 39.19 | — | 39.34 | 40.26 | 0.63 |
+| Godek 2006 (NFL, AM full equipment) [linemen] | 38.65 ± 0.48 | 39.44 | 39.29 | 39.5 / 40.64 | 39.98 / 41.16 | 0.85 / 1.99 |
+| Godek 2006 (NFL, AM full equipment) [backs] | 38.44 ± 0.32 | 38.97 | 39.08 | 39.34 / 40.6 | 40.51 / 41.78 | 0.9 / 2.16 |
+| Fowkes Godek 2004 (Div II, PM full pads) [all] | 38.6 ± n/a | — | 39.11 | 39.82 / 40.91 | 40.19 / 41.45 | 1.22 / 2.31 |
+| McClelland 2018 (Div III, WBGT 29.1–31.4 °C) [demo roster vs study cohort] | 38.56 ± 0.32 | 39.09 | — | 40.23 | 41.1 | 1.67 |
+| DeMartini-Nolan 2018 (Div I, WBGT ≈ 28.75 °C) [demo roster vs study cohort] | 38.83 ± 0.42 | 39.52 | — | 40.23 | 41.1 | 1.4 |
+| Yeargin 2010 (high school, heat-acclimatized) [all] | 38.7 ± 0.3 | 39.19 | — | 40.44 | 41.95 | 1.73 |
 
 **Sensitivity on the demo practice** (team-mean peaks, one change at a time):
 
 | Case | p50 | p95 | Δp50 | Δp95 |
 |---|---|---|---|---|
-| baseline (conservative mode, as planned) | 39.4 | 39.97 | — | — |
-| hard/max drills at the 'moderate' MET (activity level) | 37.89 | 38.41 | -1.51 | -1.55 |
-| all drills in shade (no solar load) | 38.85 | 39.33 | -0.56 | -0.63 |
-| ISO-dynamic clothing (no gear surcharge) | 39.2 | 39.91 | -0.2 | -0.06 |
-| every athlete fully acclimatized (day 14) | 39.23 | 39.79 | -0.18 | -0.17 |
-| no ensemble spread (met/thermo SD = 0) | 39.38 | 39.38 | -0.03 | -0.59 |
+| baseline (conservative mode, as planned) | 40.23 | 41.1 | — | — |
+| hard/max drills at the 'moderate' MET (activity level) | 37.91 | 38.82 | -2.32 | -2.27 |
+| all drills in shade (no solar load) | 39.42 | 40.21 | -0.81 | -0.88 |
+| ISO-dynamic clothing (no gear surcharge) | 39.2 | 39.91 | -1.03 | -1.19 |
+| every athlete fully acclimatized (day 14) | 39.9 | 40.73 | -0.33 | -0.37 |
+| no ensemble spread (met/thermo SD = 0) | 40.25 | 40.25 | 0.02 | -0.85 |
+| walking-ventilation credit on (owner rule turned it off) | 39.29 | 39.93 | -0.94 | -1.16 |
 
-**Reading it plainly.** Our medians sit **0.6–0.8 °C above** the field group-mean peaks at matched WBGT. Against the Godek
-cohorts they're 0.15–0.43 °C above under overcast sky and 0.8–1.4 °C above under clear sky. Model p95 lands at or above the
-highest individual readings. The parameter that drives this is the **activity level**: the drill-intensity → MET mapping.
-Running "hard" and "max" drills at the "moderate" MET lowers medians by 1.5 °C. The Compendium's "football, competitive"
-(8 MET) is a game value applied to whole practice blocks, while observed practices are self-paced; Hitchcock 2007 measured a
-55 % VO₂max average in simulated practice. Solar load comes next (−0.56 °C in full shade). The clothing surcharge (−0.2 °C) and
-acclimatization (−0.18 °C) are minor. Nothing was tuned here: the gap is reported. The fix is measured drill intensity
-(HR or GPS from the team's own practices via WS3, or a sourced practice-specific MET table), not changing the physics.
+**Reading it plainly.**
+- Our medians sit **1.4–1.7 °C above** the field group-mean peaks at matched WBGT. Against the Godek cohorts they're 0.85–1.2 °C
+  above under overcast sky and 2.0–2.3 °C above under clear sky. Model p95 is well above the highest individual readings.
+- The largest one-at-a-time sensitivity is the **activity level**: running "hard" and "max" drills at the "moderate" MET lowers
+  medians by 2.3 °C. The Compendium's "competitive football" 8 MET is a game value applied to whole practice blocks, while
+  Hitchcock 2007 measured a 55 % VO₂max average in simulated practice.
+- **Clothing treatment** comes next (ISO-dynamic without surcharge, −1.0), then the **walking-ventilation credit** (−0.9; it's
+  off by the owner's CON rule), then sun (−0.8).
+- These are sensitivities, not a demonstrated cause, and the sweep can't separate them from one another.
+- Choices in the field scenarios that push the model up:
+  - acclimatization is set to the camp day (about +0.2 °C);
+  - gassers run in full pads;
+  - backs come out at or above linemen, the reverse of the field data, because of the position-based VO₂max ceilings.
+
+Nothing was tuned: the gap is reported. Narrowing it needs measured drill intensity (HR or GPS from the team's own practices,
+WS3) and field validation of the clothing ventilation terms.
 
 ## 12. How it is checked
 

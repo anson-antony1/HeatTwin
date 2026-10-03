@@ -107,12 +107,16 @@ class Eval:
     n_changes: int
     energy: float
     at_risk: tuple[str, ...]
-
     added_min: int = 0
+    infeas_rules: float = 0.0   # FHSAA + NATA (regulatory) part of infeas
+    infeas_heat: float = 0.0    # p95-over-limit part
+    infeas_cap: float = 0.0     # changes over the preset cap
 
     def rank(self) -> tuple:
-        """Lexicographic: feasible first, least infeasibility, most load, fewest changes, fewest added minutes."""
-        return (0 if self.feasible else 1, round(self.infeas, 6), -round(self.load_w, 6), self.n_changes, self.added_min)
+        """Lexicographic, in tiers: feasible first; then regulatory violations, then heat excess, then changes over
+        the preset cap (a cap never trades against a rule); then most load, fewest changes, fewest added minutes."""
+        return (0 if self.feasible else 1, round(self.infeas_rules, 6), round(self.infeas_heat, 6),
+                round(self.infeas_cap, 6), -round(self.load_w, 6), self.n_changes, self.added_min)
 
 
 class Problem:
@@ -251,15 +255,17 @@ class Problem:
         first = np.where(over.any(axis=1), over.argmax(axis=1), -1)
         excess = float(np.sum(np.maximum(peak - self.limit, 0.0) + (peak >= self.limit) * 1e-3))
         n_ch = len(diff(self, st))
-        over_cap = max(0, n_ch - self.max_changes) if self.max_changes is not None else 0
-        infeas = (self.fhsaa_infeasibility(plan, viol) + excess / float(_opt("heat_excess_per_unit_c"))
-                  + float(over_cap))
+        over_cap = float(max(0, n_ch - self.max_changes)) if self.max_changes is not None else 0.0
+        inf_rules = self.fhsaa_infeasibility(plan, viol)
+        inf_heat = excess / float(_opt("heat_excess_per_unit_c"))
+        infeas = inf_rules + inf_heat + over_cap
         load = self.weighted_load(st)
         energy = (float(_opt("infeasibility_weight")) * infeas - 100.0 * load / self.load0
                   + float(_opt("change_penalty")) * n_ch)
         at_risk = tuple(a for a, pk in zip(self.R.ids, peak) if pk >= self.limit - self.near)
         ev = Eval(st, infeas == 0.0, infeas, viol, peak, first, load, n_ch, energy, at_risk,
-                  added_min=max(self.total(st) - self.orig_total, 0))
+                  added_min=max(self.total(st) - self.orig_total, 0), infeas_rules=inf_rules,
+                  infeas_heat=inf_heat, infeas_cap=over_cap)
         self.cache[key] = ev
         return ev
 
@@ -868,6 +874,18 @@ def optimize(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weath
     if time.perf_counter() > deadline and stopped != "time_budget":
         stopped = "time_budget"
 
+    fallback_note = None
+    if max_changes is not None and not best.feasible:
+        alt = optimize(plan, roster, weather, budget_s=budget_s, seed=seed, n_ensemble=n_ensemble, step_min=step_min,
+                       max_iterations=max_iterations, extra_labels=extra_labels, settings=settings, demo=demo,
+                       preset="max_load")
+        if alt["feasible"]:
+            alt["labels"].append(f"fewest_changes: no plan within {max_changes} changes met every constraint — "
+                                 f"showing the max_load plan ({len(alt['changes'])} changes)")
+            alt["search"]["preset"] = "fewest_changes→max_load"
+            alt["search"]["max_changes"] = max_changes
+            return alt
+        fallback_note = "max_load fallback also found no plan meeting every constraint"
     final = _renumber_added(best.state, P)
     new_plan = P.to_plan(final)
     labels = list(extra_labels)
@@ -904,7 +922,8 @@ def optimize(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weath
         "infeasible_reasons": reasons,
         "settings": P.S.as_dict(),
         "labels": [twonode.ESTIMATE_LABEL, *labels, *P.S.labels()]
-                  + ([] if best.feasible else ["no plan met every constraint — least-bad plan shown"]),
+                  + ([] if best.feasible else ["no plan met every constraint — least-bad plan shown"])
+                  + ([fallback_note] if fallback_note else []),
     }
 
 
@@ -939,6 +958,10 @@ def _renumber_added(st: State, P: "Problem | None" = None) -> State:
 
 
 def _infeasible_reasons(P: Problem, ev: Eval) -> list[str]:
+    return list(dict.fromkeys(_reasons(P, ev)))  # de-duplicate, keep order
+
+
+def _reasons(P: Problem, ev: Eval) -> list[str]:
     out = []
     if P.max_changes is not None and ev.n_changes > P.max_changes:
         out.append(f"needs {ev.n_changes} changes; the fewest_changes preset allows {P.max_changes}")

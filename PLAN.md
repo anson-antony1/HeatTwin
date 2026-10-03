@@ -12,7 +12,7 @@ Judged on: **Technical Complexity · Novelty · Potential for Impact · Feasibil
 
 | Layer | What it does | Hardware? | Rubric it carries |
 |---|---|---|---|
-| **1. Plan** — *the core* | NWS forecast → hourly on-field WBGT (Liljegren) → FHSAA zone per hour. Coach enters drills. A **two-node thermoregulation model per athlete** (body size, gear, drill intensity, acclimatization day) predicts core temp minute by minute. A **constrained optimizer** reorders drills, inserts breaks, changes gear so every athlete's predicted p95 core temp stays below the safety line while keeping as much training as possible, and never breaks FHSAA rules. | No | Complexity, Novelty |
+| **1. Plan** — *the core* | NWS forecast → hourly on-field WBGT (Liljegren) → FHSAA zone per hour. Coach enters drills. A **two-node thermoregulation model per athlete** (body size, gear, drill intensity, acclimatization day) predicts core temp minute by minute. A **constrained optimizer** reorders drills, inserts breaks, changes gear so every athlete's predicted p95 core temp stays below the AT-owned planning line while keeping as much training as possible, and never breaks FHSAA rules. | No | Complexity, Novelty |
 | **2. Watch** | Live heart rate from straps/watches athletes already own (Web Bluetooth, standard Heart Rate Service) recalibrates each athlete's model during practice and re-forecasts the rest of the session. Personal baselines (Relay engine). Coordination + persistence gates so it doesn't cry wolf. | Optional sideline node | Complexity, Impact |
 | **3. Respond** | One-tap **Collapse mode**: clock from collapse, voice-guided cool-first protocol (KSI), live tub water temp, EMS handoff timeline. | Optional tub probe | Impact, Presentation |
 
@@ -150,39 +150,38 @@ Each person runs **their own Claude Code session in their own git worktree/branc
 
 ## 7. Demo script (3 minutes)
 
-*Rewritten Oct 3 (evening) from the engine's actual output: fixtures + cached NWS forecast, `?demo=1` (seed 0, fixed
-iteration caps, reproducible), Armstrong-calibrated clothing, NATA-phased gear. **Warm the cache before presenting:** call
-`POST /optimize?demo=1` and `POST /optimize?demo=1&preset=fewest_changes` once each; repeat calls then return in about 2 ms. After
-any model change, rerun and update these numbers. Say "estimate — planning only" out loud once.*
+*Rewritten Oct 3 (night) from the engine's actual output after the physio-review fixes: fixtures + cached NWS forecast,
+`?demo=1` (seed 0, fixed iteration caps, reproducible), Armstrong-calibrated clothing (treadmill work subtracted, walking
+credit off), NATA-phased gear. **Warm the cache before presenting:** call `POST /optimize?demo=1` once (about 7 s), plus
+`&preset=fewest_changes` (about 18 s) if you'll show it; repeat calls return in about 2 ms. Rerun after any model change.
+Say "estimate — planning only" out loud once.*
 
 1. **(20 s) Hook.** "More than 70 high school athletes have died of exertional heat stroke since 1982. Cooled within 30 minutes, survival is essentially 100%. A third of these events happen with no athletic trainer present. Florida law already requires heat monitoring and an ice tub. Nobody tells a coach what *today's* practice will do to *each* kid."
 2. **(40 s) Plan.**
    - **Forecast:** tomorrow's Gainesville forecast is NWS's own WBGT grid, cached and labelled as a fixture. Practice runs 3:30–5:23 pm at 86 / 83 / 82 °F WBGT, which is FHSAA zones 2 / 2 / 1.
-   - **Plan:** load the 113-minute practice. Gear follows NATA phasing: day-2 athletes in helmets only, days 3–5 helmets and shoulder pads.
+   - **Plan:** load the 113-minute practice. Gear follows NATA phasing.
    - **Heat strip:**
-     - Every athlete's p95 estimate crosses the AT's 39.0 °C line between minute 47 and minute 57, in the inside run and team period.
-     - First across, at minute 47: the day-2 linebackers Caleb and Isaiah. Next, at minute 49: Jordan, a day-3 receiver.
+     - Every athlete's p95 estimate crosses the AT's 39.0 °C planning line between minute 45 and minute 52.
+     - The first is Isaiah, a day-2 linebacker, at minute 45. Then Caleb at minute 46, and Jordan and Logan (day 3) at minute 47.
      - The plan also misses FHSAA zone-2 shaded-break minutes in both hours.
-   - **Line to say:** "The plan as written is too hot for this forecast, not just for three kids."
-3. **(30 s) Optimize.** Show the **fewest-changes** preset first; coaches hate big diffs.
-   - **Five changes:**
-     1. Individual period moves to 4:12.
-     2. Inside run (priority 2) comes out.
-     3. Team period is split into 12 + 8 + 5 minutes around shaded breaks.
-     4. A 4-minute shaded break is added at 3:56.
-     5. A 16-minute shaded break is added at 4:52.
-   - **Say:** "All 16 athletes are under 39.0 °C at p95 (max 38.99). Zero FHSAA and NATA violations. 81% of the training load kept. Practice is 5 minutes longer."
-   - **Then flip to max-load:** 13 changes (platoons, helmet + shoulder pads for team period, three added breaks) keep 83%, but practice is 20 minutes longer.
-   - **Line to say:** "The coach picks; the line doesn't move."
+3. **(30 s) Optimize** (max-load preset, cached).
+   - **Shown on screen:**
+     - Team period moves early and splits around a shaded break.
+     - Team period and inside run drop to helmets only; individual period and special teams drop to no pads.
+     - Inside run is trimmed to 12 minutes, and the gassers (priority 3) come out.
+     - Water breaks lengthen to 8 and 12 minutes, and four 4-minute shaded breaks are added.
+   - **Say:**
+     - "All 16 athletes are under 39.0 °C at p95 (max 38.98). Ten sit in the near-limit band."
+     - "Zero FHSAA and NATA violations. 75% of the training load kept. Practice is 13 minutes longer."
+   - **Fewest-changes preset (optional):** "Ask it for 6 changes or fewer: it says no plan within 6 met every rule and shows the 18-change plan instead. It won't trade a rule for a shorter diff."
 4. **(40 s) Watch.**
-   - A teammate in an HR strap does burpees: the Amazfit Helio Strap with Zepp "Heart Rate Push" through `engine/hr_bridge.py`. The fallback is `fixtures/hr_a07_synthetic.csv` replay, labelled REPLAY.
-   - The card's met_scale moves off its prior (replay: 1.0 → 1.24 ± 0.03 in about 16 one-minute updates) and the rest of the session re-forecasts.
+   - A teammate wears the Amazfit Helio Strap, streaming via Zepp "Heart Rate Push" through `python -m engine.hr_bridge --map a07=Helio`, after `POST /live/start {"start_now": true}`. The fallback is a replay of `fixtures/hr_a07_synthetic.csv`, labelled REPLAY.
+   - The card's met_scale moves off its prior (replay: 1.0 → 1.24 ± 0.03 in about 16 one-minute updates) and the session re-forecasts.
    - The gate log reads "not enough data" until coverage holds, then "re-forecast shows crossing" only if the crossing lasts at least 3 minutes.
-   - If the node logged: show the field-vs-forecast number from WS7 item 2.
 5. **(30 s) Respond.** Hit Collapse. The clock starts, the voice walks the KSI steps, the tub probe reads the ice water live, and an EMS timeline is generated. Every sentence passes `engine/guard.py`.
-6. **(20 s) Close.** Validation, from `validation/results.json`:
-   - **Armstrong 2010 (lab):** calibrated on the full-uniform rise. Unfitted, it reproduces the full-uniform treadmill rate (−0.3 SD) and control clothing (−0.5 SD).
-   - **Field pill data from football practices** (said plainly): "Our medians run 0.6–0.8 °C above measured practice peaks at the same WBGT. The driver is drill intensity, and live HR calibration is how we close that gap. The p95 line is where the safety margin lives."
+6. **(20 s) Close.** Validation, from `validation/results.json`, said plainly:
+   - **Armstrong 2010 (lab):** "Calibrated on the full-uniform rise; it reproduces control clothing within 0.1 SD."
+   - **Football practice pill data (field):** "Our medians run 1.4–1.7 °C above measured practice peaks at the same WBGT. Our drill intensities are game values. In a simulated practice, linemen averaged 55% of VO₂max (Hitchcock 2007). Live HR is how we calibrate that down; until then the estimate errs hot."
    - Then a $30 node vs. $300-per-athlete wearables, the IP position, and the next step: pilot with one Gainesville high school, then UF I2E.
 
 ---
@@ -192,7 +191,7 @@ any model change, rerun and update these numbers. Say "estimate — planning onl
 - **"Is the core temp accurate?"** → Show the validation table, the uncertainty band (p95), and the boundary: planning only, never treatment.
 - **"What's the IP?"** → Physics model is public; ours is per-athlete calibration + optimizer + field assimilation; the HR→core-temp filter is patented, so we'd license it.
 - **"Who pays?"** → School districts / athletic programs, annual subscription per school. Florida law already requires the monitoring, and districts already buy WBGT services.
-- **"Is it a medical device?"** → Positioned as safety planning; no diagnosis; clinician/AT decides. Same boundary as Relay.
+- **"Is it a medical device?"** → Positioned as heat-strain planning; no diagnosis; clinician/AT decides. Same boundary as Relay.
 - **"Why not just use a WBGT meter?"** → A meter tells you the field. We tell you *each athlete* under *this plan*, and how to change the plan.
 - **"What about kids without straps?"** → The model runs from roster data alone; HR only sharpens it.
 

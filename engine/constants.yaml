@@ -152,6 +152,7 @@ physical:
   pa_per_mmhg: 133.3224
   j_per_kcal: 4184.0
   s_per_h: 3600.0
+  standard_gravity_m_s2: 9.80665   # NIST CODATA 'standard acceleration of gravity 9.806 65 m s^-2 (exact)' — physics.nist.gov/cgi-bin/cuu/Value?gn
   f_per_c: 1.8          # T/°F = 1.8·t/°C + 32 (SI Appendix B.9 temperature relations)
   f_offset: 32.0
 
@@ -303,7 +304,7 @@ model_options:
   note: "cap_mode 'consistent' = skin evaporation capped at w_crit·E_max (definition of wettedness); 'ashrae55_reference' reproduces pythermalcomfort/ASHRAE 55 code, which allows (w_crit + 0.06)·E_max. See MODEL.md §7.3."
   cap_mode: consistent
   max_internal_dt_s: 30           # numerical: integration sub-step; outputs stay on the step_min grid (Euler lag at drill boundaries)
-  clothing_mode: conservative      # 'conservative' (default: ISO structure, wind credit kept, no walking-ventilation credit, calibrated gear surcharge) | 'iso7933_dynamic' (alternate) | 'gagge_static' (reference structure)
+  clothing_mode: conservative      # 'conservative' (default: ISO structure, wind credit kept, walking-ventilation credit off, calibrated gear surcharge) | 'iso7933_dynamic' (alternate) | 'gagge_static' (reference structure)
 
 acclimatization:
   status: DESIGN
@@ -465,19 +466,19 @@ armstrong_2010_reproduction:
 
 clothing_conservative:
   status: DESIGN
-  note: "Planning-default clothing mode ('conservative' is the historical name; it is now the Armstrong-calibrated mode). ISO 7933 dynamic structure (wind and walking-ventilation credit both kept: with the ACSM treadmill MET the credit reproduces Armstrong CON better than dropping it) plus a gear load surcharge on metabolic heat, M × (1 + δ·w(gear)), δ fitted to Armstrong 2010's mean FULL whole-protocol rise (2.37 °C). The surcharge is metabolic: applied before the VO2max ceiling and inside the live-HR observation model. δ lumps uniform weight, pad coverage and sweat-soaking (Armstrong and Hitchcock 2007 attribute extra metabolic cost to the uniform); it is a calibration, not a measured quantity. Safety margin lives in p95 + the AT-owned limit, not in the median physics."
+  note: "Planning-default clothing mode ('conservative' is the historical name; it is now the Armstrong-calibrated mode). ISO 7933 dynamic structure with the wind credit kept and the walking-ventilation credit off (with the ACSM treadmill MET and the 5 % grade's external work subtracted, credit off reproduces Armstrong CON; credit on under-predicts it by ~1 SD) plus a gear load surcharge on metabolic heat, M × (1 + δ·w(gear)), δ fitted to Armstrong 2010's mean FULL whole-protocol rise (2.37 °C). The surcharge is metabolic: applied before the VO2max ceiling and inside the live-HR observation model. δ lumps uniform weight, pad coverage and sweat-soaking (Armstrong and Hitchcock 2007 attribute extra metabolic cost to the uniform); it is a calibration, not a measured quantity. Safety margin lives in p95 + the AT-owned limit, not in the median physics."
   calibrated_by: "validation/armstrong_2010.py --calibrate"
   calibration_metric: whole_rise    # owner decision Oct 3: fit Table 3 whole-protocol FULL rise (2.37 °C); safety margin lives in p95 + the AT limit, not in median physics
   calibration_target: "armstrong_2010.rise_c.FULL (mean, 2.37 °C over 56.2 min)"
-  alternative_fit_treadmill_rate: 0.2011   # δ fitted to Table 4 FULL treadmill rate 0.071 °C/min (mean of individual rates; early terminations bias it high) — reported, not used
+  alternative_fit_treadmill_rate: 0.1348   # δ fitted to Table 4 FULL treadmill rate 0.071 °C/min (mean of individual rates; early terminations bias it high) — reported, not used
   iso_correction_fraction: 1.0
-  walk_credit_fraction: 1.0          # owner decision Oct 3: kept — with the ACSM treadmill MET (6.067) it reproduces Armstrong CON (−0.50 SD) better than dropping it (+0.65 SD); see validation results walk_credit_check
+  walk_credit_fraction: 0.0          # owner rule (Oct 3): keep or drop by which reproduces Armstrong CON — with the ACSM treadmill MET and the grade's external work subtracted, credit off fits CON (−0.08 SD rate, +0.10 SD rise) and credit on does not (−0.98 / −1.67 SD); see validation results walk_credit_check
   surcharge_weight_by_gear:        # DESIGN: share of the full-pads surcharge per gear level
     none: 0.0
     helmet: 0.0                    # helmet-only already borrows the helmet + shoulder-pads clothing values (TODO); no extra surcharge until a helmet-only ensemble is measured
     helmet_shoulder_pads: 0.636    # intrinsic-insulation interpolation (0.63 − 0.35)/(0.79 − 0.35)
     full_pads: 1.0
-  gear_met_surcharge_full_pads: 0.1151   # computed by validation/armstrong_2010.py --calibrate (FULL whole-protocol rise 2.37 °C)
+  gear_met_surcharge_full_pads: 0.0486   # computed by validation/armstrong_2010.py --calibrate (FULL whole-protocol rise 2.37 °C)
 
 demo_mode:
   status: DESIGN

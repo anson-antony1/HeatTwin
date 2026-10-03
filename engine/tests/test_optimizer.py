@@ -124,3 +124,13 @@ def test_fewest_changes_preset_caps_changes():
         assert any("changes" in r for r in res["infeasible_reasons"]) or res["infeasible_reasons"]
     with pytest.raises(ValueError):
         optimize(plan, roster, weather, preset="bogus", **FAST)
+
+
+def test_change_cap_never_outranks_a_rule():
+    """Reviewer bug 3: tiers — a plan over the change cap but rule-compliant beats a rule-violating plan within it."""
+    import numpy as np
+    from engine.optimizer import Eval
+    common = dict(state=(), violations=[], peak_p95=np.zeros(1), first_cross_step=np.zeros(1), energy=0.0, at_risk=())
+    over_cap = Eval(feasible=False, infeas=1.0, load_w=50.0, n_changes=7, infeas_cap=1.0, **common)
+    breaks_rule = Eval(feasible=False, infeas=0.5, load_w=90.0, n_changes=5, infeas_rules=0.5, **common)
+    assert over_cap.rank() < breaks_rule.rank()

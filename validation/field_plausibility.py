@@ -32,7 +32,7 @@ Z95 = 1.645
 
 
 def _rh_from_wet_bulb(tdb: float, twb: float) -> float:
-    """Invert pythermalcomfort.utilities.wet_bulb_tmp (psychrometric wet bulb) for RH by bisection."""
+    """Invert pythermalcomfort.utilities.wet_bulb_tmp (Stull 2011 empirical wet-bulb formula) for RH by bisection."""
     from pythermalcomfort.utilities import wet_bulb_tmp
     lo, hi = 1.0, 100.0
     for _ in range(60):
@@ -105,7 +105,8 @@ def scenarios(settings=None) -> list[dict]:
         mean, sd = measured["tc_max"]
         rows.append({
             "study": study, "group": group, "measured_peak_mean_c": mean, "measured_peak_sd_c": sd,
-            "measured_p95_c": round(mean + Z95 * sd, 2), "measured_max_individual_c": measured.get("max_individual"),
+            "measured_p95_c": round(mean + Z95 * sd, 2) if sd is not None else None,
+            "measured_max_individual_c": measured.get("max_individual"),
             "model_p50_peak_c": {k: round(v[0], 2) for k, v in out.items()},
             "model_p95_peak_c": {k: round(v[1], 2) for k, v in out.items()},
             "p50_minus_measured_mean_c": {k: round(v[0] - mean, 2) for k, v in out.items()},
@@ -129,7 +130,7 @@ def scenarios(settings=None) -> list[dict]:
     start = datetime.combine(date.date(), datetime.strptime(g4["pm"]["start"], "%H:%M").time(), tz)
     a = _athlete("godek04", g4["mass_kg"], 20, g4["preseason_days"][0], "OL")
     add("Fowkes Godek 2004 (Div II, PM full pads)", "all",
-        {"tc_max": [g4["tc_group_after_practice_approx"], 0.0], "max_individual": g4["tc_max_individual"]},
+        {"tc_max": [g4["tc_group_after_practice_approx"], None], "max_individual": g4["tc_max_individual"]},
         start, lat, lon, [a], _template(g4["pm"]["duration_min"], g4["pm"]["gear"]),
         g4["pm"]["air_temp_c"], g4["pm"]["rh_pct"], None,
         "group value read from a figure (SECONDARY), SD not available; age 20 assumed")
@@ -155,7 +156,6 @@ def scenarios(settings=None) -> list[dict]:
 
     y = F["yeargin_2010"]
     a = _athlete("yeargin10", y["mass_kg"], y["age_yr"], 14, "WR")
-    lat, lon = A["sites"]["gainesville"]
     start = datetime(2026, 10, 4, 17, 0, tzinfo=tz)
     evening = [h for h in fixtures.forecast() if h["time"] >= "2026-10-04T16:00"]
     res = twonode.simulate_roster([a], {"id": "yeargin", "site": fixtures.plan()["site"], "start": start.isoformat(),
@@ -207,6 +207,12 @@ def sensitivity(settings=None) -> list[dict]:
     calm = [dict(a, calib={"met_scale": 1.0, "met_scale_sd": 0.0, "thermo_scale": 1.0, "thermo_scale_sd": 0.0,
                            "n_sessions": 0, "updated_at": ""}) for a in roster]
     case("no ensemble spread (met/thermo SD = 0)", r=calm)
+    orig_wc = twonode.walk_credit
+    try:
+        twonode.walk_credit = lambda mode: 1.0  # sensitivity only
+        case("walking-ventilation credit on (owner rule turned it off)")
+    finally:
+        twonode.walk_credit = orig_wc
     return out
 
 
@@ -220,7 +226,11 @@ def run() -> dict:
         "sensitivity_demo": sensitivity(),
         "notes": [
             "Practice structure in the studies is not reported; the fixture plan's drill mix (40 min at 'hard' = 8 MET, "
-            "12 min at 'max' = 11 MET) is used, scaled to each study's duration.",
+            "12 min at 'max' = 11 MET) is used, scaled to each study's duration (gassers run in the study's gear).",
+            "NFL/college acclimatization is set to the camp day (no heat exposure before camp assumed) — pushes the model up ~0.2 °C.",
+            "WBGT-only rows run the demo roster and plan, not the study cohorts: McClelland is hotter than the demo (gap understated), "
+            "Yeargin's matched evening is warmer than the study days (gap overstated).",
+            "The sweep shows sensitivities one at a time; the largest is not proven to be the cause of the gap.",
             "Sun is bracketed (overcast vs clear) because cloud cover is not reported.",
             "Study peaks are group means of individual maxima; the model's p50 is the median peak for the mean participant.",
             "estimate — planning only",
