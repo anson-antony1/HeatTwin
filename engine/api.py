@@ -342,3 +342,8 @@ def settings() -> dict[str, Any]:
 @app.get("/sources")
 def sources() -> dict[str, Any]:
     return consts.as_json()
+
+
+# Coach plan entry by text/voice via Gemini (engine/llm_routes.py)
+from engine import llm_routes  # noqa: E402
+app.include_router(llm_routes.router)
