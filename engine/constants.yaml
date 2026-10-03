@@ -523,3 +523,54 @@ optimizer_presets:
   note: "max_load (default): maximize retained load, tie-break fewest changes. fewest_changes: hard cap on the number of changes (coach-friendly diff), maximize load under it (owner decision Oct 3: cap 6)."
   max_load: {max_changes: null}
   fewest_changes: {max_changes: 6}
+
+field_core_temp_studies:
+  status: VERIFIED
+  note: "Ingestible-pill core temperatures during American football practice, collected by the source-checker (Oct 3) from full texts/abstracts it read. Entries marked SECONDARY inside were read from a figure or inferred. Used by validation/field_plausibility.py."
+  godek_2006:
+    citation: "Godek SF, Bartolozzi AR et al. (2006) J Athl Train 41(1):8-14 (PMC1421487)"
+    level: NFL
+    preseason_days: [2, 3]
+    duration_min: 120
+    am: {start: "08:45", gear: full_pads, dry_bulb_c: 25.0, wet_bulb_c: 22.8}   # highest dry/wet bulb pair reported for the camp
+    linemen: {n: 8, mass_kg: 134.8, tc_max: [38.65, 0.48], tc_max_range: [37.47, 39.29]}
+    backs: {n: 6, mass_kg: 95.6, tc_max: [38.44, 0.32], tc_max_range: [37.81, 39.08]}
+    quote: "Tcmax ... 38.65 ± 0.48°C, range = 37.47 to 39.29°C (linemen); 38.44 ± 0.32°C (backs); WBGT not reported"
+  godek_2004:
+    citation: "Fowkes Godek S, Godek JJ, Bartolozzi AR (2004) J Athl Train 39(3):235-240 (PMC522145)"
+    level: NCAA Division II
+    n: 10
+    mass_kg: 116.6
+    preseason_days: [4, 8]
+    pm: {start: "15:15", duration_min: 135, gear: full_pads, air_temp_c: 34.0, rh_pct: 41.0}   # Table 2: 34 ± 0.6 °C, RH 37–45 %
+    tc_max_individual: 39.11
+    tc_group_after_practice_approx: 38.6      # SECONDARY: read by eye from Fig. 2
+  mcclelland_2018:
+    citation: "McClelland, Godek et al. (2018) J Strength Cond Res 32(6):1662-1670 (abstract)"
+    level: NCAA Division III
+    wbgt_c: [29.07, 30.93, 31.39]
+    tc_max: [38.56, 0.32]
+  demartini_nolan_2018:
+    citation: "DeMartini-Nolan, Casa, Coris et al. (2018) J Strength Cond Res 32(10):2888-2896 (abstract); conditions SECONDARY via DeMartini 2011 (same camp inferred)"
+    level: NCAA Division I
+    wbgt_c_secondary: 28.75
+    tc_max: [38.83, 0.42]
+  yeargin_2010:
+    citation: "Yeargin SW, Casa DJ et al. (2010) J Athl Train 45(2):136-146 (PMC2838465)"
+    level: high school
+    n: 25
+    mass_kg: 81.4
+    age_yr: 15
+    heat_acclimatized: true
+    duration_min: 168                           # 2.8 ± 0.5 h
+    wbgt_max_warm_days_c: [25.0, 1.0]
+    tc_max: [38.7, 0.3]
+  summary: "group-mean practice peaks 38.2–38.8 °C; individual maxima 39.1–39.3 °C; no reading ≥ 40 °C reported"
+
+field_plausibility_assumptions:
+  status: DESIGN
+  note: "Inputs the field studies do not report, stated explicitly: practice structure = the fixture plan's drill sequence and intensities scaled to the study's duration; sun bracketed by overcast (0 W/m²) and clear sky (Haurwitz); wind 2 m/s at 10 m; date mid-August at the study site's latitude; height of the nearest-mass fixture athlete when not reported."
+  practice_template: fixture_plan
+  wind_m_s: 2.0
+  date: "2026-08-15"
+  sites: {godek_2006: [40.61, -75.38], godek_2004: [39.95, -75.60], gainesville: [29.65, -82.32]}

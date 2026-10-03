@@ -218,3 +218,11 @@ def test_walk_credit_choice_matches_validation():
     chk = walk_credit_check()
     assert chk["in_constants"] == chk["chosen_walk_credit"]
     assert chk["treadmill_met_acsm"] == pytest.approx(6.067, abs=1e-3)
+
+
+def test_field_plausibility_results_present():
+    import json
+    from pathlib import Path
+    res = json.loads((Path(__file__).resolve().parents[2] / "validation" / "results.json").read_text())["field_plausibility"]
+    assert res["computed_by"] == "validation/field_plausibility.py" and res["synthetic"] is False
+    assert len(res["scenarios"]) >= 5 and res["sensitivity_demo"][0]["case"].startswith("baseline")

@@ -471,6 +471,45 @@ to 0.1 °C and state the seed; the optimizer uses common random numbers, so plan
 | `planning_limit_core_c` | 39.0 °C limit line (alternatives 38.0, 38.5) | VERIFIED (NIOSH 2016); AT-owned |
 | `non_participant`, `shade_model`, `near_limit_margin_c`, `model_options`, `ensemble_defaults` | modelling/product assumptions | DESIGN |
 
+## 12b. Field plausibility vs pill data from football practices (`validation/field_plausibility.py`)
+
+**Field data** (constants.field_core_temp_studies, collected by the source-checker): group-mean practice peaks 38.2–38.8 °C; individual maxima 39.1–39.3 °C; no reading ≥ 40 °C reported.
+
+The model's p50 peak for each study's mean participant is compared with the study's group-mean peak, and its p95 with
+mean + 1.645 SD and the highest individual reading. The papers don't report practice structure, so our fixture drill mix
+(40 min "hard" at 8 MET, 12 min "max" at 11 MET), scaled to each study's duration, is used. Cloud isn't reported either, so
+sun is bracketed: overcast / clear. The WBGT-only studies are compared with the demo practice, whose forecast WBGT
+(28.3–30 °C) falls in their band.
+
+| Study [group] | Measured peak mean ± SD (°C) | ≈ p95 | Max individual | Model p50 peak | Model p95 peak | p50 − measured mean |
+|---|---|---|---|---|---|---|
+| Godek 2006 (NFL, AM full equipment) [linemen] | 38.65 ± 0.48 | 39.44 | 39.29 | 38.8 / 39.45 | 39.16 / 39.75 | 0.15 / 0.8 |
+| Godek 2006 (NFL, AM full equipment) [backs] | 38.44 ± 0.32 | 38.97 | 39.08 | 38.85 / 39.53 | 39.54 / 40.33 | 0.41 / 1.09 |
+| Fowkes Godek 2004 (Div II, PM full pads) [all] | 38.6 ± 0.0 | 38.6 | 39.11 | 39.03 / 40.04 | 39.43 / 40.51 | 0.43 / 1.44 |
+| McClelland 2018 (Div III, WBGT 29.1–31.4 °C) [demo roster vs study cohort] | 38.56 ± 0.32 | 39.09 | — | 39.4 | 39.97 | 0.84 |
+| DeMartini-Nolan 2018 (Div I, WBGT ≈ 28.75 °C) [demo roster vs study cohort] | 38.83 ± 0.42 | 39.52 | — | 39.4 | 39.97 | 0.57 |
+| Yeargin 2010 (high school, heat-acclimatized) [all] | 38.7 ± 0.3 | 39.19 | — | 39.34 | 40.26 | 0.63 |
+
+**Sensitivity on the demo practice** (team-mean peaks, one change at a time):
+
+| Case | p50 | p95 | Δp50 | Δp95 |
+|---|---|---|---|---|
+| baseline (conservative mode, as planned) | 39.4 | 39.97 | — | — |
+| hard/max drills at the 'moderate' MET (activity level) | 37.89 | 38.41 | -1.51 | -1.55 |
+| all drills in shade (no solar load) | 38.85 | 39.33 | -0.56 | -0.63 |
+| ISO-dynamic clothing (no gear surcharge) | 39.2 | 39.91 | -0.2 | -0.06 |
+| every athlete fully acclimatized (day 14) | 39.23 | 39.79 | -0.18 | -0.17 |
+| no ensemble spread (met/thermo SD = 0) | 39.38 | 39.38 | -0.03 | -0.59 |
+
+**Reading it plainly.** Our medians sit **0.6–0.8 °C above** the field group-mean peaks at matched WBGT. Against the Godek
+cohorts they're 0.15–0.43 °C above under overcast sky and 0.8–1.4 °C above under clear sky. Model p95 lands at or above the
+highest individual readings. The parameter that drives this is the **activity level**: the drill-intensity → MET mapping.
+Running "hard" and "max" drills at the "moderate" MET lowers medians by 1.5 °C. The Compendium's "football, competitive"
+(8 MET) is a game value applied to whole practice blocks, while observed practices are self-paced; Hitchcock 2007 measured a
+55 % VO₂max average in simulated practice. Solar load comes next (−0.56 °C in full shade). The clothing surcharge (−0.2 °C) and
+acclimatization (−0.18 °C) are minor. Nothing was tuned here: the gap is reported. The fix is measured drill intensity
+(HR or GPS from the team's own practices via WS3, or a sourced practice-specific MET table), not changing the physics.
+
 ## 12. How it is checked
 
 * `tests/test_twonode.py`: rises with met; falls at rest in shade; monotonic in heat-stress inputs (T_a, RH, solar)

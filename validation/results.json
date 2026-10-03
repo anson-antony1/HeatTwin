@@ -606,5 +606,219 @@
     "fitted_metric": null
    }
   ]
+ },
+ "field_plausibility": {
+  "computed_by": "validation/field_plausibility.py",
+  "computed_at": "2026-10-03T18:55:20+00:00",
+  "model": "twonode-v1",
+  "synthetic": false,
+  "field_summary": "group-mean practice peaks 38.2\u201338.8 \u00b0C; individual maxima 39.1\u201339.3 \u00b0C; no reading \u2265 40 \u00b0C reported",
+  "scenarios": [
+   {
+    "study": "Godek 2006 (NFL, AM full equipment)",
+    "group": "linemen",
+    "measured_peak_mean_c": 38.65,
+    "measured_peak_sd_c": 0.48,
+    "measured_p95_c": 39.44,
+    "measured_max_individual_c": 39.29,
+    "model_p50_peak_c": {
+     "overcast": 38.8,
+     "clear": 39.45
+    },
+    "model_p95_peak_c": {
+     "overcast": 39.16,
+     "clear": 39.75
+    },
+    "p50_minus_measured_mean_c": {
+     "overcast": 0.15,
+     "clear": 0.8
+    },
+    "inputs": {
+     "air_temp_c": 25.0,
+     "rh_pct": 83.4,
+     "wbgt_c": null
+    },
+    "note": "RH 83.4 % from dry/wet bulb 25.0/22.8 \u00b0C (highest pair reported); age 26 assumed"
+   },
+   {
+    "study": "Godek 2006 (NFL, AM full equipment)",
+    "group": "backs",
+    "measured_peak_mean_c": 38.44,
+    "measured_peak_sd_c": 0.32,
+    "measured_p95_c": 38.97,
+    "measured_max_individual_c": 39.08,
+    "model_p50_peak_c": {
+     "overcast": 38.85,
+     "clear": 39.53
+    },
+    "model_p95_peak_c": {
+     "overcast": 39.54,
+     "clear": 40.33
+    },
+    "p50_minus_measured_mean_c": {
+     "overcast": 0.41,
+     "clear": 1.09
+    },
+    "inputs": {
+     "air_temp_c": 25.0,
+     "rh_pct": 83.4,
+     "wbgt_c": null
+    },
+    "note": "RH 83.4 % from dry/wet bulb 25.0/22.8 \u00b0C (highest pair reported); age 26 assumed"
+   },
+   {
+    "study": "Fowkes Godek 2004 (Div II, PM full pads)",
+    "group": "all",
+    "measured_peak_mean_c": 38.6,
+    "measured_peak_sd_c": 0.0,
+    "measured_p95_c": 38.6,
+    "measured_max_individual_c": 39.11,
+    "model_p50_peak_c": {
+     "overcast": 39.03,
+     "clear": 40.04
+    },
+    "model_p95_peak_c": {
+     "overcast": 39.43,
+     "clear": 40.51
+    },
+    "p50_minus_measured_mean_c": {
+     "overcast": 0.43,
+     "clear": 1.44
+    },
+    "inputs": {
+     "air_temp_c": 34.0,
+     "rh_pct": 41.0,
+     "wbgt_c": null
+    },
+    "note": "group value read from a figure (SECONDARY), SD not available; age 20 assumed"
+   },
+   {
+    "study": "McClelland 2018 (Div III, WBGT 29.1\u201331.4 \u00b0C)",
+    "group": "demo roster vs study cohort",
+    "measured_peak_mean_c": 38.56,
+    "measured_peak_sd_c": 0.32,
+    "measured_p95_c": 39.09,
+    "measured_max_individual_c": null,
+    "model_p50_peak_c": {
+     "demo_forecast": 39.4,
+     "demo_range": [
+      39.18,
+      39.8
+     ]
+    },
+    "model_p95_peak_c": {
+     "demo_forecast": 39.97,
+     "demo_range": [
+      39.55,
+      40.46
+     ]
+    },
+    "p50_minus_measured_mean_c": {
+     "demo_forecast": 0.84
+    },
+    "inputs": {
+     "wbgt_c": "demo forecast 28.3\u201330.0"
+    },
+    "note": "matched on WBGT band only: different roster (high school, NATA-phased gear) and practice plan"
+   },
+   {
+    "study": "DeMartini-Nolan 2018 (Div I, WBGT \u2248 28.75 \u00b0C)",
+    "group": "demo roster vs study cohort",
+    "measured_peak_mean_c": 38.83,
+    "measured_peak_sd_c": 0.42,
+    "measured_p95_c": 39.52,
+    "measured_max_individual_c": null,
+    "model_p50_peak_c": {
+     "demo_forecast": 39.4,
+     "demo_range": [
+      39.18,
+      39.8
+     ]
+    },
+    "model_p95_peak_c": {
+     "demo_forecast": 39.97,
+     "demo_range": [
+      39.55,
+      40.46
+     ]
+    },
+    "p50_minus_measured_mean_c": {
+     "demo_forecast": 0.57
+    },
+    "inputs": {
+     "wbgt_c": "demo forecast 28.3\u201330.0"
+    },
+    "note": "matched on WBGT band only: different roster (high school, NATA-phased gear) and practice plan"
+   },
+   {
+    "study": "Yeargin 2010 (high school, heat-acclimatized)",
+    "group": "all",
+    "measured_peak_mean_c": 38.7,
+    "measured_peak_sd_c": 0.3,
+    "measured_p95_c": 39.19,
+    "measured_max_individual_c": null,
+    "model_p50_peak_c": {
+     "forecast_evening": 39.34
+    },
+    "model_p95_peak_c": {
+     "forecast_evening": 40.26
+    },
+    "p50_minus_measured_mean_c": {
+     "forecast_evening": 0.63
+    },
+    "inputs": {
+     "wbgt_c": "fixture forecast 17:00\u201319:48, 27.8 \u2192 25.6 \u00b0C (study warm days 25 \u00b1 1)"
+    },
+    "note": "matched on WBGT band only (Ta/RH not in the paper): Gainesville fixture evening hours; full pads after the 3-day phase-in; fully acclimatized (day 14); slightly warmer than the study"
+   }
+  ],
+  "sensitivity_demo": [
+   {
+    "case": "baseline (conservative mode, as planned)",
+    "p50": 39.4,
+    "p95": 39.97
+   },
+   {
+    "case": "hard/max drills at the 'moderate' MET (activity level)",
+    "p50": 37.89,
+    "p95": 38.41,
+    "delta_p50": -1.51,
+    "delta_p95": -1.55
+   },
+   {
+    "case": "all drills in shade (no solar load)",
+    "p50": 38.85,
+    "p95": 39.33,
+    "delta_p50": -0.56,
+    "delta_p95": -0.63
+   },
+   {
+    "case": "ISO-dynamic clothing (no gear surcharge)",
+    "p50": 39.2,
+    "p95": 39.91,
+    "delta_p50": -0.2,
+    "delta_p95": -0.06
+   },
+   {
+    "case": "every athlete fully acclimatized (day 14)",
+    "p50": 39.23,
+    "p95": 39.79,
+    "delta_p50": -0.18,
+    "delta_p95": -0.17
+   },
+   {
+    "case": "no ensemble spread (met/thermo SD = 0)",
+    "p50": 39.38,
+    "p95": 39.38,
+    "delta_p50": -0.03,
+    "delta_p95": -0.59
+   }
+  ],
+  "notes": [
+   "Practice structure in the studies is not reported; the fixture plan's drill mix (40 min at 'hard' = 8 MET, 12 min at 'max' = 11 MET) is used, scaled to each study's duration.",
+   "Sun is bracketed (overcast vs clear) because cloud cover is not reported.",
+   "Study peaks are group means of individual maxima; the model's p50 is the median peak for the mean participant.",
+   "estimate \u2014 planning only"
+  ]
  }
 }
