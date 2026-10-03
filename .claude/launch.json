@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "engine",
+      "runtimeExecutable": ".venv/bin/uvicorn",
+      "runtimeArgs": ["engine.api:app", "--port", "8000"],
+      "port": 8000
+    }
+  ]
+}

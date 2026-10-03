@@ -1,0 +1,60 @@
+"""POST /simulate and POST /optimize on fixtures (FastAPI TestClient, no network)."""
+from __future__ import annotations
+
+from fastapi.testclient import TestClient
+
+from engine import fixtures
+from engine.api import app
+
+client = TestClient(app)
+
+
+def test_health():
+    r = client.get("/health")
+    assert r.status_code == 200 and r.json()["ok"] is True
+
+
+def test_simulate_defaults_to_fixtures_and_labels_them():
+    r = client.post("/simulate", json={})
+    assert r.status_code == 200
+    res = r.json()
+    assert res["plan_id"] == fixtures.plan()["id"]
+    assert len(res["athletes"]) == len(fixtures.roster())
+    for lab in ("estimate — planning only", "synthetic roster", "forecast is fixture"):
+        assert lab in res["labels"]
+    assert res["model"]["name"] == "twonode-v1"
+
+
+def test_simulate_with_explicit_body():
+    body = {"plan": fixtures.plan(), "roster": fixtures.roster()[:3], "weather": fixtures.forecast(), "n_ensemble": 10}
+    r = client.post("/simulate", json=body)
+    assert r.status_code == 200
+    res = r.json()
+    assert [a["id"] for a in res["athletes"]] == [a["id"] for a in fixtures.roster()[:3]]
+    assert "synthetic roster" not in res["labels"]
+
+
+def test_simulate_rejects_bad_shapes():
+    plan = fixtures.plan()
+    plan["drills"][0]["intensity"] = "extreme"
+    assert client.post("/simulate", json={"plan": plan}).status_code == 422
+    plan = fixtures.plan()
+    plan["drills"][1]["participants"] = ["nobody"]
+    assert client.post("/simulate", json={"plan": plan}).status_code == 422
+
+
+def test_optimize_endpoint_small_budget():
+    body = {"roster": fixtures.roster()[:4], "n_ensemble": 10, "budget_s": 3}
+    r = client.post("/optimize", json=body)
+    assert r.status_code == 200
+    res = r.json()
+    for key in ("original", "optimized", "plan", "changes", "load_kept_pct", "feasible", "search"):
+        assert key in res
+    assert res["search"]["seconds"] <= 3 + 2.0
+    assert "estimate — planning only" in res["labels"]
+
+
+def test_sources_lists_statuses():
+    res = client.get("/sources").json()
+    assert res["planning_limit_core_c"]["status"] == "VERIFIED"
+    assert "gagge_1986" in res

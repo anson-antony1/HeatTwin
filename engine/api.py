@@ -1,0 +1,214 @@
+"""HeatTwin engine API (FastAPI). Shapes follow CONTRACTS.md; extra fields are additive.
+
+    uvicorn engine.api:app --reload --port 8000
+
+POST /simulate  {plan?, roster?, weather?, step_min?, n_ensemble?, seed?}           → SimulationResult
+POST /optimize  {plan?, roster?, weather?, budget_s?, seed?, n_ensemble?}           → OptimizeResult
+GET  /sources                                                                       → constants.yaml as JSON
+GET  /health
+
+Missing ``plan``/``roster`` fall back to fixtures/plan.json and fixtures/roster.json (labelled synthetic).
+Missing ``weather`` uses WS1's engine.weather.get_forecast when it exists and covers the plan, otherwise the cached
+NWS fixture forecast (labelled "forecast is fixture"). Every result is labelled "estimate — planning only".
+"""
+from __future__ import annotations
+
+from datetime import timedelta
+from typing import Any, Literal, Optional
+
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, ConfigDict, Field
+
+from engine import consts, fixtures, optimizer
+from engine.physio import twonode
+
+app = FastAPI(title="HeatTwin engine", version="0.1.0",
+              description="Per-athlete heat-strain estimates for practice planning. Estimate — planning only.")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# ── request shapes (CONTRACTS.md; extra fields allowed so additive changes don't break callers) ──
+
+class _Model(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+
+class AthleteCalibration(_Model):
+    met_scale: float
+    met_scale_sd: float
+    thermo_scale: float
+    thermo_scale_sd: float
+    n_sessions: int
+    updated_at: str
+
+
+class Athlete(_Model):
+    id: str
+    name: str
+    position: Optional[str] = None
+    height_m: float = Field(gt=0)
+    mass_kg: float = Field(gt=0)
+    age_yr: float = Field(gt=0)
+    sex: Literal["male", "female"]
+    body_fat_pct: Optional[float] = None
+    hr_rest_bpm: Optional[float] = None
+    hr_max_bpm: Optional[float] = None
+    acclimatization_day: float = Field(ge=1)
+    days_since_last_heat_session: Optional[float] = None
+    flags: Optional[list[str]] = None
+    calib: Optional[AthleteCalibration] = None
+
+
+class Drill(_Model):
+    id: str
+    name: str
+    duration_min: float = Field(gt=0)
+    intensity: Literal["rest", "light", "moderate", "hard", "max"]
+    met_override: Optional[float] = Field(default=None, gt=0)
+    gear: Literal["none", "helmet", "helmet_shoulder_pads", "full_pads"]
+    shade: bool
+    is_break: bool
+    priority: Literal[1, 2, 3]
+    movable: bool
+    participants: Optional[list[str]] = None
+
+
+class Site(_Model):
+    name: str
+    lat: float
+    lon: float
+    surface: Literal["grass", "turf"]
+
+
+class PracticePlan(_Model):
+    id: str
+    site: Site
+    start: str
+    drills: list[Drill] = Field(min_length=1)
+
+
+class WeatherHour(_Model):
+    time: str
+    air_temp_c: float
+    rh_pct: float = Field(ge=0, le=100)
+    wind_m_s: float = Field(ge=0)
+    cloud_cover_pct: float = Field(ge=0, le=100)
+    solar_w_m2: Optional[float] = None
+    wbgt_f: float
+    fhsaa_zone: Literal[1, 2, 3, 4, 5]
+    source: Literal["nws_forecast", "field_node", "assimilated", "fixture"]
+
+
+class SimulateRequest(_Model):
+    plan: Optional[PracticePlan] = None
+    roster: Optional[list[Athlete]] = None
+    weather: Optional[list[WeatherHour]] = None
+    step_min: float = Field(default=1.0, gt=0, le=5)
+    n_ensemble: int = Field(default=30, ge=5, le=500)
+    seed: int = 0
+
+
+class OptimizeRequest(SimulateRequest):
+    budget_s: Optional[float] = Field(default=None, gt=0, le=60)
+
+
+# ── helpers ──
+
+def _dump(x):
+    return x.model_dump(exclude_none=True) if hasattr(x, "model_dump") else x
+
+
+def _inputs(req: SimulateRequest) -> tuple[dict, list[dict], list[dict], list[str]]:
+    labels: list[str] = []
+    if req.plan is not None:
+        plan = _dump(req.plan)
+    else:
+        plan = fixtures.plan()
+        labels.append("synthetic plan (fixture)")
+    if req.roster is not None:
+        roster = [_dump(a) for a in req.roster]
+    else:
+        roster = fixtures.roster()
+        if fixtures.roster_is_synthetic():
+            labels.append("synthetic roster")
+    if not roster:
+        raise HTTPException(422, "roster is empty")
+    ids = {a["id"] for a in roster}
+    for d in plan["drills"]:
+        unknown = set(d.get("participants") or []) - ids
+        if unknown:
+            raise HTTPException(422, f"drill {d['id']} lists participants not on the roster: {sorted(unknown)}")
+    weather = [_dump(h) for h in req.weather] if req.weather is not None else _forecast_for(plan, labels)
+    return plan, roster, weather, labels
+
+
+def _forecast_for(plan: dict, labels: list[str]) -> list[dict]:
+    """WS1 live forecast if available and covering the plan window, else the cached NWS fixture."""
+    t0 = twonode.parse_time(plan["start"])
+    minutes = sum(float(d["duration_min"]) for d in plan["drills"]) + consts.get("optimizer.max_added_minutes")
+    t1 = t0 + timedelta(minutes=minutes)
+    try:
+        from engine import weather as ws1  # WS1, may not exist yet
+        hours = ws1.get_forecast(plan["site"]["lat"], plan["site"]["lon"])
+        hours = [h.model_dump() if hasattr(h, "model_dump") else dict(h) for h in hours]
+        ts = [twonode.parse_time(h["time"]) for h in hours]
+        if hours and min(ts) <= t0 and max(ts) + timedelta(hours=1) >= t1:
+            if any(h.get("source") == "fixture" for h in hours):
+                labels.append("forecast is fixture")
+            return hours
+    except Exception:  # noqa: BLE001 — any WS1 failure falls back to the cached fixture
+        pass
+    hours = fixtures.forecast()
+    ts = [twonode.parse_time(h["time"]) for h in hours]
+    if not (min(ts) <= t0 and max(ts) + timedelta(hours=1) >= t1):
+        labels.append("fixture forecast does not cover the plan window; nearest hours used")
+    return hours
+
+
+def _guard(result: dict) -> dict:
+    """Pass generated text through engine/guard.py when it exists (WS owner TBD); always strip nothing silently."""
+    try:
+        from engine import guard  # may not exist yet
+    except ImportError:
+        return result
+    for ch in result.get("changes", []):
+        out = guard.check(ch["detail"]) if hasattr(guard, "check") else None
+        if out is not None and not out.get("ok", True):
+            ch["detail"] = out.get("redacted_text", ch["detail"])
+    return result
+
+
+# ── routes ──
+
+@app.get("/health")
+def health() -> dict[str, Any]:
+    from engine import fhsaa_adapter
+    return {"ok": True, "model": twonode.MODEL_NAME, "fhsaa": "stub" if fhsaa_adapter.USING_STUB else "ws1"}
+
+
+@app.post("/simulate")
+def simulate(req: SimulateRequest | None = None) -> dict[str, Any]:
+    req = req or SimulateRequest()
+    plan, roster, weather, labels = _inputs(req)
+    return twonode.simulate_roster(roster, plan, weather, step_min=req.step_min, n_ensemble=req.n_ensemble,
+                                   seed=req.seed, extra_labels=labels)
+
+
+@app.post("/optimize")
+def optimize(req: OptimizeRequest | None = None) -> dict[str, Any]:
+    req = req or OptimizeRequest()
+    plan, roster, weather, labels = _inputs(req)
+    res = optimizer.optimize(plan, roster, weather, budget_s=req.budget_s, seed=req.seed,
+                             n_ensemble=req.n_ensemble, step_min=req.step_min, extra_labels=labels)
+    return _guard(res)
+
+
+@app.get("/sources")
+def sources() -> dict[str, Any]:
+    return consts.as_json()
