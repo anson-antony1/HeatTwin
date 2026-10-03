@@ -8,17 +8,22 @@ import './DemoBar.css'
 const SPEEDS = [1, 4, 10]
 
 // Demo transport. Practice minutes run `speed`× per real second so a
-// two-hour session plays in two minutes on stage. Labelled as a replay so
-// nobody mistakes it for a live feed.
+// two-hour session plays in two minutes on stage. Labelled "demo playback —
+// not live" so nobody mistakes it for a live feed.
 export function DemoBar() {
   const s = useSession()
-  const progress = s.minute / s.totalMinutes
+  const progress = s.totalMinutes > 0 ? s.minute / s.totalMinutes : 0
+  // Skip to the first minute the engine's forecast puts anyone over the line.
+  const crossings = Object.values(s.athletes)
+    .map((a) => a.firstCrossMin)
+    .filter((m): m is number => m != null)
+  const skipTo = crossings.length ? Math.min(...crossings) : null
   return (
     <div className="demobar glass glass--strong" role="toolbar" aria-label="Demo playback">
       <button
         className="demobar__play pressable"
         onClick={() => (s.running ? engine.pause() : engine.play())}
-        aria-label={s.running ? 'Pause replay' : 'Play replay'}
+        aria-label={s.running ? 'Pause demo playback' : 'Play demo playback'}
       >
         {s.running ? <IconPause /> : <IconPlay />}
       </button>
@@ -30,7 +35,7 @@ export function DemoBar() {
         </div>
       </div>
 
-      <div className="demobar__speeds" role="radiogroup" aria-label="Replay speed">
+      <div className="demobar__speeds" role="radiogroup" aria-label="Playback speed">
         {SPEEDS.map((v) => (
           <button
             key={v}
@@ -47,14 +52,19 @@ export function DemoBar() {
         ))}
       </div>
 
-      <button className="demobar__btn pressable" onClick={() => engine.seek(Math.max(s.minute, 50))} title="Skip ahead to minute 50">
+      <button
+        className="demobar__btn pressable"
+        onClick={() => skipTo != null && engine.seek(Math.max(s.minute, skipTo))}
+        disabled={skipTo == null}
+        title={skipTo != null ? `Skip to minute ${Math.round(skipTo)} (first p95 crossing in the engine forecast)` : undefined}
+      >
         <IconSkip width={16} height={16} />
-        <span>Skip to heat</span>
+        <span>Skip to first crossing</span>
       </button>
-      <button className="demobar__icon pressable" onClick={() => engine.reset()} aria-label="Reset replay">
+      <button className="demobar__icon pressable" onClick={() => engine.reset()} aria-label="Reset demo playback">
         <IconReset width={18} height={18} />
       </button>
-      <span className="demobar__tag">Replay</span>
+      <span className="demobar__tag">demo playback — not live</span>
     </div>
   )
 }

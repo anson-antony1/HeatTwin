@@ -1,0 +1,38 @@
+.offline-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--alert);
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.offline-badge--compact {
+  font-size: 9.5px;
+  padding: 1px 6px;
+}
+
+.offline-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  border-radius: var(--r-lg, 16px);
+  border: 1.5px solid var(--alert);
+  background: var(--alert-bg);
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.offline-banner code {
+  font-size: 13px;
+}

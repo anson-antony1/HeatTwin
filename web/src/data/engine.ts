@@ -1,53 +1,61 @@
 import { useSyncExternalStore } from 'react'
-import type { Athlete, AthleteLive, Drill, SessionState, Status } from './types'
-import { THRESHOLDS, zoneFor } from './constants'
-import { FORECAST, PLAN, PRACTICE_START_HOUR, ROSTER, TRUE_HEAT_FACTOR } from './fixtures'
-import { bandFor, drillAt, heartRate, nextBreakIn, peakOf, simulate, stepCore, totalMinutes, wbgtAt } from './model'
-import { PRIOR_FACTOR } from './optimizer'
-import { perMinute, type SimulationResult } from './engineApi'
+import type { PracticePlan } from './llmPlan'
+import type { SimulationResult, WeatherHour } from './engineApi'
+import {
+  athleteAtMinute,
+  drillAtMinute,
+  hourOf,
+  makeCurveCache,
+  nextBreakIn,
+  planMinutes,
+  weatherHourAt,
+  type AthleteLive,
+  type CurveCache,
+} from './selectors'
+import { offlineAthleteAt, type OfflineResult } from '../offline/standIn'
 
-// The live loop. Stands in for the Watch layer: a strap broadcasts HR once a
-// second, the estimate is corrected toward what HR implies, and the rest of the
-// session is re-forecast. Demo time runs faster than wall time (`speed` practice
-// minutes per real second). Swap `advanceMinute` for a websocket feed later.
-//
-// Two forecast sources:
-//   'engine' — a confirmed plan's /simulate result. Each athlete's p50 curve is
-//              the plan forecast; live HR corrects around it; p95 − p50 is the band.
-//   'replay' — no engine result yet: the browser-side stand-in model (model.ts).
+// The demo session: a playback clock over today's plan. It is NOT live — the
+// clock replays practice minutes faster than wall time so a two-hour session
+// plays in two minutes on stage. At each minute every number is read from the
+// engine's result for the plan (selectors.ts); nothing is modelled here.
+// When the engine is unreachable the stand-in's curves are used instead and
+// every view badges them OFFLINE FALLBACK.
 
-interface Track {
-  athlete: Athlete
-  /** Physics-propagated estimate, corrected by HR each minute. */
-  est: number
-  /** What the athlete's body is actually doing (hidden; drives the fake HR). */
-  truth: number
-  /** Heat factor the filter currently believes. */
-  factor: number
-  history: number[]
-  hrHistory: number[]
-  pending: number
-  minutesOverLine: number
-  /** Latched alert (persistence to raise, hysteresis to clear). */
-  alerted: boolean
+export type SessionSource = 'loading' | 'engine' | 'offline'
+
+export interface SessionState {
+  /** Increments on every reset / plan change, so UI state can key off a run. */
+  session: number
+  /** Fractional practice minute since start (demo playback clock). */
+  minute: number
+  totalMinutes: number
+  /** Plan start as a local wall-clock hour (from the plan's ISO start). */
+  startHour: number
+  plan: PracticePlan | null
+  drillIndex: number
+  drillMinuteLeft: number
+  nextBreakIn: number | null
+  running: boolean
+  speed: number
+  source: SessionSource
+  athletes: Record<string, AthleteLive>
+  /** The engine's forecast hour containing this minute (WBGT, FHSAA zone). */
+  weather: WeatherHour | null
+  /** Planning line the numbers are judged against (result `limit_core_c`). */
+  limitC: number | null
+  /** Provenance labels of the result the numbers come from. */
+  labels: string[]
 }
 
 const EMIT_HZ = 12
-const BASE = THRESHOLDS.baselineC
+/** Longest step one animation frame may take (a backgrounded tab doesn't jump the clock). */
+const MAX_FRAME_S = 0.1
 
-interface EngineSeries {
-  p50: number[]
-  p95: number[]
-}
-
-function noise(seed: number) {
-  const x = Math.sin(seed * 12.9898) * 43758.5453
-  return (x - Math.floor(x)) * 2 - 1
-}
-
-class Engine {
-  private plan: Drill[] = PLAN
-  private tracks: Track[] = []
+class Session {
+  private plan: PracticePlan | null = null
+  private sim: SimulationResult | null = null
+  private offline: OfflineResult | null = null
+  private curves: CurveCache | null = null
   private minute = 0
   private running = false
   private speed = 1
@@ -57,10 +65,9 @@ class Engine {
   private listeners = new Set<() => void>()
   private snapshot!: SessionState
   private session = 0
-  private ext: Record<string, EngineSeries> | null = null
 
   constructor() {
-    this.reset()
+    this.publish()
   }
 
   subscribe = (fn: () => void) => {
@@ -70,46 +77,37 @@ class Engine {
 
   getSnapshot = () => this.snapshot
 
+  private get total() {
+    return this.plan ? planMinutes(this.plan) : 0
+  }
+
   reset() {
     this.session++
     this.minute = 0
-    this.tracks = ROSTER.map((athlete) => {
-      const t: Track = {
-        athlete,
-        est: THRESHOLDS.baselineC,
-        truth: THRESHOLDS.baselineC,
-        // Engine curves are already per-athlete calibrated; the replay model needs its prior.
-        factor: this.ext ? 1 : (PRIOR_FACTOR[athlete.id] ?? 1),
-        history: [THRESHOLDS.baselineC],
-        hrHistory: [athlete.hrRest],
-        pending: THRESHOLDS.baselineC,
-        minutesOverLine: 0,
-        alerted: false,
-      }
-      t.pending = this.project(t, 0)
-      return t
-    })
     this.publish()
   }
 
-  /** Swap today's plan. Pass the plan's /simulate result to drive forecasts from the engine. */
-  setPlan(plan: Drill[], sim?: SimulationResult | null) {
+  /** Today's plan and its /simulate result (null while the engine hasn't answered). */
+  setPlan(plan: PracticePlan, sim: SimulationResult | null) {
     this.plan = plan
-    const minutes = totalMinutes(plan)
-    this.ext = sim
-      ? Object.fromEntries(
-          sim.athletes.map((a) => [
-            a.id,
-            { p50: perMinute(a.core_c_p50, sim.step_min, minutes), p95: perMinute(a.core_c_p95, sim.step_min, minutes) },
-          ]),
-        )
-      : null
+    this.sim = sim
+    this.offline = null
+    this.curves = sim ? makeCurveCache(sim.step_min, planMinutes(plan)) : null
+    this.reset()
+  }
+
+  /** Engine unreachable: drive the screens from the stand-in (badged OFFLINE FALLBACK). */
+  setOffline(plan: PracticePlan, offline: OfflineResult) {
+    this.plan = plan
+    this.sim = null
+    this.offline = offline
+    this.curves = null
     this.reset()
   }
 
   play() {
-    if (this.running) return
-    if (this.minute >= totalMinutes(this.plan)) this.reset()
+    if (this.running || !this.plan) return
+    if (this.minute >= this.total) this.minute = 0
     this.running = true
     this.last = performance.now()
     this.raf = requestAnimationFrame(this.frame)
@@ -127,22 +125,17 @@ class Engine {
     this.publish()
   }
 
-  /** Jump forward (demo control). */
+  /** Jump the playback clock (demo control). */
   seek(toMinute: number) {
-    const target = Math.min(toMinute, totalMinutes(this.plan))
-    for (let m = Math.floor(this.minute); m < Math.floor(target); m++) this.advanceMinute(m)
-    this.minute = target
+    this.minute = Math.max(0, Math.min(toMinute, this.total))
     this.publish()
   }
 
   private frame = (now: number) => {
-    const dt = Math.min(0.1, (now - this.last) / 1000)
+    const dt = Math.min(MAX_FRAME_S, (now - this.last) / 1000)
     this.last = now
-    const total = totalMinutes(this.plan)
-    const before = Math.floor(this.minute)
+    const total = this.total
     this.minute = Math.min(total, this.minute + dt * this.speed)
-    for (let m = before; m < Math.floor(this.minute); m++) this.advanceMinute(m)
-
     this.sinceEmit += dt
     if (this.sinceEmit >= 1 / EMIT_HZ || this.minute >= total) {
       this.sinceEmit = 0
@@ -156,126 +149,66 @@ class Engine {
     this.raf = requestAnimationFrame(this.frame)
   }
 
-  /** Next-minute estimate from physics alone (the time update). */
-  private project(t: Track, m: number) {
-    const e = this.ext?.[t.athlete.id]
-    if (e) return t.est + (at(e.p50, m + 1) - at(e.p50, m)) * t.factor
-    const { drill } = drillAt(this.plan, m)
-    return stepCore(t.est, t.athlete, drill, wbgtAt(FORECAST, PRACTICE_START_HOUR + m / 60), t.factor)
-  }
-
-  /** Close out practice minute `m` (0-based) for every athlete. */
-  private advanceMinute(m: number) {
-    const { drill } = drillAt(this.plan, m)
-    const wbgt = wbgtAt(FORECAST, PRACTICE_START_HOUR + m / 60)
-    for (const t of this.tracks) {
-      const e = this.ext?.[t.athlete.id]
-      if (e) {
-        // How far this athlete's body runs from the engine's plan forecast.
-        const dev = (TRUE_HEAT_FACTOR[t.athlete.id] ?? 1) / (PRIOR_FACTOR[t.athlete.id] ?? 1)
-        t.truth = BASE + (at(e.p50, m + 1) - BASE) * dev
-      } else {
-        t.truth = stepCore(t.truth, t.athlete, drill, wbgt, TRUE_HEAT_FACTOR[t.athlete.id] ?? 1)
-      }
-      const physics = t.pending
-      if (t.athlete.hasStrap) {
-        // Observation update: HR says the body is at `truth` (+ sensor noise).
-        const observed = t.truth + noise(m * 7.1 + t.athlete.number) * 0.04
-        const innovation = observed - physics
-        t.est = physics + 0.45 * innovation
-        // Slowly learn this athlete's heat factor from the gap.
-        t.factor += (this.ext ? 1.2 : 0.9) * innovation
-        t.factor = Math.max(0.8, Math.min(1.6, t.factor))
-        t.hrHistory.push(heartRate(t.athlete, drill, t.truth, noise(m * 3.3 + t.athlete.number) * 2))
-      } else {
-        t.est = physics
-      }
-      t.history.push(t.est)
-      t.minutesOverLine = t.est >= THRESHOLDS.alertC ? t.minutesOverLine + 1 : 0
-      if (t.minutesOverLine >= THRESHOLDS.persistMin) t.alerted = true
-      else if (t.est < THRESHOLDS.alertC - THRESHOLDS.clearBelowC) t.alerted = false
-      t.pending = this.project(t, m + 1)
-    }
-  }
-
   private publish() {
-    const total = totalMinutes(this.plan)
-    const k = Math.floor(this.minute)
-    const frac = this.minute - k
-    const { index, minuteLeft } = drillAt(this.plan, this.minute)
-    const wbgtF = wbgtAt(FORECAST, PRACTICE_START_HOUR + this.minute / 60)
-
+    const plan = this.plan
+    const total = this.total
+    const at = plan ? drillAtMinute(plan.drills, this.minute) : null
     const athletes: Record<string, AthleteLive> = {}
-    for (const t of this.tracks) {
-      const coreC = k >= total ? t.est : t.est + (t.pending - t.est) * frac
-      const calibrated = t.athlete.hasStrap && k > 5
-      const e = this.ext?.[t.athlete.id]
-      let rest: number[]
-      let band: number[]
-      if (e) {
-        // Re-forecast: the engine's remaining curve, re-anchored on the live estimate.
-        rest = e.p50.slice(k).map((v) => t.est + (v - at(e.p50, k)) * t.factor)
-        band = [
-          ...Array<number>(k).fill(0),
-          ...e.p95.slice(k).map((v, i) => (i === 0 ? 0 : (v - e.p50[k + i]) * (calibrated ? 0.6 : 1))),
-        ]
-      } else {
-        rest = simulate(t.athlete, this.plan, FORECAST, PRACTICE_START_HOUR, t.factor, k, t.est)
-        band = Array.from({ length: k + rest.length }, (_, i) => (i <= k ? 0 : bandFor(i - k, calibrated)))
+    let weather: WeatherHour | null = null
+    let limitC: number | null = null
+    let labels: string[] = []
+    let source: SessionSource = 'loading'
+
+    if (plan && this.sim) {
+      source = 'engine'
+      for (const a of this.sim.athletes) {
+        const live = athleteAtMinute({
+          id: a.id,
+          minute: this.minute,
+          totalMin: total,
+          plan: this.sim,
+          replay: null,
+          curves: this.curves ?? undefined,
+        })
+        if (live) athletes[a.id] = live
       }
-      const forecast = [...t.history.slice(0, k), ...rest]
-      const peak = peakOf(forecast)
-      let status: Status = 'steady'
-      if (coreC >= THRESHOLDS.watchC || peak.value >= THRESHOLDS.alertC) status = 'watch'
-      if (t.alerted) status = 'alert'
-      athletes[t.athlete.id] = {
-        id: t.athlete.id,
-        coreC,
-        hr: t.athlete.hasStrap ? (t.hrHistory[t.hrHistory.length - 1] ?? null) : null,
-        history: t.history.slice(0, k + 1),
-        forecast,
-        band,
-        predictedPeakC: peak.value,
-        predictedPeakMin: peak.minute,
-        status,
-        minutesOverLine: t.minutesOverLine,
+      weather = weatherHourAt(this.sim.weather, plan.start, this.minute)
+      limitC = this.sim.limit_core_c
+      labels = this.sim.labels
+    } else if (plan && this.offline) {
+      source = 'offline'
+      for (const a of this.offline.athletes) {
+        const live = offlineAthleteAt(this.offline, a.id, this.minute)
+        if (live) athletes[a.id] = live
       }
+      weather = weatherHourAt(this.offline.weather, plan.start, this.minute)
+      limitC = this.offline.limitC
+      labels = this.offline.labels
     }
 
     this.snapshot = {
       session: this.session,
       minute: this.minute,
       totalMinutes: total,
-      startHour: PRACTICE_START_HOUR,
-      drillIndex: index,
-      drillMinuteLeft: minuteLeft,
-      nextBreakIn: nextBreakIn(this.plan, this.minute),
-      wbgtF,
-      zone: zoneFor(wbgtF),
-      athletes,
+      startHour: plan ? (hourOf(plan.start) ?? 0) : 0,
+      plan,
+      drillIndex: at?.index ?? 0,
+      drillMinuteLeft: at?.minuteLeft ?? 0,
+      nextBreakIn: plan ? nextBreakIn(plan.drills, this.minute) : null,
       running: this.running,
       speed: this.speed,
-      forecastSource: this.ext ? 'engine' : 'replay',
+      source,
+      athletes,
+      weather,
+      limitC,
+      labels,
     }
     this.listeners.forEach((fn) => fn())
   }
-
-  get currentPlan() {
-    return this.plan
-  }
 }
 
-function at(arr: number[], i: number) {
-  return arr[Math.max(0, Math.min(arr.length - 1, i))]
-}
-
-export const engine = new Engine()
+export const engine = new Session()
 
 export function useSession(): SessionState {
   return useSyncExternalStore(engine.subscribe, engine.getSnapshot)
-}
-
-export function usePlan(): Drill[] {
-  useSession()
-  return engine.currentPlan
 }
