@@ -3,7 +3,7 @@ import type { PracticePlan } from './llmPlan'
 // Typed client for the engine's /simulate and /optimize (CONTRACTS.md v1.2).
 // Only the fields the UI reads are typed; the engine may send more.
 
-const ENGINE = (import.meta.env?.VITE_ENGINE_URL as string | undefined) ?? 'http://localhost:8000'
+const ENGINE = (import.meta.env?.VITE_ENGINE_URL as string | undefined) ?? '/engine'
 
 export type AthleteStatus = 'below_limit' | 'near_limit' | 'over_limit'
 
@@ -62,10 +62,12 @@ async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promi
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
-      signal,
+      signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(60_000)]) : AbortSignal.timeout(60_000),
     })
-  } catch {
-    throw new EngineError(0, `Can't reach the engine at ${ENGINE}. Is it running?`)
+  } catch (e) {
+    if ((e as Error).name === 'AbortError') throw e
+    if ((e as Error).name === 'TimeoutError') throw new EngineError(0, 'The engine took too long to answer.')
+    throw new EngineError(0, `Can't reach the engine (${ENGINE}). Is it running?`)
   }
   if (!r.ok) {
     let msg = r.statusText

@@ -23,6 +23,15 @@ export interface PlanState {
   original: SimulationResult | null
   confirmedAt: number | null
   error: string | null
+  /** What was live before the last change, for one-step undo. */
+  previous: Snapshot | null
+}
+
+type Snapshot = Pick<PlanState, 'plan' | 'source' | 'draft' | 'sim' | 'opt' | 'original' | 'confirmedAt'>
+
+function snapshot(): Snapshot {
+  const { plan, source, draft, sim, opt, original, confirmedAt } = state
+  return { plan, source, draft, sim, opt, original, confirmedAt }
 }
 
 const STORAGE_KEY = 'heattwin.plan.v1'
@@ -37,6 +46,7 @@ let state: PlanState = {
   original: null,
   confirmedAt: null,
   error: null,
+  previous: null,
 }
 
 const listeners = new Set<() => void>()
@@ -75,10 +85,11 @@ export const planStore = {
   async confirm(draft: PlanDraft) {
     inflight?.abort()
     inflight = new AbortController()
-    set({ phase: 'simulating', error: null, draft, plan: draft.plan, source: 'voice', opt: null })
+    const previous = snapshot()
+    set({ phase: 'simulating', error: null })
     try {
       const sim = await simulatePlan(draft.plan, inflight.signal)
-      set({ phase: 'ready', sim, original: sim, confirmedAt: Date.now() })
+      set({ phase: 'ready', draft, plan: draft.plan, source: 'voice', opt: null, sim, original: sim, confirmedAt: Date.now(), previous })
       apply(draft.plan, sim)
       persist()
     } catch (e) {
@@ -91,16 +102,32 @@ export const planStore = {
   async optimize() {
     inflight?.abort()
     inflight = new AbortController()
+    const previous = snapshot()
     set({ phase: 'optimizing', error: null })
     try {
       const opt = await optimizePlan(state.plan, inflight.signal)
-      set({ phase: 'ready', opt, plan: opt.plan, sim: opt.optimized, original: opt.original, source: 'optimized' })
+      set({ phase: 'ready', opt, plan: opt.plan, sim: opt.optimized, original: opt.original, source: 'optimized', previous })
       apply(opt.plan, opt.optimized)
       persist()
     } catch (e) {
       if ((e as Error).name === 'AbortError') return
       set({ phase: 'error', error: (e as Error).message })
     }
+  },
+
+  /** Put back whatever was live before the last voice plan or optimization. */
+  undo() {
+    const prev = state.previous
+    if (!prev) return
+    set({ ...prev, phase: prev.sim ? 'ready' : 'idle', error: null, previous: null })
+    apply(prev.plan, prev.sim)
+    if (prev.source === 'fixture') {
+      try {
+        localStorage.removeItem(STORAGE_KEY)
+      } catch {
+        /* ignore */
+      }
+    } else persist()
   },
 
   dismissError() {
@@ -115,7 +142,7 @@ export const planStore = {
     } catch {
       /* ignore */
     }
-    set({ phase: 'idle', plan: DEFAULT_CONTRACT_PLAN, source: 'fixture', draft: null, sim: null, opt: null, original: null, confirmedAt: null, error: null })
+    set({ phase: 'idle', plan: DEFAULT_CONTRACT_PLAN, source: 'fixture', draft: null, sim: null, opt: null, original: null, confirmedAt: null, error: null, previous: null })
     apply(DEFAULT_CONTRACT_PLAN, null)
   },
 
@@ -126,7 +153,7 @@ export const planStore = {
       if (!raw) return
       const saved = JSON.parse(raw) as Partial<PlanState>
       if (!saved.plan || !saved.sim) return
-      set({ ...saved, phase: 'ready', error: null } as PlanState)
+      set({ ...saved, phase: 'ready', error: null, previous: null } as PlanState)
       apply(saved.plan, saved.sim)
     } catch {
       /* corrupt entry — start fresh */

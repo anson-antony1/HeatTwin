@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useVoicePlan } from '../lib/useVoicePlan'
 import { useMicLevels } from '../lib/useMicLevels'
@@ -9,18 +9,28 @@ import { ROSTER } from '../data/fixtures'
 import { mmss } from '../lib/heat'
 import { ease, spring } from '../lib/motion'
 import { NumberTicker } from './NumberTicker'
-import { IconArrow, IconKeyboard, IconMic, IconSpark, IconStop } from './Icons'
+import { IconArrow, IconMic, IconSpark, IconStop } from './Icons'
 import './VoiceDock.css'
 
-// "Talk to the Twin" — the mic dock from Figma 9:65. The coach describes
-// practice out loud → Gemini (engine /plan/parse_audio) transcribes and
-// structures it → the coach checks the draft → /simulate models every athlete
-// → optional /optimize. The AI only structures the coach's words; every heat
-// number comes from the engine.
+// "Talk to the Twin" — the mic dock from Figma 9:65.
+//
+// At rest it's a compact pill, exactly as wide as the sidebar. Press the mic
+// and it springs out to full width (waveform, live captions, timer). Stop, and
+// it springs back while the mic button runs the pipeline:
+//   processing ring → check mark + "Plan updated" → mic again.
+// Behind that: Gemini (engine /plan/parse_audio) transcribes and structures
+// what the coach said → /simulate models every athlete → the plan goes live
+// everywhere. Tap the pill's label to review what was heard, optimize, or undo.
+// The AI only structures the coach's words; every heat number is the engine's.
 
-type Mode = 'idle' | 'recording' | 'transcribing' | 'review' | 'running' | 'result' | 'error' | 'typing'
+type Bar = 'idle' | 'recording' | 'busy' | 'done'
+type SheetView = 'review' | 'result' | 'error' | 'typing'
 
 const BARS = 22
+const DONE_HOLD_MS = 1700
+
+/** Island-style morph: the bar is "alive", so a whisper of bounce. */
+const morph = { type: 'spring', bounce: 0.15, visualDuration: 0.5 } as const
 
 const INTENSITY: Record<string, string> = { rest: 'Rest', light: 'Light', moderate: 'Moderate', hard: 'Hard', max: 'Max' }
 const GEAR: Record<string, string> = { none: 'No pads', helmet: 'Helmet', helmet_shoulder_pads: 'Shells', full_pads: 'Full pads' }
@@ -29,58 +39,88 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
   const v = useVoicePlan()
   const p = usePlanState()
   const reduce = useReducedMotion()
-  const [showResult, setShowResult] = useState(false)
-  const [typing, setTyping] = useState(false)
+  const [opened, setOpened] = useState<'result' | 'typing' | null>(null)
+  const [flash, setFlash] = useState(false)
   const [text, setText] = useState('')
   const recording = v.state === 'recording'
   const captions = useLiveCaptions(recording)
   const { containerRef } = useMicLevels(recording, BARS)
+  const appliedDraft = useRef<PlanDraft | null>(null)
+  const flashTimer = useRef<number | null>(null)
 
-  let mode: Mode = 'idle'
-  if (recording) mode = 'recording'
-  else if (v.state === 'processing') mode = 'transcribing'
-  else if (p.phase === 'simulating' || p.phase === 'optimizing') mode = 'running'
-  else if (v.state === 'error' || p.phase === 'error') mode = 'error'
-  else if (v.draft && v.draft !== p.draft) mode = 'review'
-  else if (showResult && p.sim) mode = 'result'
-  else if (typing) mode = 'typing'
+  // A finished draft goes straight to the engine; the check mark confirms it
+  // landed. A draft with no usable drills stops for the coach instead.
+  useEffect(() => {
+    const d = v.draft
+    if (!d || appliedDraft.current === d || d.plan.drills.length === 0) return
+    appliedDraft.current = d
+    planStore.confirm(d).then(() => {
+      if (planStore.get().phase !== 'ready') return
+      setFlash(true)
+      flashTimer.current = window.setTimeout(() => {
+        setFlash(false)
+        v.reset()
+      }, DONE_HOLD_MS)
+    })
+  }, [v.draft, v])
 
-  const sheetOpen = mode === 'review' || mode === 'running' || mode === 'result' || mode === 'error' || mode === 'typing'
+  useEffect(() => () => {
+    if (flashTimer.current != null) window.clearTimeout(flashTimer.current)
+  }, [])
+
+  const busy = v.state === 'processing' || p.phase === 'simulating' || p.phase === 'optimizing'
+  const bar: Bar = recording ? 'recording' : busy && !opened ? 'busy' : flash ? 'done' : 'idle'
+  const errorMsg = v.state === 'error' ? v.error : p.phase === 'error' ? p.error : null
+
+  let sheet: SheetView | null = null
+  if (errorMsg) sheet = 'error'
+  else if (v.draft && v.draft.plan.drills.length === 0) sheet = 'review'
+  else if (opened === 'typing') sheet = 'typing'
+  else if (opened === 'result' && p.sim) sheet = 'result'
 
   const startRecording = () => {
-    setTyping(false)
-    setShowResult(false)
+    setOpened(null)
+    setFlash(false)
     planStore.dismissError()
     v.start()
   }
 
-  const confirm = async (draft: PlanDraft) => {
-    setShowResult(true)
-    await planStore.confirm(draft)
+  const close = () => {
+    setOpened(null)
+    if (v.state !== 'processing') v.reset()
   }
 
-  const done = () => {
-    setShowResult(false)
-    setTyping(false)
+  const openTyping = (prefill = '') => {
+    planStore.dismissError()
     v.reset()
+    setText(prefill)
+    setOpened('typing')
   }
 
   const submitTyped = () => {
     if (!text.trim()) return
-    setTyping(false)
-    setShowResult(false)
+    setOpened(null)
     v.submitText(text.trim())
   }
 
+  const onLabel = () => {
+    if (bar !== 'idle') return
+    if (p.sim) setOpened((o) => (o === 'result' ? null : 'result'))
+    else setOpened((o) => (o === 'typing' ? null : 'typing'))
+  }
+
+  const busyLabel =
+    v.state === 'processing' ? ['Transcribing', 'Gemini'] : p.phase === 'optimizing' ? ['Optimizing', 'the twin'] : ['Modeling', `${ROSTER.length} athletes`]
+
   return (
-    <div className="dock" data-mode={mode}>
+    <div className="dock" data-bar={bar}>
       <AnimatePresence>
-        {sheetOpen && (
+        {sheet && (
           <motion.section
             key="sheet"
             layout={!reduce}
             className="dock__sheet glass glass--strong"
-            // Emerges upward out of the bar it belongs to, and returns into it.
+            // Emerges upward out of the pill it belongs to, and returns into it.
             initial={reduce ? { opacity: 0 } : { opacity: 0, clipPath: 'inset(100% 0% 0% 0% round 28px)', transform: 'translateY(8px)' }}
             animate={{ opacity: 1, clipPath: 'inset(0% 0% 0% 0% round 28px)', transform: 'translateY(0px)' }}
             exit={reduce ? { opacity: 0 } : { opacity: 0, clipPath: 'inset(100% 0% 0% 0% round 28px)', transform: 'translateY(8px)', transition: { duration: 0.2, ease: ease.out } }}
@@ -89,7 +129,7 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
           >
             <AnimatePresence mode="popLayout" initial={false}>
               <motion.div
-                key={sheetKey(mode, p)}
+                key={sheet}
                 layout={reduce ? false : 'position'}
                 className="dock__content"
                 initial={{ opacity: 0, filter: 'blur(4px)' }}
@@ -97,44 +137,31 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
                 exit={{ opacity: 0, filter: 'blur(4px)', transition: { duration: 0.12 } }}
                 transition={{ duration: 0.24, ease: ease.out }}
               >
-                {(mode === 'review' || (mode === 'running' && p.phase === 'simulating')) && (
-                  <Review
-                    draft={(v.draft ?? p.draft)!}
-                    running={mode === 'running'}
-                    onConfirm={confirm}
-                    onRedo={startRecording}
-                    onType={() => {
-                      setText(v.draft?.transcript ?? '')
-                      v.reset()
-                      setTyping(true)
-                    }}
-                  />
+                {sheet === 'review' && v.draft && (
+                  <Review draft={v.draft} onRedo={startRecording} onType={() => openTyping(v.draft?.transcript ?? '')} />
                 )}
-                {(mode === 'result' || (mode === 'running' && p.phase === 'optimizing')) && (
+                {sheet === 'result' && (
                   <Result
                     p={p}
                     onSeePlayers={() => {
-                      done()
+                      close()
                       onSeePlayers()
                     }}
-                    onDone={done}
+                    onType={() => openTyping(p.draft?.transcript ?? '')}
+                    onDone={close}
                   />
                 )}
-                {mode === 'error' && (
+                {sheet === 'error' && (
                   <ErrorView
-                    message={v.error ?? p.error ?? 'Something went wrong'}
+                    message={errorMsg ?? 'Something went wrong'}
                     onRetry={() => {
                       planStore.dismissError()
                       v.reset()
                     }}
-                    onType={() => {
-                      planStore.dismissError()
-                      v.reset()
-                      setTyping(true)
-                    }}
+                    onType={() => openTyping()}
                   />
                 )}
-                {mode === 'typing' && (
+                {sheet === 'typing' && (
                   <div className="dock__typing">
                     <div className="eyebrow">Type today's practice</div>
                     <textarea
@@ -151,7 +178,7 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
                       <button className="btn btn--ink pressable" onClick={submitTyped} disabled={!text.trim()}>
                         Build plan
                       </button>
-                      <button className="btn btn--quiet pressable" onClick={() => setTyping(false)}>
+                      <button className="btn btn--quiet pressable" onClick={close}>
                         Cancel
                       </button>
                     </div>
@@ -163,70 +190,103 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
         )}
       </AnimatePresence>
 
-      <div className="dock__bar glass glass--strong">
-        <button
-          className={`dock__mic pressable ${recording ? 'is-rec' : ''}`}
+      <motion.div
+        layout={!reduce}
+        transition={morph}
+        className={`dock__bar glass glass--strong ${bar === 'recording' ? 'is-wide' : ''}`}
+        style={{ borderRadius: 30 }}
+      >
+        <motion.button
+          layout={!reduce}
+          transition={morph}
+          className={`dock__mic dock__mic--${bar}`}
           onClick={recording ? v.stop : startRecording}
-          disabled={mode === 'transcribing' || mode === 'running'}
+          disabled={bar === 'busy' || bar === 'done'}
           aria-label={recording ? 'Stop recording' : 'Describe today’s practice'}
+          style={{ borderRadius: 999 }}
         >
           <span className="dock__mic-ring" aria-hidden="true" />
           <AnimatePresence mode="popLayout" initial={false}>
             <motion.span
-              key={recording ? 'stop' : 'mic'}
+              key={bar}
               className="dock__mic-icon"
-              initial={{ opacity: 0, transform: 'scale(0.6)', filter: 'blur(3px)' }}
+              initial={reduce ? { opacity: 0 } : { opacity: 0, transform: 'scale(0.6)', filter: 'blur(3px)' }}
               animate={{ opacity: 1, transform: 'scale(1)', filter: 'blur(0px)' }}
-              exit={{ opacity: 0, transform: 'scale(0.6)', filter: 'blur(3px)' }}
-              transition={{ duration: 0.18, ease: ease.out }}
+              exit={reduce ? { opacity: 0 } : { opacity: 0, transform: 'scale(0.6)', filter: 'blur(3px)' }}
+              transition={{ duration: 0.2, ease: ease.out }}
             >
-              {recording ? <IconStop width={20} height={20} /> : <IconMic width={24} height={24} />}
+              {bar === 'recording' && <IconStop width={20} height={20} />}
+              {bar === 'idle' && <IconMic width={24} height={24} />}
+              {bar === 'busy' && <Spinner />}
+              {bar === 'done' && <Check />}
             </motion.span>
           </AnimatePresence>
-        </button>
+        </motion.button>
 
-        <div className="dock__mid">
-          <div className={`dock__wave ${recording ? 'is-on' : ''} ${mode === 'transcribing' ? 'is-busy' : ''}`} ref={containerRef} aria-hidden="true">
+        <motion.div layout={reduce ? false : 'position'} transition={morph} className="dock__mid">
+          <div className={`dock__wave ${recording ? 'is-on' : ''}`} ref={containerRef} aria-hidden="true">
             {Array.from({ length: BARS }, (_, i) => (
-              <span key={i} style={{ ['--i' as string]: i }} />
+              <span key={i} />
             ))}
           </div>
-          <div className="dock__text">
+          <button className="dock__text" onClick={onLabel} disabled={bar !== 'idle'} tabIndex={bar === 'idle' ? 0 : -1}>
             <AnimatePresence mode="popLayout" initial={false}>
-              <motion.div
-                key={barKey(mode)}
+              <motion.span
+                key={bar === 'busy' ? `busy-${busyLabel[0]}` : bar}
                 className="dock__lines"
                 initial={{ opacity: 0, transform: 'translateY(40%)', filter: 'blur(3px)' }}
                 animate={{ opacity: 1, transform: 'translateY(0%)', filter: 'blur(0px)' }}
                 exit={{ opacity: 0, transform: 'translateY(-40%)', filter: 'blur(3px)' }}
                 transition={{ duration: 0.22, ease: ease.out }}
               >
-                <BarText mode={mode} p={p} captions={captions} />
-              </motion.div>
+                <BarText bar={bar} p={p} captions={captions} busyLabel={busyLabel} />
+              </motion.span>
             </AnimatePresence>
-          </div>
-        </div>
+          </button>
+        </motion.div>
 
-        <div className="dock__end">
-          {recording ? (
-            <span className="dock__timer num">{mmss(v.seconds)}</span>
-          ) : (
-            <button
-              className={`dock__icon pressable ${typing ? 'is-on' : ''}`}
-              onClick={() => {
-                setShowResult(false)
-                setTyping((t) => !t)
-              }}
-              disabled={mode === 'transcribing' || mode === 'running'}
-              aria-label="Type the plan instead"
-              aria-pressed={typing}
-            >
-              <IconKeyboard width={20} height={20} />
-            </button>
-          )}
-        </div>
-      </div>
+        {recording && (
+          <motion.span
+            layout={reduce ? false : 'position'}
+            className="dock__timer num"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.2, delay: 0.15 }}
+          >
+            {mmss(v.seconds)}
+          </motion.span>
+        )}
+      </motion.div>
     </div>
+  )
+}
+
+/** Processing ring: constant motion, so linear. */
+function Spinner() {
+  return (
+    <svg className="dock__spinner" width="30" height="30" viewBox="0 0 30 30" aria-hidden="true">
+      <circle cx="15" cy="15" r="12" fill="none" stroke="currentColor" strokeOpacity="0.22" strokeWidth="2.5" />
+      <circle cx="15" cy="15" r="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeDasharray="22 76" />
+    </svg>
+  )
+}
+
+/** The check draws itself in — a one-off moment, so it gets a little longer. */
+function Check() {
+  const reduce = useReducedMotion()
+  return (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <motion.path
+        d="M5 12.5l4.5 4.5L19 7.5"
+        stroke="currentColor"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        initial={{ pathLength: reduce ? 1 : 0 }}
+        animate={{ pathLength: 1 }}
+        transition={{ duration: 0.36, ease: ease.out, delay: 0.06 }}
+      />
+    </svg>
   )
 }
 
@@ -235,86 +295,85 @@ function titleCase(name: string) {
   return name.charAt(0).toUpperCase() + name.slice(1)
 }
 
-function sheetKey(mode: Mode, p: PlanState) {
-  if (mode === 'running') return p.phase === 'simulating' ? 'review' : 'result'
-  return mode
-}
-
-function barKey(mode: Mode) {
-  return mode === 'review' || mode === 'result' || mode === 'error' || mode === 'typing' ? 'idle' : mode
-}
-
-function BarText({ mode, p, captions }: { mode: Mode; p: PlanState; captions: string }) {
-  if (mode === 'recording') {
+function BarText({ bar, p, captions, busyLabel }: { bar: Bar; p: PlanState; captions: string; busyLabel: string[] }) {
+  if (bar === 'recording') {
     return (
       <>
-        <div className="dock__title">Listening…</div>
-        <div className="dock__caption">
-          {captions || (liveCaptionsSupported ? 'Say each drill, how long, and the gear' : 'Recording — tap stop when you’re done')}
-        </div>
+        <span className="dock__title">Listening…</span>
+        <span className="dock__caption">
+          {captions || (liveCaptionsSupported ? 'Say each drill, how long, and the gear' : 'Tap stop when you’re done')}
+        </span>
       </>
     )
   }
-  if (mode === 'transcribing') {
+  if (bar === 'busy') {
     return (
       <>
-        <div className="dock__title dock__shimmer">Transcribing with Gemini</div>
-        <div className="dock__caption">Turning what you said into drills</div>
+        <span className="dock__title dock__shimmer">{busyLabel[0]}…</span>
+        <span className="dock__caption">{busyLabel[1]}</span>
       </>
     )
   }
-  if (mode === 'running') {
+  if (bar === 'done') {
+    const mins = Math.round(p.plan.drills.reduce((s, d) => s + d.duration_min, 0))
     return (
       <>
-        <div className="dock__title dock__shimmer">
-          {p.phase === 'optimizing' ? 'Optimizing with the twin' : `Modeling ${ROSTER.length} athletes`}
-        </div>
-        <div className="dock__caption">Two-node heat model · every minute of practice</div>
+        <span className="dock__title">Plan updated</span>
+        <span className="dock__caption num">
+          {p.plan.drills.length} blocks · {mins} min
+        </span>
       </>
     )
   }
-  const sub = p.source === 'fixture'
-    ? 'Tap the mic and describe today’s practice'
-    : `${p.source === 'optimized' ? 'Optimized plan' : 'Your plan'} is live on every athlete’s page`
   return (
     <>
-      <div className="dock__title">Talk to the Twin</div>
-      <div className="dock__caption">{sub}</div>
+      <span className="dock__title">Talk to Twin</span>
+      <span className="dock__caption">{p.source === 'fixture' ? 'Tap mic to plan' : 'Plan live · review'}</span>
     </>
   )
 }
 
-function Review({
-  draft,
-  running,
-  onConfirm,
-  onRedo,
-  onType,
-}: {
-  draft: PlanDraft
-  running: boolean
-  onConfirm: (d: PlanDraft) => void
-  onRedo: () => void
-  onType: () => void
-}) {
-  const reduce = useReducedMotion()
-  const drills = draft.plan.drills
+function Review({ draft, onRedo, onType }: { draft: PlanDraft; onRedo: () => void; onType: () => void }) {
   return (
     <div className="review">
       <div className="review__head">
-        <div className="eyebrow">Check the plan</div>
-        <span className="review__label">{draft.labels[0] ?? 'parsed by AI — coach must confirm'}</span>
+        <div className="eyebrow">Didn’t catch a plan</div>
+        <span className="review__label">{draft.labels[0] ?? 'parsed by AI'}</span>
       </div>
       {draft.transcript && <blockquote className="review__quote">“{draft.transcript}”</blockquote>}
+      {draft.unclear.length > 0 && (
+        <ul className="review__notes">
+          {draft.unclear.map((u) => (
+            <li key={u} className="is-unclear">
+              <strong>Needs input</strong> {u}
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="dock__actions">
+        <button className="btn btn--ink pressable" onClick={onRedo}>
+          Try again
+        </button>
+        <button className="btn btn--quiet pressable" onClick={onType}>
+          Edit as text
+        </button>
+      </div>
+    </div>
+  )
+}
 
+function Drills({ draft }: { draft: PlanDraft }) {
+  const reduce = useReducedMotion()
+  return (
+    <>
       <ol className="review__drills">
-        {drills.map((d, i) => (
+        {draft.plan.drills.map((d, i) => (
           <motion.li
             key={d.id}
             className={d.is_break ? 'is-break' : ''}
             initial={reduce ? { opacity: 0 } : { opacity: 0, transform: 'translateY(6px)' }}
             animate={{ opacity: 1, transform: 'translateY(0px)' }}
-            transition={{ duration: 0.26, ease: ease.out, delay: 0.08 + i * 0.04 }}
+            transition={{ duration: 0.26, ease: ease.out, delay: 0.06 + i * 0.035 }}
           >
             <span className="review__min num">{d.duration_min}′</span>
             <span className="review__name">{titleCase(d.name)}</span>
@@ -325,49 +384,35 @@ function Review({
           </motion.li>
         ))}
       </ol>
-      <div className="review__total faint num">
-        {drills.length} blocks · {draft.total_min} min
-      </div>
-
-      {(draft.unclear.length > 0 || draft.assumptions.length > 0) && (
+      {draft.assumptions.length > 0 && (
         <ul className="review__notes">
           {draft.unclear.map((u) => (
             <li key={u} className="is-unclear">
               <strong>Needs input</strong> {u}
             </li>
           ))}
-          {draft.assumptions.slice(0, 4).map((a) => (
+          {draft.assumptions.slice(0, 3).map((a) => (
             <li key={a}>
               <strong>Check</strong> {a}
             </li>
           ))}
         </ul>
       )}
-
-      <div className="dock__actions">
-        <button className="btn btn--ink pressable" onClick={() => onConfirm(draft)} disabled={running || drills.length === 0}>
-          {running ? (
-            <>
-              <span className="spinner" aria-hidden="true" /> Running the twin…
-            </>
-          ) : (
-            <>
-              Looks right — run the twin <IconArrow width={16} height={16} />
-            </>
-          )}
-        </button>
-        <button className="btn btn--quiet pressable" onClick={onRedo} disabled={running}>
-          Re-record
-        </button>
-        <button className="btn btn--quiet pressable" onClick={onType} disabled={running}>
-          Edit as text
-        </button>
-      </div>
-    </div>
+    </>
   )
 }
 
-function Result({ p, onSeePlayers, onDone }: { p: PlanState; onSeePlayers: () => void; onDone: () => void }) {
+function Result({
+  p,
+  onSeePlayers,
+  onType,
+  onDone,
+}: {
+  p: PlanState
+  onSeePlayers: () => void
+  onType: () => void
+  onDone: () => void
+}) {
   const reduce = useReducedMotion()
   const sim = p.sim!
   const limit = sim.limit_core_c
@@ -400,6 +445,11 @@ function Result({ p, onSeePlayers, onDone }: { p: PlanState; onSeePlayers: () =>
         </span>
       </div>
 
+      {p.draft?.transcript && p.source === 'voice' && (
+        <blockquote className="review__quote">
+          <span className="eyebrow">Heard</span> “{p.draft.transcript}”
+        </blockquote>
+      )}
       {p.opt?.top_changes_text && <p className="result__changes">{p.opt.top_changes_text}</p>}
       {p.opt && (
         <p className="faint num result__kept">
@@ -446,6 +496,24 @@ function Result({ p, onSeePlayers, onDone }: { p: PlanState; onSeePlayers: () =>
           Done
         </button>
       </div>
+
+      {p.source === 'voice' && p.draft && (
+        <details className="result__details">
+          <summary>What the twin is running · {p.plan.drills.length} blocks</summary>
+          <Drills draft={p.draft} />
+        </details>
+      )}
+
+      <div className="result__quiet">
+        <button className="linkbtn" onClick={onType} disabled={optimizing}>
+          Type a correction
+        </button>
+        {p.previous && (
+          <button className="linkbtn" onClick={() => planStore.undo()} disabled={optimizing}>
+            Undo {p.source === 'optimized' ? 'optimization' : 'this plan'}
+          </button>
+        )}
+      </div>
     </div>
   )
 }
@@ -453,7 +521,13 @@ function Result({ p, onSeePlayers, onDone }: { p: PlanState; onSeePlayers: () =>
 function ErrorView({ message, onRetry, onType }: { message: string; onRetry: () => void; onType: () => void }) {
   const friendly = /permission|NotAllowed/i.test(message)
     ? 'Microphone access was blocked. Allow it in the browser, or type the plan instead.'
-    : message
+    : /Failed to fetch|NetworkError|Load failed|reach the engine|ECONNREFUSED|HTTP 50[02]: ?$|^Internal Server Error$/i.test(message)
+      ? 'Can’t reach the HeatTwin engine. Start it from the repo root with `.venv/bin/uvicorn engine.api:app --port 8000`, then try again.'
+      : /timed out|took too long|TimeoutError/i.test(message)
+        ? 'That took too long — the engine or Gemini didn’t answer within a minute. Try again.'
+      : /GEMINI_API_KEY/i.test(message)
+        ? 'The engine has no Gemini key. Add GEMINI_API_KEY to .env at the repo root and restart the engine.'
+        : message
   return (
     <div className="dock__error">
       <div className="eyebrow">Couldn’t build the plan</div>

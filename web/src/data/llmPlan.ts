@@ -6,7 +6,7 @@
 //   show draft.transcript, draft.plan.drills, draft.assumptions, draft.unclear → coach edits/confirms →
 //   POST draft.plan to /simulate or /optimize (CONTRACTS.md PracticePlan, unchanged).
 
-const ENGINE = (import.meta.env?.VITE_ENGINE_URL as string | undefined) ?? 'http://localhost:8000'
+const ENGINE = (import.meta.env?.VITE_ENGINE_URL as string | undefined) ?? '/engine'
 
 // ── CONTRACTS.md shapes (engine side) ──
 export type ContractGear = 'none' | 'helmet' | 'helmet_shoulder_pads' | 'full_pads'
@@ -72,7 +72,8 @@ async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promi
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
-    signal,
+    // Never leave the UI waiting on a dropped connection (engine's own Gemini timeout is 45 s).
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(60_000)]) : AbortSignal.timeout(60_000),
   })
   if (!r.ok) {
     let msg = r.statusText
