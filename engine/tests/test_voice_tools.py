@@ -32,7 +32,13 @@ def test_athlete_status_by_name_or_id():
     assert c.get("/athlete_status", params={"athlete_id": "Nobody"}).status_code == 404
 
 
-def test_field_conditions_hours_and_source():
+def test_field_conditions_hours_and_source(monkeypatch):
+    from engine import weather
+
+    def no_network(*_a, **_k):  # with WS1 merged the route would fetch the live NWS forecast
+        raise OSError("network disabled in tests")
+
+    monkeypatch.setattr(weather, "get_forecast", no_network)
     f = c.get("/field_conditions").json()
     assert [h["fhsaa_zone"] for h in f["hours"]] == [2, 2, 1]
     assert "forecast is fixture" in f["labels"] and guard.check(f["say"], log=False)["ok"]

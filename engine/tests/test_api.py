@@ -1,12 +1,24 @@
 """POST /simulate and POST /optimize on fixtures (FastAPI TestClient, no network)."""
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
 from engine import fixtures
 from engine.api import app
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _offline(monkeypatch):
+    """Keep these tests off the network: with WS1 merged, /simulate would otherwise fetch the live NWS forecast."""
+    from engine import weather
+
+    def no_network(*_a, **_k):
+        raise OSError("network disabled in tests")
+
+    monkeypatch.setattr(weather, "get_forecast", no_network)
 
 
 def test_health():
