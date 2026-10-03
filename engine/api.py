@@ -199,7 +199,7 @@ class HrReading(_Model):
 
 
 class LiveStart(SimulateRequest):
-    pass
+    start_now: bool = Field(default=False, description="v1.1: set the plan start to now (live HR from a strap)")
 
 
 _LIVE: dict[str, Any] = {}
@@ -265,8 +265,15 @@ def live_start(req: LiveStart | None = None) -> dict[str, Any]:
     from engine.calibrate import LiveSession
     req = req or LiveStart()
     plan, roster, weather, labels = _inputs(req)
+    if req.start_now:
+        from datetime import datetime
+        plan = dict(plan, start=datetime.now().astimezone().replace(second=0, microsecond=0).isoformat())
+        labels = [*labels, "plan clock set to now for a live HR session"]
+        if req.weather is None:
+            weather = _forecast_for(plan, labels)
     _LIVE["session"] = LiveSession(plan, roster, weather, settings=_settings(req), seed=req.seed, extra_labels=labels)
-    return {"ok": True, "plan_id": plan["id"], "athletes": [a["id"] for a in roster]}
+    return {"ok": True, "plan_id": plan["id"], "start": plan["start"], "athletes": [a["id"] for a in roster],
+            "labels": labels}
 
 
 @app.post("/hr")
