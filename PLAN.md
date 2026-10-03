@@ -150,39 +150,44 @@ Each person runs **their own Claude Code session in their own git worktree/branc
 
 ## 7. Demo script (3 minutes)
 
-*Rewritten Oct 3 (night) from the engine's actual output after the physio-review fixes: fixtures + cached NWS forecast,
-`?demo=1` (seed 0, fixed iteration caps, reproducible), Armstrong-calibrated clothing (treadmill work subtracted, walking
-credit off), NATA-phased gear. **Warm the cache before presenting:** call `POST /optimize?demo=1` once (about 7 s), plus
-`&preset=fewest_changes` (about 18 s) if you'll show it; repeat calls return in about 2 ms. Rerun after any model change.
-Say "estimate — planning only" out loud once.*
+*Rewritten Oct 3 (evening, audit-fixes) from the engine's actual output after ws1's verified FHSAA Policy 41 rules
+replaced the stub: fixtures + cached NWS forecast (pinned in `?demo=1`, works with the network off), seed 0 and fixed
+iteration caps, Armstrong-calibrated clothing, NATA-phased gear. The same numbers are stored in
+`validation/results.json["demo"]` (labelled synthetic; `python -m validation.demo_numbers --check`). **Warm the cache
+before presenting:** call `POST /optimize?demo=1` once, plus `&preset=fewest_changes` if you'll show it, and
+`POST /live/replay?demo=1`; repeat calls return in milliseconds. Rerun after any model change.
+Say "estimate — planning only" out loud once, and that the 39.0 °C line and the near band are illustrative defaults an
+athletic trainer would own.*
 
 1. **(20 s) Hook.** "More than 70 high school athletes have died of exertional heat stroke since 1982. Cooled within 30 minutes, survival is essentially 100%. A third of these events happen with no athletic trainer present. Florida law already requires heat monitoring and an ice tub. Nobody tells a coach what *today's* practice will do to *each* kid."
 2. **(40 s) Plan.**
    - **Forecast:** tomorrow's Gainesville forecast is NWS's own WBGT grid, cached and labelled as a fixture. Practice runs 3:30–5:23 pm at 86 / 83 / 82 °F WBGT, which is FHSAA zones 2 / 2 / 1.
-   - **Plan:** load the 113-minute practice. Gear follows NATA phasing.
+   - **Plan:** load the 113-minute practice (or say it to Kelvin: Gemini drafts the drills, the coach confirms). Gear follows NATA phasing.
    - **Heat strip:**
-     - Every athlete's p95 estimate crosses the AT's 39.0 °C planning line between minute 45 and minute 52.
-     - The first is Isaiah, a day-2 linebacker, at minute 45. Then Caleb at minute 46, and Jordan and Logan (day 3) at minute 47.
-     - The plan also misses FHSAA zone-2 shaded-break minutes in both hours.
+     - Every athlete's p95 estimate crosses the AT's 39.0 °C planning line between minute 46 and minute 52.
+     - The first are Caleb and Isaiah, day-2 linebackers, at minute 46; then Darius, Jordan and Kai at minute 47.
+     - The engine also finds 2 FHSAA issues: too few separate shaded 4-minute rest breaks in both hours (zone 2).
 3. **(30 s) Optimize** (max-load preset, cached).
    - **Shown on screen:**
-     - Team period moves early and splits around a shaded break.
-     - Team period and inside run drop to helmets only; individual period and special teams drop to no pads.
-     - Inside run is trimmed to 12 minutes, and the gassers (priority 3) come out.
-     - Water breaks lengthen to 8 and 12 minutes, and four 4-minute shaded breaks are added.
+     - Inside run and special teams move early and split around shaded breaks; individual period moves to the end.
+     - Team period runs in two platoons of 8 while the other platoon rests in the shaded cooling area; inside run uses rotating groups.
+     - Pads come down: team period, individual period and parts of inside run to helmets only; special teams to no pads / helmets.
+     - Trims: individual period 20 → 18, special teams 15 → 12, gassers 12 → 8 minutes. Four shaded water breaks are added (4, 8, 4 and 8 minutes).
    - **Say:**
-     - "All 16 athletes are under 39.0 °C at p95 (max 38.98). Ten sit in the near-limit band."
-     - "Zero FHSAA and NATA violations. 75% of the training load kept. Practice is 13 minutes longer."
-   - **Top 3 changes by heat reduction** (from `top_changes`; the voice agent reads `top_changes_text`):
-     1. "Removing the priority-3 gassers takes about 0.9 °C off the estimated team peak."
-     2. "Moving team period to 3:44 takes about 0.6."
-     3. "Splitting it around a shaded break takes about 0.6."
-   - **Fewest-changes preset (optional):** "Ask it for 6 changes or fewer: it says no plan within 6 met every rule and shows the 18-change plan instead. It won't trade a rule for a shorter diff."
+     - "All 16 athletes are under 39.0 °C at p95 (max 38.99). Seven sit in the near-limit band."
+     - "Zero FHSAA and NATA issues. 70.7% of the training load kept with 21 changes. Practice runs to 5:38, 15 minutes longer."
+   - **Top 3 changes by heat reduction** (from `top_changes`; Kelvin reads the engine's `top_changes_text`):
+     1. "Running team period in two platoons takes about 1.0 °C off the estimated team peak."
+     2. "An 8-minute shaded break after inside run takes about 0.3."
+     3. "Moving inside run to 3:40 takes about 0.2."
+   - **Fewest-changes preset (optional):** "Ask it for 6 changes or fewer: it says no plan within 6 met every rule and shows the 21-change plan instead. It won't trade a rule for a shorter diff."
+   - **Ask Kelvin (optional):** "Who crosses first?", "What if we drop the gassers?" — Gemini only picks the question type; the engine computes and writes the sentence, and it is checked by the language guard and the per-answer number check before it is shown or spoken.
 4. **(40 s) Watch.**
-   - A teammate wears the Amazfit Helio Strap, streaming via Zepp "Heart Rate Push" through `python -m engine.hr_bridge --map a07=Helio`, after `POST /live/start {"start_now": true}`. The fallback is a replay of `fixtures/hr_a07_synthetic.csv`, labelled REPLAY.
-   - The card's met_scale moves off its prior (replay: 1.0 → 1.24 ± 0.03 in about 16 one-minute updates) and the session re-forecasts.
-   - The gate log reads "not enough data" until coverage holds, then "re-forecast shows crossing" only if the crossing lasts at least 3 minutes.
-5. **(30 s) Respond.** Hit Collapse. The clock starts, the voice walks the KSI steps, the tub probe reads the ice water live, and an EMS timeline is generated. Every sentence passes `engine/guard.py`.
+   - Live: a teammate wears the Amazfit Helio Strap, streaming via Zepp "Heart Rate Push" through `python -m engine.hr_bridge --map a07=Helio`, after `POST /live/start {"start_now": true}`. The recording lands in `fixtures/hr_<date>.csv` and becomes the default replay.
+   - Fallback (shown unless a real recording exists): `POST /live/replay?demo=1` replays `fixtures/hr_a07_synthetic.csv`, labelled "replay of a synthetic HR file (a07) — not a real athlete".
+   - The card's met_scale moves off its prior (replay: 1.0 → 1.24 ± 0.03 over 59 one-minute updates) and the session re-forecasts. The gate log reads "not enough data" until coverage holds, then "re-forecast shows crossing" only if the crossing lasts at least 3 minutes.
+   - Field node: until a node recording exists (`data/node_<date>.csv`), the field panel says "no field recording yet" — no placeholder numbers.
+5. **(30 s) Respond.** Hit Collapse. The clock starts, the voice reads the KSI cold-water-immersion steps (each attributed), and an EMS timeline is generated. The tub panel says "no probe connected" unless a node reports tub temperature. Every generated sentence passes `engine/guard.py`.
 6. **(20 s) Close.** Validation, from `validation/results.json`, said plainly:
    - **Armstrong 2010 (lab):** "Calibrated on the full-uniform rise; it reproduces control clothing within 0.1 SD."
    - **Football practice pill data (field):** "Our medians run 1.4–1.7 °C above measured practice peaks at the same WBGT. Our drill intensities are game values. Published practice workload data doesn't yet give a sourced per-drill duty cycle: plays are about 6 s with about 33 s rest in team periods, but there's no sourced burst intensity. Live HR from the team's own practices is how we calibrate that down; until then the estimate errs hot."
