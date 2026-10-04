@@ -47,7 +47,8 @@ describe('engine result → view values', () => {
     expect(a.basis).toBe('plan_forecast')
     expect(a.history).toEqual([37.0, 37.0, 37.2, 37.4, 37.6])
     expect(statusTone(a.status)).toBe('watch')        // forecast over the line, not flagged → voice-plan's Watch
-    expect(statusTone(a.status, true)).toBe('alert')  // red row / "Over line" only when the engine flags the athlete
+    expect(statusTone(a.status, true)).toBe('watch')  // the engine's early warning is an amber heads-up
+    expect(statusTone(a.status, true, true)).toBe('alert') // red only when the estimate itself passes the line
   })
 
   it('summaries are engine fields: over-the-line count, hottest p95', () => {
@@ -56,13 +57,26 @@ describe('engine result → view values', () => {
     expect(overCount(null)).toBeNull()
   })
 
-  it("status tones keep voice-plan's meanings: alert = engine flag, watch = forecast near/over, steady = below", () => {
+  it("status tones: alert = estimate over the line, watch = engine heads-up or forecast near/over, steady = below", () => {
     expect(statusTone('below_limit')).toBe('steady')
     expect(statusTone('near_limit')).toBe('watch')
     expect(statusTone('over_limit')).toBe('watch')
-    expect(statusTone('below_limit', true)).toBe('alert')
-    expect(statusTone('over_limit', true)).toBe('alert')
+    expect(statusTone('below_limit', true)).toBe('watch')
+    expect(statusTone('over_limit', true)).toBe('watch')
+    expect(statusTone('over_limit', true, true)).toBe('alert')
     expect(statusTone(null)).toBe('none')
+  })
+
+  it('heads-up text, red alert and skip-to-heat come from engine estimates', async () => {
+    const { estimateOverLine, headsUp, minutesOverLine, firstEstimateCrossing } = await import('../selectors')
+    expect(estimateOverLine({ coreC: 38.99 }, 39)).toBe(false)
+    expect(estimateOverLine({ coreC: 39.0 }, 39)).toBe(true)
+    expect(headsUp({ flag: true, firstCrossMin: 44, coreC: 37.1 }, 39)).toBe('Re-forecast crosses the planning line at 44′')
+    expect(headsUp({ flag: true, firstCrossMin: 44, coreC: 39.2 }, 39)).toBeNull()   // over the line → red alert instead
+    expect(headsUp({ flag: false, firstCrossMin: 44, coreC: 37.1 }, 39)).toBeNull()
+    expect(minutesOverLine([38.5, 39.1, 38.9, 39.0, 39.2], 39)).toBe(2)
+    expect(firstEstimateCrossing({ a: { forecast: [37, 38, 39.1] }, b: { forecast: [37, 39.0, 40] } }, 39)).toBe(1)
+    expect(firstEstimateCrossing({ a: { forecast: [37, 38] } }, 39)).toBeNull()
   })
 
   it('offline rows carry no numbers', () => {

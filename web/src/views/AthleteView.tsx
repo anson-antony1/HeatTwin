@@ -6,6 +6,8 @@ import { SYNTHETIC_ROSTER_LABEL, useRoster } from '../data/roster'
 import { ESTIMATE_LABEL, SAFETY_LINE } from '../data/constants'
 import {
   bodySurfaceAreaM2,
+  estimateOverLine,
+  headsUp,
   acclimatizationDays,
   breakWindow,
   drillAtMinute,
@@ -66,7 +68,8 @@ function Picker({ athleteId, onSelect }: { athleteId: string; onSelect: (id: str
     <div className="picker glass" role="tablist" aria-label="Choose athlete">
       {roster.athletes.map((a) => {
         const on = a.id === athleteId
-        const status = statusTone(athleteOf(s, a.id).status, athleteOf(s, a.id).flag)
+        const l = athleteOf(s, a.id)
+        const status = statusTone(l.status, l.flag, estimateOverLine(l, s.limitC))
         return (
           <button
             key={a.id}
@@ -109,7 +112,8 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
   const coreShown = scrubbed ? scrubbed.c : live.coreC
   const zoom = useZoom(s.totalMinutes, scrub ?? s.minute)
   if (!a) return null
-  const tone = statusTone(live.status, live.flag)
+  const tone = statusTone(live.status, live.flag, estimateOverLine(live, limit))
+  const hu = headsUp(live, limit)
   const held = replayHeldNote(s.replay, planState.source)
   const model =
     s.source === 'engine' ? `Engine · ${modelLabel(live)}` : s.source === 'offline' ? 'offline fallback — no estimate' : '—'
@@ -191,11 +195,16 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
           </div>
         </dl>
 
-        {live.flag && (
+        {estimateOverLine(live, limit) ? (
           <button className="btn btn--alert pressable vitals__cta" onClick={() => onCollapse(a.id)}>
             <IconResponse width={18} height={18} /> Collapse response
           </button>
-        )}
+        ) : hu ? (
+          <span className="pill pill--watch vitals__cta" title={live.gates?.message}>
+            <span className="pill__dot" aria-hidden="true" />
+            <span className="pill__label">{hu}</span>
+          </span>
+        ) : null}
       </section>
 
       {/* The twin itself */}

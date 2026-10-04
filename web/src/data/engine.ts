@@ -9,6 +9,7 @@ import {
   chartDrills,
   drillAtMinute,
   firstCrossing,
+  firstEstimateCrossing,
   firstFlagMinute,
   hourOf,
   makeCurveCache,
@@ -373,7 +374,8 @@ class Session {
       live: { status: liveStatus, label: liveLabel(live) },
       clock: onLive ? 'live' : 'replay',
       // The wall clock can't be skipped.
-      skipTo: onLive ? null : (firstCrossing(athletes) ?? firstFlagMinute(this.replay)),
+      // "Skip to heat" lands where an estimate reaches the line (the red alert), else the first p95 crossing / flag.
+      skipTo: onLive ? null : (firstEstimateCrossing(athletes, limitC) ?? firstCrossing(athletes) ?? firstFlagMinute(this.replay)),
     }
     this.listeners.forEach((fn) => fn())
   }

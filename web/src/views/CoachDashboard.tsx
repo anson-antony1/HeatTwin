@@ -7,7 +7,7 @@ import { usePlanState } from '../data/planStore'
 import { useEngineMeta } from '../data/engineMeta'
 import { SYNTHETIC_ROSTER_LABEL, useRoster } from '../data/roster'
 import { ESTIMATE_LABEL, zoneColor } from '../data/constants'
-import { acclimatizationDays, drillAtMinute, statusTone, type Tone } from '../data/selectors'
+import { acclimatizationDays, drillAtMinute, estimateOverLine, headsUp, minutesOverLine, statusTone, type Tone } from '../data/selectors'
 import { NumberTicker } from '../components/NumberTicker'
 import { StatusPill } from '../components/StatusPill'
 import { TempChart } from '../components/TempChart'
@@ -23,9 +23,9 @@ import './CoachDashboard.css'
 // estimate, peak and status from the plan forecast or the HR-calibrated
 // re-forecast, alerts from the engine's calibration gates (gates.flag).
 
-/** Sort bucket: engine flag first, then over / near / below the line. */
+/** Sort bucket: estimate over the line first, then heads-up / near / over-forecast, then below. */
 const RANK: Record<Tone, number> = { alert: 1, watch: 2, steady: 3, none: 4 }
-const rankOf = (a: AthleteLive) => RANK[statusTone(a.status, a.flag)]
+const rankOf = (a: AthleteLive, limit: number | null) => RANK[statusTone(a.status, a.flag, estimateOverLine(a, limit))]
 
 interface Props {
   acked: Set<string>
@@ -45,19 +45,21 @@ export function CoachDashboard({ acked, onAck, onOpenAthlete, onCollapse }: Prop
   // Re-rank only by status bucket, never by the live number — rows that
   // shuffle every second would make the roster unreadable. Status changes are
   // rare, so when a row does move it's news, and the spring shows where it went.
-  const statusKey = roster.athletes.map((a) => rankOf(athleteOf(s, a.id))).join()
+  const statusKey = roster.athletes.map((a) => rankOf(athleteOf(s, a.id), s.limitC)).join()
   const order = useMemo(
-    () => [...roster.athletes].sort((a, b) => rankOf(athleteOf(s, a.id)) - rankOf(athleteOf(s, b.id))),
+    () => [...roster.athletes].sort((a, b) => rankOf(athleteOf(s, a.id), s.limitC) - rankOf(athleteOf(s, b.id), s.limitC)),
     // Only re-rank when a status or flag flips.
     [statusKey, roster], // eslint-disable-line react-hooks/exhaustive-deps
   )
 
-  const alerts = order.filter((a) => athleteOf(s, a.id).flag && !acked.has(a.id))
+  // voice-plan's red alert card: only when the estimate itself passes the line (the engine's early warning is amber).
+  const alerts = order.filter((a) => estimateOverLine(athleteOf(s, a.id), s.limitC) && !acked.has(a.id))
   const lead = alerts[0]
 
   const counts = roster.athletes.reduce(
     (c, a) => {
-      const tone = statusTone(athleteOf(s, a.id).status, athleteOf(s, a.id).flag)
+      const l = athleteOf(s, a.id)
+      const tone = statusTone(l.status, l.flag, estimateOverLine(l, s.limitC))
       return tone === 'none' ? c : { ...c, [tone]: c[tone] + 1 }
     },
     { steady: 0, watch: 0, alert: 0 },
@@ -285,7 +287,7 @@ function AlertCard({
     >
       <div className="alertcard__top">
         <span className="alertcard__beacon" aria-hidden="true" />
-        <span className="eyebrow alertcard__eyebrow" title={live.gates?.message}>Re-forecast crosses the alert line</span>
+        <span className="eyebrow alertcard__eyebrow">Over the alert line</span>
         {more > 0 && <span className="alertcard__more num">+{more} more</span>}
       </div>
       <button className="alertcard__who pressable" onClick={onOpen}>
@@ -298,13 +300,8 @@ function AlertCard({
         <NumberTicker value={tickerCore(live.coreC, limit, 1)} decimals={1} suffix="°C" />
       </div>
       <div className="alertcard__meta muted">
-        Est. over {fmtLimit(limit)}°
-        {live.firstCrossMin != null && (
-          <>
-            {' '}from <span className="num">{Math.round(live.firstCrossMin)}</span>′
-          </>
-        )}{' '}
-        · peak <span className="num">{fmtCore(live.peakP95C, limit)}</span>° (p95)
+        Est. over {fmtLimit(limit)}° for <span className="num">{minutesOverLine(live.history, limit)}</span> min
+        {' '}· peak <span className="num">{fmtCore(live.peakP95C, limit)}</span>° (p95)
       </div>
       <div className="alertcard__actions">
         <button className="btn btn--alert pressable" onClick={onCollapse}>
@@ -359,8 +356,9 @@ function RosterRow({
   index: number
   onOpen: () => void
 }) {
-  const tone = statusTone(live.status, live.flag)
   const limit = s.limitC
+  const tone = statusTone(live.status, live.flag, estimateOverLine(live, limit))
+  const hu = headsUp(live, limit)
   return (
     <button
       className={`row row--${tone}`}
@@ -404,9 +402,15 @@ function RosterRow({
         <span className="row__core-val display-sm">
           <NumberTicker value={tickerCore(live.coreC, limit, 1)} decimals={1} suffix="°" />
         </span>
-        <span className="row__peak num">
-          peak {fmtCore(live.peakP95C, limit)}° @ {live.peakMin != null ? Math.round(live.peakMin) : '—'}′
-        </span>
+        {hu ? (
+          <span className="row__peak num" style={{ color: 'var(--watch)' }} title={live.gates?.message}>
+            {hu}
+          </span>
+        ) : (
+          <span className="row__peak num">
+            peak {fmtCore(live.peakP95C, limit)}° @ {live.peakMin != null ? Math.round(live.peakMin) : '—'}′
+          </span>
+        )}
       </span>
 
       <span className="row__spark" role="cell">
