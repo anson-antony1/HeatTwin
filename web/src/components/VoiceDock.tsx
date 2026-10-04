@@ -524,7 +524,7 @@ function Result({
       {say && <p className="result__changes">{say}</p>}
       {p.opt && (
         <p className="faint num result__kept">
-          Kept {Math.round(p.opt.load_kept_pct)}% of training load · {p.opt.changes.length} changes
+          Kept {p.opt.load_kept_pct}% of training load · {p.opt.changes.length} changes
         </p>
       )}
 

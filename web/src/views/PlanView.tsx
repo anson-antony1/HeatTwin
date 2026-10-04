@@ -12,7 +12,7 @@ import { OfflineBadge } from '../components/OfflineBadge'
 import { IconCheck, IconClose, IconSpark } from '../components/Icons'
 import { clockLabel, heatColor } from '../lib/heat'
 import { AI_NAME } from '../lib/brand'
-import { coreValue, fmtCore, fmtLimit, PEAK_DECIMALS } from '../lib/format'
+import { coreValue, fmtCore, fmtLimit, PEAK_DECIMALS, roundLikeEngine } from '../lib/format'
 import { ease, spring } from '../lib/motion'
 import './PlanView.css'
 
@@ -155,9 +155,12 @@ export function PlanView() {
         <Metric label="FHSAA issues" value={now.issues} was={before ? before.issues : null} />
         <Metric
           label="Training load kept"
-          value={p.opt ? Math.round(p.opt.load_kept_pct) : p.sim ? 100 : null}
+          // The engine's load_kept_pct as it reports it (one decimal); the current plan keeps all of its own load.
+          value={p.opt ? roundLikeEngine(p.opt.load_kept_pct, 1) : p.sim ? 100 : null}
           was={p.opt ? 100 : null}
           unit="%"
+          decimals={p.opt ? 1 : 0}
+          wasDecimals={0}
           neutral
         />
       </div>
@@ -549,6 +552,7 @@ function Metric({
   was,
   unit = '',
   decimals = 0,
+  wasDecimals = decimals,
   neutral = false,
 }: {
   label: string
@@ -557,6 +561,7 @@ function Metric({
   was: number | null
   unit?: string
   decimals?: number
+  wasDecimals?: number
   neutral?: boolean
 }) {
   const shown = value ?? Number.NaN
@@ -570,7 +575,7 @@ function Metric({
         {word && <span className="metric__unit">athletes</span>}
       </div>
       <div className="metric__was faint num">
-        {was != null && Number.isFinite(was) ? `was ${was.toFixed(decimals)}${word ? '' : unit}` : 'current plan'}
+        {was != null && Number.isFinite(was) ? `was ${was.toFixed(wasDecimals)}${word ? '' : unit}` : 'current plan'}
       </div>
     </div>
   )
