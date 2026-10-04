@@ -202,7 +202,9 @@ export async function runTurn(input: TurnInput, ctx: TurnContext, deps: TurnDeps
   // 2) the engine answers
   let answer: VoiceAnswer
   try {
-    answer = await deps.api.answer({ intent: vi.intent, slots: vi.slots ?? {}, plan: ctx.plan })
+    // v1.4: the coach's words go too, so the engine can open with its boundary sentence when they ask for clearance.
+    const question = (input.kind === 'text' ? input.text : vi.transcript)?.trim()
+    answer = await deps.api.answer({ intent: vi.intent, slots: vi.slots ?? {}, plan: ctx.plan, ...(question ? { question } : {}) })
   } catch (e) {
     const s = statusOf(e)
     // Plain words only; the raw error (e.g. a proxy or read-timeout name) never reaches the panel.

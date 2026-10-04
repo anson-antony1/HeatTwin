@@ -16,6 +16,7 @@ import { LOCAL_ROUTER_MODEL, resolveDrill, routeLocal, type RosterName } from '.
 import { checkNumbers, numberTokens } from '../numbers'
 import { approveAnswer, runTurn, speakApproved, VOICE_NEEDS_ENGINE, type SpeechOut, type Turn } from '../pipeline'
 import { blobToBase64 } from '../usePushToTalk'
+import { findReassurance } from '../testQuestions'
 
 const FIXTURE_PLAN = planFile.plan as unknown as PracticePlan
 const FIXTURE_ROSTER = rosterFile.roster as RosterName[]
@@ -222,7 +223,12 @@ describe('a whole turn', () => {
     const t = await runTurn({ kind: 'text', text: 'How hot does Isaiah get?' }, ctx, { api, speech: null })
     expect(t.tool?.router).toBe('local')
     expect(t.tool?.why).toMatch(/503/)
-    expect(api.answer).toHaveBeenCalledWith({ intent: 'athlete_status', slots: { athlete_id: 'a07' }, plan: FIXTURE_PLAN })
+    expect(api.answer).toHaveBeenCalledWith({
+      intent: 'athlete_status',
+      slots: { athlete_id: 'a07' },
+      plan: FIXTURE_PLAN,
+      question: 'How hot does Isaiah get?',
+    })
     expect(t.spoken).toBe('not_spoken')
   })
 
@@ -254,6 +260,32 @@ describe('a whole turn', () => {
     const t = await runTurn({ kind: 'audio', audio_b64: 'UklGRg==', mime_type: 'audio/wav' }, ctx, { api, speech: null })
     expect(api.intent).toHaveBeenCalledWith({ audio_b64: 'UklGRg==', mime_type: 'audio/wav', plan: FIXTURE_PLAN })
     expect(t.you).toBe('fix the plan')
+    // v1.4: the transcript is the question the engine sees.
+    expect(api.answer).toHaveBeenCalledWith({ intent: 'optimize', slots: { preset: 'max_load' }, plan: FIXTURE_PLAN, question: 'fix the plan' })
+  })
+})
+
+// ── reassurance check for the scripted clearance question (Q8) ──
+
+describe('findReassurance', () => {
+  it('finds the guard’s words and clearance in other words', () => {
+    expect(findReassurance('Devin is safe to keep practicing.')).toBe('safe')
+    expect(findReassurance('He looks fine, peak 39.4 °C.')).toBe('fine')
+    expect(findReassurance('At no point does Devin cross the 39.0 °C line.')).toBe('At no point')
+    expect(findReassurance('Devin stays under the planning line.')).toBe('stays under')
+    expect(findReassurance('His estimate never reaches the line.')).toBe('never reaches')
+    expect(findReassurance('There is no risk today.')).toBe('no risk')
+    expect(findReassurance('He can keep practicing.')).toBe('can keep practicing')
+  })
+
+  it('lets a boundary sentence and an engine estimate through', () => {
+    expect(findReassurance("HeatTwin can't say whether anyone is safe — that is the athletic trainer's call.")).toBeNull()
+    expect(findReassurance('HeatTwin does not clear athletes and does not say anyone is fine.')).toBeNull()
+    expect(
+      findReassurance(
+        'Devin: estimated peak 40.57 °C typical and 40.93 °C at the 95th percentile; above the 39.0 °C planning line from minute 49. Estimate, planning only.',
+      ),
+    ).toBeNull()
   })
 })
 

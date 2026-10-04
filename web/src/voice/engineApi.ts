@@ -1,9 +1,9 @@
 import type { ContractGear, ContractIntensity, PracticePlan } from '../data/llmPlan'
 import { ENGINE_URL } from './config'
 
-// Typed client for the voice Q&A endpoints (CONTRACTS.md v1.3):
+// Typed client for the voice Q&A endpoints (CONTRACTS.md v1.3, + v1.4 `question`):
 //   POST /voice/intent  {text | audio_b64 + mime_type, plan?, roster?} → VoiceIntent   (Gemini: transcript + intent + slots only)
-//   POST /voice/answer  {intent, slots, plan?, roster?, settings?}     → VoiceAnswer   (?demo=1; engine runs the tool, writes `say`)
+//   POST /voice/answer  {intent, slots, plan?, question?}              → VoiceAnswer   (?demo=1; engine runs the tool, writes `say`)
 //   POST /voice/tts     {text}                                         → audio/mpeg    (422 guard hit, 503 no key / offline)
 //   POST /guard         {text}                                         → GuardResult
 // Every call takes an injectable fetch so tests run with no network, and gives up after TIMEOUT_MS (20 s; 10 s for
@@ -76,6 +76,11 @@ export interface AnswerRequest {
   intent: VoiceIntentName
   slots: VoiceSlots
   plan?: PracticePlan
+  /**
+   * v1.4: the coach's own words (typed text, or the transcript of what they said). When it asks whether someone is
+   * "safe / fine / OK / cleared", the engine starts `say` with its boundary sentence — no clearance is given.
+   */
+  question?: string
 }
 
 /** status 0 = the engine could not be reached (network error, CORS) or did not answer in time (`timedOut`). */

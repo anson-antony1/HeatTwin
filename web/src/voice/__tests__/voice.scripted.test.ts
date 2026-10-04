@@ -6,7 +6,7 @@ import { VoiceApiError, type AnswerRequest, type GuardResult, type VoiceAnswer, 
 import { routeLocal, type RosterName } from '../localAnswer'
 import { checkNumbers } from '../numbers'
 import { runTurn, type SpeechOut } from '../pipeline'
-import { TEST_QUESTIONS } from '../testQuestions'
+import { findReassurance, TEST_QUESTIONS } from '../testQuestions'
 import recorded from './recorded_answers.json'
 
 // The 8 scripted questions, offline: the intent service is down (503) so typed text routes locally against the
@@ -73,7 +73,8 @@ describe('the 8 scripted questions (local routing, mocked engine)', () => {
       const rec = await replayAnswer(sent)
       expect(say).toBe(rec.say)
       expect(checkNumbers(say, rec.numbers).ok).toBe(true)
-      if (t.mustNotSay) expect(say).not.toMatch(t.mustNotSay)
+      expect(sent.question).toBe(t.q) // v1.4: the coach's words go with every answer request
+      if (t.noReassurance) expect(findReassurance(say)).toBeNull()
       expect(speech.fallback).toHaveBeenCalledTimes(1)
       expect(speech.fallback).toHaveBeenCalledWith(say)
     })
