@@ -326,14 +326,14 @@ function GuidanceCard() {
       exit={reduce ? { opacity: 0 } : { opacity: 0, transform: 'translateX(24px)', filter: 'blur(6px)', transition: { duration: 0.18 } }}
       transition={{ duration: 0.36, ease: ease.out, delay: reduce ? 0 : 0.06, layout: spring.move }}
     >
-      <div className="eyebrow">Do this now</div>
+      <div className="eyebrow">Heads-up</div>
       <ol className="guide__steps">
-        <li>Pull from activity, into shade</li>
-        <li>Remove helmet and pads</li>
-        <li>Check: confused, stumbling, collapsed?</li>
+        <li>Estimate crosses the planning line</li>
+        <li>Consider pulling from activity and checking on the athlete</li>
+        <li>Follow your emergency action plan</li>
       </ol>
       <div className="guide__foot">
-        Any “yes” → <strong>Collapse response</strong>. Cool first, transport second.
+        Estimate — planning only. If an athlete collapses → <strong>Collapse response</strong>.
       </div>
     </motion.section>
   )

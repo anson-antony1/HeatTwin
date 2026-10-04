@@ -18,10 +18,20 @@ def _no_network(monkeypatch, tmp_path_factory):
 
 
 @pytest.fixture(autouse=True)
+def _no_paid_apis(monkeypatch):
+    """Tests never reach Gemini or ElevenLabs: no key from the shell or .env (tests that need one set a fake key and
+    stub the call)."""
+    from engine import llm_plan
+    for k in ("GEMINI_API_KEY", "ELEVENLABS_API_KEY", "ELEVENLABS_VOICE_ID"):
+        monkeypatch.delenv(k, raising=False)
+    monkeypatch.setattr(llm_plan, "_load_dotenv", lambda: None)
+
+
+@pytest.fixture(autouse=True)
 def _committed_hr_only(monkeypatch, tmp_path_factory):
-    """Tests see only the HR recordings committed to git, never a local (uncommitted) one in fixtures/ — the newest real
-    recording wins the replay by design, so a strap session on this machine must not change test results. Tests about
-    other recordings set demo_data.FIXTURES themselves."""
+    """Tests see only the HR recordings committed to git, never a local (uncommitted) one in fixtures/, so a strap
+    session on this machine cannot change test results (validation reads real recordings). Tests about other
+    recordings set demo_data.FIXTURES themselves."""
     import shutil
     import subprocess
 

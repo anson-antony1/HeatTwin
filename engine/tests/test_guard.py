@@ -79,3 +79,74 @@ def test_api_guard_endpoint():
     from engine.api import app
     r = TestClient(app).post("/guard", json={"text": "He is fine, give him aspirin."}).json()
     assert r["ok"] is False and {h["rule"] for h in r["hits"]} == {"reassurance", "treatment"}
+
+
+# ── polish 2a: the Collapse 911 script may say "suspected exertional heat stroke" (KSI step 1); nothing else may ──
+SCRIPT = "collapse.911_script"
+PHRASE = "suspected exertional heat stroke"
+
+
+def _collapse_911_strings() -> list[str]:
+    """The 'call' step's detail and spoken line, read from the shipped Collapse screen."""
+    import re
+    from pathlib import Path
+    src = (Path(__file__).resolve().parents[2] / "web/src/views/CollapseMode.tsx").read_text()
+    step = re.search(r"id:\s*'call',(.*?)\n\s*\},", src, re.S).group(1)
+    out = [m.group(1) for m in re.finditer(r"(?:detail|say):\s*'([^']*)'", step)]
+    assert len(out) == 2 and all(PHRASE in s.lower() for s in out), out
+    return out
+
+
+def test_collapse_911_script_passes_with_its_own_source():
+    for s in _collapse_911_strings():
+        out = guard.check(s, source=SCRIPT)
+        assert out["ok"], out["hits"]
+        assert out["redacted_text"] == s
+
+
+@pytest.mark.parametrize("source", ["", "api", "voice.tts", "voice", "labels", "hr", "replay", "changes",
+                                    "top_changes_text", "collapse", "collapse.911"])
+def test_same_phrase_is_blocked_everywhere_else(source):
+    for s in [*_collapse_911_strings(), PHRASE, f"Say {PHRASE}.", "This could be suspected heat stroke."]:
+        out = guard.check(s, source=source)
+        assert out["ok"] is False and any(h["rule"] == "diagnosis" for h in out["hits"]), (source, s)
+
+
+def test_script_exception_is_only_that_phrase():
+    for s in ["Say suspected heat exhaustion.", "Possible exertional heat stroke.", "He has heat stroke.",
+              "The athlete is fine.", "Give him ibuprofen."]:
+        assert guard.check(s, source=SCRIPT)["ok"] is False, s
+
+
+def test_api_guard_cannot_claim_the_script_exception():
+    from fastapi.testclient import TestClient
+    from engine.api import app
+    r = TestClient(app).post("/guard", json={"text": f"Say {PHRASE}.", "source": SCRIPT}).json()
+    assert r["ok"] is False
+
+
+def test_script_exception_is_cited():
+    from engine import consts
+    blk = consts.get("guard_exceptions")
+    assert blk["status"] == "VERIFIED" and "suspected" in blk["quote_or_location"] and blk["url"].startswith("https://")
+    assert blk["scripts"][SCRIPT] == [PHRASE]
+
+
+def test_live_guidance_card_passes_guard_endpoint():
+    """polish 2b: the model-triggered card on the Live roster is neutral (no diagnosis, no symptom checklist)."""
+    import re
+    from pathlib import Path
+
+    from fastapi.testclient import TestClient
+    from engine.api import app
+    src = (Path(__file__).resolve().parents[2] / "web/src/views/CoachDashboard.tsx").read_text()
+    card = re.search(r"function GuidanceCard\(\).*?\n\}\n", src, re.S).group(0)
+    jsx = card[card.index('className="eyebrow"'):]
+    texts = [re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", t)).strip() for t in re.findall(r">([^<>{}]+(?:<strong>[^<]*</strong>[^<>{}]*)?)<", jsx)]
+    texts = [t for t in texts if t]
+    assert "Heads-up" in texts and any("emergency action plan" in t for t in texts), texts
+    c = TestClient(app)
+    for t in texts:
+        r = c.post("/guard", json={"text": t}).json()
+        assert r["ok"], (t, r["hits"])
+        assert not re.search(r"heat\s*stroke|heat\s+illness|confused|stumbling", t, re.I), t

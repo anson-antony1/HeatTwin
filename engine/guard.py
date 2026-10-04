@@ -37,6 +37,8 @@ RULES: list[tuple[str, re.Pattern[str], bool]] = [
                              re.I), False),
     ("diagnosis", re.compile(r"\b(?:is|are|looks)\s+(?:severely\s+|mildly\s+)?(?:dehydrated|hyperthermic)\b", re.I),
      False),
+    ("diagnosis", re.compile(rf"\b(?:suspected|suspect|possible|probable)\s+(?:of\s+)?(?:an?\s+)?{_ILLNESS}\b", re.I),
+     True),
     # ── reassurance ──
     ("reassurance", re.compile(r"\b(?:safe|fine|okay|ok|all\s+clear|cleared(?:\s+to\s+play)?|good\s+to\s+go|"
                                r"out\s+of\s+danger|no\s+risk|nothing\s+to\s+worry\s+about)\b", re.I), True),
@@ -53,6 +55,16 @@ RULES: list[tuple[str, re.Pattern[str], bool]] = [
 _KSI_REMOVAL = re.compile(r"rectal\s+temp\w*.{0,60}\b39\b|\b39\b.{0,60}rectal", re.I | re.S)
 
 
+def _script_exceptions(source: str) -> set[str]:
+    """Phrases the fixed script ``source`` may say (constants.yaml guard_exceptions.scripts, KSI step 1); else none."""
+    from engine import consts
+    return {_norm(p) for p in (consts.get("guard_exceptions.scripts", {}) or {}).get(source, [])}
+
+
+def _norm(s: str) -> str:
+    return re.sub(r"\s+", " ", s).strip().lower()
+
+
 def _sentences(text: str) -> Iterable[tuple[int, int]]:
     start = 0
     for m in re.finditer(r"[.!?\n]+", text):
@@ -65,6 +77,7 @@ def _sentences(text: str) -> Iterable[tuple[int, int]]:
 def check(text: str, *, source: str = "", log: bool = True) -> dict[str, Any]:
     """Guard one text → ``{ok, redacted_text, hits[]}``. Hits are redacted and logged."""
     hits: list[dict[str, Any]] = []
+    allowed = _script_exceptions(source) if source else set()
     for s0, s1 in _sentences(text):
         sent = text[s0:s1]
         ksi_removal_ok = bool(_KSI_REMOVAL.search(sent))
@@ -73,6 +86,8 @@ def check(text: str, *, source: str = "", log: bool = True) -> dict[str, Any]:
                 if negatable and _NEG_BEFORE.search(sent[max(0, m.start() - 30):m.start()]):
                     continue
                 if rule == "treatment" and ksi_removal_ok and re.search(r"out\s+of|stop|end|remove", m.group(0), re.I):
+                    continue
+                if allowed and _norm(m.group(0)) in allowed:
                     continue
                 hits.append({"rule": rule, "match": m.group(0), "start": s0 + m.start(), "end": s0 + m.end()})
     hits.sort(key=lambda h: h["start"])

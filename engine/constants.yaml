@@ -44,6 +44,15 @@ ksi_cwi:
   remove_at_rectal_c: 39.0        # "only after rectal temperature reaches 39ºC (102ºF)"
   tub_within_min_of_field: [5, 10]
 
+guard_exceptions:   # engine/guard.py: phrases a named, fixed script may say although the guard blocks them elsewhere
+  status: VERIFIED
+  source: "Korey Stringer Institute, Cold Water Immersion Guide ('How to Respond to an Exertional Heat Stroke Emergency', 2024 resource update), step 1 'Initial response' (read)"
+  url: "https://koreystringer-institute.media.uconn.edu/wp-content/uploads/sites/3814/2024/08/ColdWaterImmersionGuide_ResourceUpdate_8.pdf"
+  quote_or_location: "Step 1: 'Initial response. Once exertional heat stroke is suspected, prepare to cool the patient and contact emergency medical services (EMS).'"
+  note: "Owner decision (polish 2a, Oct 4): the Collapse 911 script (web/src/views/CollapseMode.tsx, step 'call') is coach-initiated after an observed collapse and tells dispatch what is suspected, per KSI step 1. Only that script, and only this phrase, is exempt from the guard's 'suspected <heat illness>' diagnosis rule; every other source (generated labels, voice, /guard) still has it removed."
+  scripts:
+    collapse.911_script: ["suspected exertional heat stroke"]
+
 mhsaa_cwi_2026:
   status: VERIFIED
   source: "MHSAA SMAC Cold Water Immersion Update 2026"
