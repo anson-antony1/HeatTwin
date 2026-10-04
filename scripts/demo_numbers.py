@@ -102,7 +102,9 @@ def comparison(c, plan: dict, offline: bool, old: dict | None) -> dict[str, Any]
     live = None if offline else live_hours(plan["site"]["lat"], plan["site"]["lon"])
     if live is None and old and old.get("live_hours"):
         live = (old["live_hours"]["hours"], old["live_hours"]["fetched_at"])
-        labels.append(f"live rows from the stored snapshot (NWS fetched {live[1]}; offline now)")
+        labels.append(f"live rows: stored snapshot of the NWS forecast fetched {live[1]} (rerun online to refresh)")
+    elif live is not None:
+        labels.append(f"live rows: NWS forecast fetched {live[1]} (a snapshot; NWS updates its forecast)")
     rows = [_row(c, "saved_forecast", "Saved forecast (cached NWS, NWS WBGT) — pinned", plan, None, None)]
     if live is not None:
         hours, at = live

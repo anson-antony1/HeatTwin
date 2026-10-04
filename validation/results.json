@@ -833,7 +833,7 @@
   },
   "demo": {
     "computed_by": "validation/demo_numbers.py via the engine API with ?demo=1",
-    "computed_at": "2026-10-04T00:20:24+00:00",
+    "computed_at": "2026-10-04T00:26:46+00:00",
     "synthetic": true,
     "inputs": {
       "plan_id": "plan-demo-1",
