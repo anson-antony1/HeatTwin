@@ -6,6 +6,7 @@ import { liveCaptionsSupported, useLiveCaptions } from '../lib/useLiveCaptions'
 import { planStore, usePlanState, type PlanState } from '../data/planStore'
 import type { PlanDraft } from '../data/llmPlan'
 import { useRoster } from '../data/roster'
+import { hasDigits, kelvin, useKelvinReply } from '../data/voiceReply'
 import { fmtCore, fmtLimit } from '../lib/format'
 import { mmss } from '../lib/heat'
 import { ease, spring } from '../lib/motion'
@@ -19,14 +20,17 @@ import './VoiceDock.css'
 // At rest it's a compact pill, exactly as wide as the sidebar. Press the mic
 // and it springs out to full width (waveform, live captions, timer). Stop, and
 // it springs back while the mic button runs the pipeline:
-//   processing ring → check mark + "Plan updated" → mic again.
+//   processing ring → Confirm sheet → check mark + "Plan updated" → mic again.
 // Behind that: Gemini (engine /plan/parse_audio) transcribes and structures
-// what the coach said → /simulate models every athlete → the plan goes live
-// everywhere. Tap the pill's label to review what was heard, optimize, or undo.
-// The AI only structures the coach's words; every heat number is the engine's.
+// what the coach said → the coach checks the draft and presses Confirm →
+// /simulate models every athlete → the plan goes live everywhere. Tap the
+// pill's label to review the result, optimize, or undo.
+// The AI only structures the coach's words; every heat number is the engine's,
+// and Kelvin's sentence is engine-written (/voice/answer), guarded and
+// number-checked before it is shown (data/voiceReply.ts).
 
 type Bar = 'idle' | 'recording' | 'busy' | 'done'
-type SheetView = 'review' | 'result' | 'error' | 'typing'
+type SheetView = 'review' | 'confirm' | 'result' | 'error' | 'typing'
 
 const BARS = 22
 const DONE_HOLD_MS = 1700
@@ -50,15 +54,15 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
   const recording = v.state === 'recording'
   const captions = useLiveCaptions(recording)
   const { containerRef } = useMicLevels(recording, BARS)
-  const appliedDraft = useRef<PlanDraft | null>(null)
+  const [appliedDraft, setAppliedDraft] = useState<PlanDraft | null>(null)
   const flashTimer = useRef<number | null>(null)
+  const reply = useKelvinReply()
 
-  // A finished draft goes straight to the engine; the check mark confirms it
-  // landed. A draft with no usable drills stops for the coach instead.
-  useEffect(() => {
-    const d = v.draft
-    if (!d || appliedDraft.current === d || d.plan.drills.length === 0) return
-    appliedDraft.current = d
+  // The AI's draft is only a draft (needs_confirmation): the coach sees every
+  // drill and note and presses Confirm before the engine runs; the check mark
+  // confirms it landed. A draft with no usable drills stops for the coach.
+  const confirmDraft = (d: PlanDraft) => {
+    setAppliedDraft(d)
     planStore.confirm(d).then(() => {
       if (planStore.get().phase !== 'ready') return
       setFlash(true)
@@ -67,7 +71,7 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
         v.reset()
       }, DONE_HOLD_MS)
     })
-  }, [v.draft, v])
+  }
 
   useEffect(() => () => {
     if (flashTimer.current != null) window.clearTimeout(flashTimer.current)
@@ -80,8 +84,21 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
   let sheet: SheetView | null = null
   if (errorMsg) sheet = 'error'
   else if (v.draft && v.draft.plan.drills.length === 0) sheet = 'review'
+  else if (v.draft && appliedDraft !== v.draft) sheet = 'confirm'
   else if (opened === 'typing') sheet = 'typing'
   else if (opened === 'result' && p.sim) sheet = 'result'
+
+  // Kelvin's sentence for the result on screen: engine-written, then /guard + number check (else held: nothing new).
+  const replyKey = sheet === 'result' ? p.sim : null
+  useEffect(() => {
+    if (!replyKey) return
+    const st = planStore.get()
+    const question = st.draft?.transcript
+    if (st.source === 'optimized' && st.previous)
+      void kelvin.request({ key: replyKey, intent: 'optimize', plan: st.previous.plan, preset: st.preset ?? 'max_load', question })
+    else void kelvin.request({ key: replyKey, intent: 'plan_summary', plan: st.plan, question })
+  }, [replyKey])
+  const kelvinSay = reply.status === 'shown' && reply.key === p.sim ? reply.say : null
 
   const startRecording = () => {
     setOpened(null)
@@ -110,7 +127,8 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
 
   const onLabel = () => {
     if (bar !== 'idle') return
-    if (p.sim) setOpened((o) => (o === 'result' ? null : 'result'))
+    // The result sheet is for a plan the coach made (voice, edit, optimize); the engine's demo plan opens typing.
+    if (p.sim && p.source !== 'fixture') setOpened((o) => (o === 'result' ? null : 'result'))
     else setOpened((o) => (o === 'typing' ? null : 'typing'))
   }
 
@@ -149,9 +167,18 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
                 {sheet === 'review' && v.draft && (
                   <Review draft={v.draft} onRedo={startRecording} onType={() => openTyping(v.draft?.transcript ?? '')} />
                 )}
+                {sheet === 'confirm' && v.draft && (
+                  <Confirm
+                    draft={v.draft}
+                    onConfirm={() => v.draft && confirmDraft(v.draft)}
+                    onRedo={startRecording}
+                    onType={() => openTyping(v.draft?.transcript ?? '')}
+                  />
+                )}
                 {sheet === 'result' && (
                   <Result
                     p={p}
+                    say={kelvinSay}
                     onSeePlayers={() => {
                       close()
                       onSeePlayers()
@@ -325,7 +352,9 @@ function BarText({ bar, p, captions, busyLabel }: { bar: Bar; p: PlanState; capt
   }
   if (bar === 'done') {
     const mins = Math.round(p.plan.drills.reduce((s, d) => s + d.duration_min, 0))
-    const change = p.draft?.edited ? p.draft.changes?.[0] : null
+    // Gemini's change sentence only when it carries no number; numbers on screen are the engine's or the plan's.
+    const first = p.draft?.edited ? p.draft.changes?.[0] : null
+    const change = first && !hasDigits(first) ? first : null
     return (
       <>
         <span className="dock__title">Plan updated</span>
@@ -349,9 +378,9 @@ function Review({ draft, onRedo, onType }: { draft: PlanDraft; onRedo: () => voi
         <span className="review__label">{draft.labels[0] ?? 'parsed by AI'}</span>
       </div>
       {draft.transcript && <blockquote className="review__quote">“{draft.transcript}”</blockquote>}
-      {draft.unclear.length > 0 && (
+      {draft.unclear.filter((u) => !hasDigits(u)).length > 0 && (
         <ul className="review__notes">
-          {draft.unclear.map((u) => (
+          {draft.unclear.filter((u) => !hasDigits(u)).map((u) => (
             <li key={u} className="is-unclear">
               <strong>Needs input</strong> {u}
             </li>
@@ -370,8 +399,35 @@ function Review({ draft, onRedo, onType }: { draft: PlanDraft; onRedo: () => voi
   )
 }
 
+/** The AI's draft, for the coach to check before anything runs (the engine runs only after Confirm). */
+function Confirm({ draft, onConfirm, onRedo, onType }: { draft: PlanDraft; onConfirm: () => void; onRedo: () => void; onType: () => void }) {
+  return (
+    <div className="review">
+      <div className="review__head">
+        <div className="eyebrow">Check this draft</div>
+        <span className="review__label">{draft.labels[0] ?? 'parsed by AI — coach must confirm'}</span>
+      </div>
+      {draft.transcript && <blockquote className="review__quote">“{draft.transcript}”</blockquote>}
+      <Drills draft={draft} />
+      <div className="dock__actions">
+        <button className="btn btn--ink pressable" onClick={onConfirm}>
+          Confirm
+        </button>
+        <button className="btn btn--quiet pressable" onClick={onRedo}>
+          Try again
+        </button>
+        <button className="btn btn--quiet pressable" onClick={onType}>
+          Edit as text
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function Drills({ draft }: { draft: PlanDraft }) {
   const reduce = useReducedMotion()
+  // Gemini's notes are shown only when they carry no number (the drill list above shows every duration).
+  const notes = { unclear: draft.unclear.filter((u) => !hasDigits(u)), assumptions: draft.assumptions.filter((a) => !hasDigits(a)) }
   return (
     <>
       <ol className="review__drills">
@@ -392,14 +448,14 @@ function Drills({ draft }: { draft: PlanDraft }) {
           </motion.li>
         ))}
       </ol>
-      {draft.assumptions.length > 0 && (
+      {(notes.unclear.length > 0 || notes.assumptions.length > 0) && (
         <ul className="review__notes">
-          {draft.unclear.map((u) => (
+          {notes.unclear.map((u) => (
             <li key={u} className="is-unclear">
               <strong>Needs input</strong> {u}
             </li>
           ))}
-          {draft.assumptions.slice(0, 3).map((a) => (
+          {notes.assumptions.slice(0, 3).map((a) => (
             <li key={a}>
               <strong>Check</strong> {a}
             </li>
@@ -412,11 +468,14 @@ function Drills({ draft }: { draft: PlanDraft }) {
 
 function Result({
   p,
+  say,
   onSeePlayers,
   onType,
   onDone,
 }: {
   p: PlanState
+  /** Kelvin's approved, engine-written sentence (null while loading, or when held). */
+  say: string | null
   onSeePlayers: () => void
   onType: () => void
   onDone: () => void
@@ -431,6 +490,7 @@ function Result({
   const roster = useRoster()
   const name = (id: string) => roster.name(id)
   const optimizing = p.phase === 'optimizing'
+  const edits = (p.draft?.changes ?? []).filter((c) => !hasDigits(c))
   const canOptimize = p.source !== 'optimized' && (over > 0 || near > 0 || sim.fhsaa_violations.length > 0)
 
   return (
@@ -459,14 +519,14 @@ function Result({
           <span className="eyebrow">{AI_NAME} heard</span> “{p.draft.transcript}”
         </blockquote>
       )}
-      {p.draft?.edited && p.draft.changes && p.draft.changes.length > 0 && p.source === 'voice' && (
+      {p.draft?.edited && edits.length > 0 && p.source === 'voice' && (
         <ul className="result__edits">
-          {p.draft.changes.map((c) => (
+          {edits.map((c) => (
             <li key={c}>{c}</li>
           ))}
         </ul>
       )}
-      {p.opt?.top_changes_text && <p className="result__changes">{p.opt.top_changes_text}</p>}
+      {say && <p className="result__changes">{say}</p>}
       {p.opt && (
         <p className="faint num result__kept">
           Kept {Math.round(p.opt.load_kept_pct)}% of training load · {p.opt.changes.length} changes
@@ -543,7 +603,7 @@ function ErrorView({ message, onRetry, onType }: { message: string; onRetry: () 
   const friendly = /permission|NotAllowed/i.test(message)
     ? 'Microphone access was blocked. Allow it in the browser, or type the plan instead.'
     : /Failed to fetch|NetworkError|Load failed|reach the engine|ECONNREFUSED|HTTP 50[02]: ?$|^Internal Server Error$/i.test(message)
-      ? 'Can’t reach the HeatTwin engine. Start it from the repo root with `.venv/bin/uvicorn engine.api:app --port 8000`, then try again.'
+      ? 'Can’t reach the HeatTwin engine. Start it from the repo root with `make dev` (engine on port 8010), then try again.'
       : /timed out|took too long|TimeoutError/i.test(message)
         ? 'That took too long — the engine or Gemini didn’t answer within a minute. Try again.'
       : /GEMINI_API_KEY/i.test(message)
