@@ -13,7 +13,7 @@ warm:
 numbers:
 	. .venv/bin/activate && python3 scripts/demo_numbers.py
 test:
-	. .venv/bin/activate && pytest engine -q
+	. .venv/bin/activate && python -m pytest engine -q
 	cd web && npx vitest run
 check-sources:
 	. .venv/bin/activate && python3 engine/check_sources.py
