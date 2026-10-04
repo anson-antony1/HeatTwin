@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'motion/react'
 import type { ContractDrill } from '../data/llmPlan'
-import type { AthleteStatus, SimulationResult, WeatherHour } from '../data/engineApi'
+import type { AthleteStatus, OptimizePreset, SimulationResult, WeatherHour } from '../data/engineApi'
 import { zoneColor } from '../data/constants'
 import { planStore, usePlanState } from '../data/planStore'
 import { useRoster } from '../data/roster'
 import { useEngineMeta } from '../data/engineMeta'
 import {
   FHSAA_CITATION,
+  fewestChangesNote,
   hottestPeakP95,
   hourOf,
   planMinutes,
@@ -106,6 +107,8 @@ export function PlanView() {
   const [editing, setEditing] = useState(false)
   const [editFrom, setEditFrom] = useState<string | null>(null)
   const [openDrill, setOpenDrill] = useState<string | null>(null)
+  // Which optimizer preset the coach asked for (for the spinner while /optimize runs).
+  const [asked, setAsked] = useState<OptimizePreset>('max_load')
   const saveRequested = useRef(false)
 
   const drills = p.plan.drills
@@ -135,6 +138,14 @@ export function PlanView() {
   const busy = p.phase === 'simulating' || p.phase === 'optimizing'
   const offline = !!now?.offline
 
+  const optimizing = (preset: OptimizePreset) => p.phase === 'optimizing' && asked === preset
+  const optimizedWith = (preset: OptimizePreset) => p.source === 'optimized' && (p.preset ?? 'max_load') === preset
+  const optimize = (preset: OptimizePreset) => {
+    setAsked(preset)
+    void planStore.optimize(preset)
+  }
+  const fewestNote = p.opt && p.source === 'optimized' ? fewestChangesNote(p.opt.fewest_changes, p.opt.changes.length) : null
+
   const startEdit = (from: string | null = null) => {
     setOpenDrill(null)
     setEditFrom(from)
@@ -146,7 +157,7 @@ export function PlanView() {
       <header className="plan__head">
         <div>
           <div className="eyebrow">
-            Today · {clockLabel(startHour, 0)} – {clockLabel(startHour, minutes)} · <SourceLabel source={p.source} />
+            Today · {clockLabel(startHour, 0)} – {clockLabel(startHour, minutes)} · <SourceLabel source={p.source} preset={p.preset} />
           </div>
           <h1 className="display-lg">Practice plan</h1>
         </div>
@@ -161,16 +172,34 @@ export function PlanView() {
               Edit
             </button>
             <button
+              className="btn btn--quiet btn--lg pressable"
+              onClick={() => optimize('fewest_changes')}
+              disabled={busy || p.source === 'optimized' || !p.sim}
+              title={!p.sim ? 'Optimizing needs the engine' : 'The smallest edit that meets every rule (engine preset fewest_changes)'}
+            >
+              {optimizing('fewest_changes') ? (
+                <>
+                  <span className="spinner" aria-hidden="true" /> Finding fewest changes…
+                </>
+              ) : optimizedWith('fewest_changes') ? (
+                <>
+                  <IconCheck width={18} height={18} /> Fewest changes
+                </>
+              ) : (
+                'Fewest changes'
+              )}
+            </button>
+            <button
               className="btn btn--ink btn--lg pressable"
-              onClick={() => planStore.optimize()}
+              onClick={() => optimize('max_load')}
               disabled={busy || p.source === 'optimized' || !p.sim}
               title={!p.sim ? 'Optimizing needs the engine' : undefined}
             >
-              {p.phase === 'optimizing' ? (
+              {optimizing('max_load') ? (
                 <>
                   <span className="spinner" aria-hidden="true" /> Optimizing…
                 </>
-              ) : p.source === 'optimized' ? (
+              ) : optimizedWith('max_load') ? (
                 <>
                   <IconCheck width={18} height={18} /> Optimized
                 </>
@@ -441,7 +470,10 @@ export function PlanView() {
             exit={reduce ? { opacity: 0 } : { opacity: 0, transform: 'translateY(8px)', transition: { duration: 0.15 } }}
             transition={{ duration: 0.32, ease: ease.out }}
           >
-            <div className="eyebrow">What the engine’s optimizer changed</div>
+            <div className="eyebrow">
+              What the engine’s optimizer changed{p.preset === 'fewest_changes' ? ' · fewest changes' : ''}
+            </div>
+            {fewestNote && <p className="plan__top plan__fewest">{fewestNote}</p>}
             {p.opt.top_changes_text && <p className="plan__top">{p.opt.top_changes_text}</p>}
             {!p.opt.feasible && p.opt.infeasible_reasons?.length ? (
               <p className="plan__top">{p.opt.infeasible_reasons.join(' ')}</p>
@@ -471,11 +503,11 @@ function nullableCore(c: number | null, limit: number | null | undefined): numbe
   return c == null ? null : coreValue(c, limit)
 }
 
-function SourceLabel({ source }: { source: string }) {
+function SourceLabel({ source, preset }: { source: string; preset: OptimizePreset | null }) {
   const label: Record<string, string> = {
     fixture: 'Engine demo plan',
     voice: `From ${AI_NAME}`,
-    optimized: 'Optimized by the engine',
+    optimized: preset === 'fewest_changes' ? 'Optimized by the engine · fewest changes' : 'Optimized by the engine',
     edited: 'Edited',
   }
   return <span className={`plan__src plan__src--${source}`}>{label[source]}</span>

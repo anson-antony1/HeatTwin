@@ -66,6 +66,22 @@ export interface PlanChange {
   detail: string
 }
 
+export type OptimizePreset = 'max_load' | 'fewest_changes'
+
+/** v1.4: on OptimizeResult when preset=fewest_changes — the minimum compliant edit. */
+export interface FewestChanges {
+  /** The preset's change cap (constants.optimizer_presets). */
+  cap: number
+  /**
+   * Smallest cap (searched upward from `cap`) giving a plan that meets every FHSAA/NATA rule with every athlete under
+   * the line; null if none up to max_load's count. When > cap, the result IS the plan found at that count.
+   */
+  min_compliant_changes: number | null
+  searched_caps: number[]
+  /** True only if no capped plan qualified and the max_load plan is shown. */
+  fell_back: boolean
+}
+
 export interface OptimizeResult {
   original: SimulationResult
   optimized: SimulationResult
@@ -76,6 +92,8 @@ export interface OptimizeResult {
   infeasible_reasons?: string[]
   top_changes_text?: string
   labels?: string[]
+  /** v1.4, preset=fewest_changes only. */
+  fewest_changes?: FewestChanges
 }
 
 /** CONTRACTS.md Athlete (the engine's roster). */
@@ -266,7 +284,7 @@ export function simulatePlan(plan: PracticePlan, signal?: AbortSignal) {
   return request<SimulationResult>('POST', '/simulate?demo=1', { plan }, signal)
 }
 
-export function optimizePlan(plan: PracticePlan, signal?: AbortSignal, preset: 'max_load' | 'fewest_changes' = 'max_load') {
+export function optimizePlan(plan: PracticePlan, signal?: AbortSignal, preset: OptimizePreset = 'max_load') {
   return request<OptimizeResult>('POST', `/optimize?demo=1&preset=${preset}`, { plan }, signal)
 }
 

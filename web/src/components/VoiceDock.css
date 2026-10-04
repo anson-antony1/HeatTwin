@@ -445,6 +445,12 @@
   color: var(--ink-2);
 }
 
+/* The fewest-changes result in words ("Needs at least N changes — …"). */
+.result__fewest {
+  color: var(--ink);
+  font-weight: 500;
+}
+
 .result__kept {
   margin: 4px 0 0;
   font-size: 12.5px;

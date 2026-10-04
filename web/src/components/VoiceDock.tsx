@@ -7,6 +7,7 @@ import { planStore, usePlanState, type PlanState } from '../data/planStore'
 import type { PlanDraft } from '../data/llmPlan'
 import { ROSTER } from '../data/fixtures'
 import { useRoster } from '../data/roster'
+import { fewestChangesNote } from '../data/selectors'
 import { mmss } from '../lib/heat'
 import { ease, spring } from '../lib/motion'
 import { fmtCore } from '../lib/format'
@@ -470,6 +471,8 @@ function Result({
   // Engine roster names (with "(fictional)" for the synthetic demo roster); else the local fixture copy, which keeps it too.
   const name = (id: string) => (roster.byId(id) ? roster.name(id) : (ROSTER.find((r) => r.id === id)?.name ?? id))
   const optimizing = p.phase === 'optimizing'
+  // v1.4 fewest-changes result in words ("Needs at least N changes — …"); never "fell back".
+  const fewest = p.opt ? fewestChangesNote(p.opt.fewest_changes, p.opt.changes.length) : null
   const canOptimize = p.source !== 'optimized' && (over > 0 || near > 0 || sim.fhsaa_violations.length > 0)
 
   return (
@@ -505,6 +508,7 @@ function Result({
           ))}
         </ul>
       )}
+      {fewest && <p className="result__changes result__fewest">{fewest}</p>}
       {p.opt?.top_changes_text && <p className="result__changes">{p.opt.top_changes_text}</p>}
       {p.opt && (
         <p className="faint num result__kept">

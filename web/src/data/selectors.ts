@@ -2,6 +2,7 @@ import type { ContractDrill, ContractGear, PracticePlan } from './llmPlan'
 import type {
   AthleteStatus,
   DemoInputs,
+  FewestChanges,
   FhsaaZoneRule,
   LiveReplay,
   NataPhase,
@@ -172,6 +173,23 @@ export function nearMargin(settings: SettingsResponse | null, sim: Pick<Simulati
 export function displayName(name: string, synthetic: boolean): string {
   if (!synthetic || /\(fictional\)/i.test(name)) return name
   return `${name} (fictional)`
+}
+
+// ── optimizer: fewest-changes preset (v1.4) ────────────────────────────────
+
+/**
+ * What the fewest-changes result means, in words (null for max_load or an older engine without `fewest_changes`).
+ * Numbers are the engine's (`cap`, `min_compliant_changes`). Never "fell back": when the preset needed more changes
+ * than its cap, the plan shown IS the one found at that count.
+ */
+export function fewestChangesNote(fc: FewestChanges | null | undefined, changes?: number): string | null {
+  if (!fc) return null
+  if (fc.fell_back) return 'No capped plan qualified; showing the max-load plan.'
+  if (fc.min_compliant_changes == null)
+    return `No plan with ≤ ${fc.cap} changes meets every rule and keeps everyone under the line.`
+  if (fc.min_compliant_changes > fc.cap)
+    return `Needs at least ${fc.min_compliant_changes} changes — no plan with ≤ ${fc.cap} changes meets every rule and keeps everyone under the line.`
+  return changes != null ? `Fewest changes: ${changes} (cap ${fc.cap}).` : `Fewest changes, within the cap of ${fc.cap}.`
 }
 
 // ── the engine's demo plan ─────────────────────────────────────────────────

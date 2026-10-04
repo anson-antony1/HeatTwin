@@ -149,6 +149,44 @@ describe('the HR replay follows the plan it was recorded on (S1)', () => {
   })
 })
 
+describe('Fewest changes (decision 4)', () => {
+  it('calls /optimize?demo=1&preset=fewest_changes and keeps the preset and v1.4 fewest_changes for the views', async () => {
+    const fewest = { cap: 6, min_compliant_changes: 9, searched_caps: [6, 7, 8, 9], fell_back: false }
+    const calls: string[] = []
+    vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
+      calls.push(`${init?.method ?? 'GET'} ${url}`)
+      const body = url.includes('/demo/inputs')
+        ? { plan, roster, weather: [], labels: [], synthetic: { plan: true, roster: true, weather: false } }
+        : url.includes('/optimize')
+          ? {
+              original: engineSim(plan.id),
+              optimized: engineSim(plan.id),
+              plan: { ...plan, drills: [...plan.drills].reverse() },
+              changes: Array.from({ length: 9 }, (_, i) => ({ kind: 'reorder', drill_id: `d${i}`, detail: 'x' })),
+              load_kept_pct: 80,
+              feasible: true,
+              fewest_changes: fewest,
+            }
+          : url.includes('/simulate')
+            ? engineSim(plan.id)
+            : url.includes('/live/replay')
+              ? { source: { file: 'f', synthetic: true, athletes: [], n_readings: 0, first_ts: '', last_ts: '', aligned_to_plan_start: false }, plan_forecast: engineSim(plan.id), frames: [], hr_series: {}, labels: [] }
+              : {}
+      return new Response(JSON.stringify(body), { status: 200 })
+    })
+    const { planStore } = await freshStores()
+    await planStore.boot()
+    await planStore.optimize('fewest_changes')
+    expect(calls).toContain('POST /engine/optimize?demo=1&preset=fewest_changes')
+    const s = planStore.get()
+    expect(s.source).toBe('optimized')
+    expect(s.preset).toBe('fewest_changes')
+    expect(s.opt?.fewest_changes).toEqual(fewest)
+    planStore.undo()
+    expect(planStore.get().preset).toBeNull()
+  })
+})
+
 describe('offline stand-in', () => {
   it('labels every result and athlete OFFLINE FALLBACK and generates no heart rate', () => {
     const off = offlineSimulate(plan, roster)
