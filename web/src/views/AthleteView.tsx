@@ -4,16 +4,7 @@ import { athleteOf, engine, replayHeldNote, useSession } from '../data/engine'
 import { useEngineMeta } from '../data/engineMeta'
 import { SYNTHETIC_ROSTER_LABEL, useRoster } from '../data/roster'
 import { ESTIMATE_LABEL, SAFETY_LINE } from '../data/constants'
-import {
-  bodySurfaceAreaM2,
-  acclimatizationDays,
-  breakWindow,
-  drillAtMinute,
-  inEarlyPhase,
-  maxBetween,
-  modelLabel,
-  statusTone,
-} from '../data/selectors'
+import { bodySurfaceAreaM2, acclimatizationDays, breakWindow, drillAtMinute, inEarlyPhase, maxBetween, modelLabel, athleteTone } from '../data/selectors'
 import { BodyFigure } from '../components/BodyFigure'
 import { NumberTicker } from '../components/NumberTicker'
 import { StatusPill } from '../components/StatusPill'
@@ -66,7 +57,7 @@ function Picker({ athleteId, onSelect }: { athleteId: string; onSelect: (id: str
     <div className="picker glass" role="tablist" aria-label="Choose athlete">
       {roster.athletes.map((a) => {
         const on = a.id === athleteId
-        const status = statusTone(athleteOf(s, a.id).status, athleteOf(s, a.id).flag)
+        const status = athleteTone(athleteOf(s, a.id), s.limitC)
         return (
           <button
             key={a.id}
@@ -109,7 +100,7 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
   const coreShown = scrubbed ? scrubbed.c : live.coreC
   const zoom = useZoom(s.totalMinutes, scrub ?? s.minute)
   if (!a) return null
-  const tone = statusTone(live.status, live.flag)
+  const tone = athleteTone(live, s.limitC)
   const held = replayHeldNote(s.replay, planState.source)
   const model =
     s.source === 'engine' ? `Engine · ${modelLabel(live)}` : s.source === 'offline' ? 'offline fallback — no estimate' : '—'

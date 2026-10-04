@@ -7,7 +7,7 @@ import { usePlanState } from '../data/planStore'
 import { useEngineMeta } from '../data/engineMeta'
 import { SYNTHETIC_ROSTER_LABEL, useRoster } from '../data/roster'
 import { ESTIMATE_LABEL, zoneColor } from '../data/constants'
-import { acclimatizationDays, drillAtMinute, statusTone, type Tone } from '../data/selectors'
+import { acclimatizationDays, athleteTone, drillAtMinute, overLineNow, type Tone } from '../data/selectors'
 import { NumberTicker } from '../components/NumberTicker'
 import { StatusPill } from '../components/StatusPill'
 import { TempChart } from '../components/TempChart'
@@ -23,9 +23,9 @@ import './CoachDashboard.css'
 // estimate, peak and status from the plan forecast or the HR-calibrated
 // re-forecast, alerts from the engine's calibration gates (gates.flag).
 
-/** Sort bucket: engine flag first, then over / near / below the line. */
+/** Sort bucket: engine flag or over the line now first, then forecast over / near / below the line. */
 const RANK: Record<Tone, number> = { alert: 1, watch: 2, steady: 3, none: 4 }
-const rankOf = (a: AthleteLive) => RANK[statusTone(a.status, a.flag)]
+const rankOf = (a: AthleteLive, limit: number | null) => RANK[athleteTone(a, limit)]
 
 interface Props {
   acked: Set<string>
@@ -45,19 +45,23 @@ export function CoachDashboard({ acked, onAck, onOpenAthlete, onCollapse }: Prop
   // Re-rank only by status bucket, never by the live number — rows that
   // shuffle every second would make the roster unreadable. Status changes are
   // rare, so when a row does move it's news, and the spring shows where it went.
-  const statusKey = roster.athletes.map((a) => rankOf(athleteOf(s, a.id))).join()
+  const statusKey = roster.athletes.map((a) => rankOf(athleteOf(s, a.id), s.limitC)).join()
   const order = useMemo(
-    () => [...roster.athletes].sort((a, b) => rankOf(athleteOf(s, a.id)) - rankOf(athleteOf(s, b.id))),
+    () => [...roster.athletes].sort((a, b) => rankOf(athleteOf(s, a.id), s.limitC) - rankOf(athleteOf(s, b.id), s.limitC)),
     // Only re-rank when a status or flag flips.
     [statusKey, roster], // eslint-disable-line react-hooks/exhaustive-deps
   )
 
-  const alerts = order.filter((a) => athleteOf(s, a.id).flag && !acked.has(a.id))
+  // Alert card: the engine flagged the athlete, or their estimate is over the planning line right now.
+  const alerts = order.filter((a) => {
+    const live = athleteOf(s, a.id)
+    return (live.flag || overLineNow(live, s.limitC)) && !acked.has(a.id)
+  })
   const lead = alerts[0]
 
   const counts = roster.athletes.reduce(
     (c, a) => {
-      const tone = statusTone(athleteOf(s, a.id).status, athleteOf(s, a.id).flag)
+      const tone = athleteTone(athleteOf(s, a.id), s.limitC)
       return tone === 'none' ? c : { ...c, [tone]: c[tone] + 1 }
     },
     { steady: 0, watch: 0, alert: 0 },
@@ -285,7 +289,9 @@ function AlertCard({
     >
       <div className="alertcard__top">
         <span className="alertcard__beacon" aria-hidden="true" />
-        <span className="eyebrow alertcard__eyebrow" title={live.gates?.message}>Re-forecast crosses the alert line</span>
+        <span className="eyebrow alertcard__eyebrow" title={live.gates?.message}>
+          {live.flag ? 'Re-forecast crosses the alert line' : 'Estimate over the planning line now'}
+        </span>
         {more > 0 && <span className="alertcard__more num">+{more} more</span>}
       </div>
       <button className="alertcard__who pressable" onClick={onOpen}>
@@ -359,8 +365,8 @@ function RosterRow({
   index: number
   onOpen: () => void
 }) {
-  const tone = statusTone(live.status, live.flag)
   const limit = s.limitC
+  const tone = athleteTone(live, limit)
   return (
     <button
       className={`row row--${tone}`}

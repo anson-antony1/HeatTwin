@@ -568,9 +568,24 @@ export function modelLabel(a: Pick<AthleteLive, 'basis' | 'hasHr' | 'calibrated'
  * peak at the line"); 'steady' below it. Colour only — the numbers are the engine's.
  */
 export type Tone = 'steady' | 'watch' | 'alert' | 'none'
-export function statusTone(s: AthleteStatus | null | undefined, flag = false): Tone {
-  if (flag) return 'alert'
+/**
+ * The estimate at the current minute is at or over the planning line: p95 (p50 + band) ≥ the engine's limit_core_c,
+ * the same p95-vs-limit rule the engine uses for over_limit. A forecast *peak* over the line later in practice stays
+ * amber (Watch); this is about the athlete now.
+ */
+export function overLineNow(a: Pick<AthleteLive, 'coreC' | 'bandC'> | null | undefined, limitC: number | null | undefined): boolean {
+  if (!a || a.coreC == null || limitC == null) return false
+  return a.coreC + (a.bandC ?? 0) >= limitC
+}
+
+export function statusTone(s: AthleteStatus | null | undefined, flag = false, overNow = false): Tone {
+  if (flag || overNow) return 'alert'
   return s === 'over_limit' || s === 'near_limit' ? 'watch' : s === 'below_limit' ? 'steady' : 'none'
+}
+
+/** Tone of one athlete on screen: engine flag or over the line now → alert, else the forecast status. */
+export function athleteTone(a: AthleteLive, limitC: number | null | undefined): Tone {
+  return statusTone(a.status, a.flag, overLineNow(a, limitC))
 }
 
 /** Earliest first crossing among the athletes on screen (for "Skip to heat"). */

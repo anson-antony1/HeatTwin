@@ -188,3 +188,16 @@ describe('body surface area from the engine coefficients', () => {
     expect(bodySurfaceAreaM2({ mass_kg: 125, height_m: 1.88 }, null)).toBeNull()
   })
 })
+
+describe('over the planning line now', () => {
+  it('turns an athlete red only when p95 at this minute reaches the limit', async () => {
+    const { overLineNow, athleteTone } = await import('../selectors')
+    expect(overLineNow({ coreC: 38.5, bandC: 0.4 }, 39)).toBe(false)
+    expect(overLineNow({ coreC: 38.7, bandC: 0.3 }, 39)).toBe(true)
+    expect(overLineNow({ coreC: null, bandC: null }, 39)).toBe(false)
+    expect(overLineNow({ coreC: 40, bandC: 0.5 }, null)).toBe(false)
+    const base = { status: 'over_limit' as const, flag: false, coreC: 37.5, bandC: 0.4 }
+    expect(athleteTone(base as never, 39)).toBe('watch')                 // forecast peak over later → amber
+    expect(athleteTone({ ...base, coreC: 38.8 } as never, 39)).toBe('alert') // over now → red
+  })
+})
