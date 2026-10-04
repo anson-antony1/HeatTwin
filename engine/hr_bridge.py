@@ -10,6 +10,7 @@ strap that broadcasts standard BLE HR (Polar H10, Garmin "Broadcast HR", Coospo 
     python -m engine.hr_bridge --map a07=Helio                          # name substring → athlete a07
     python -m engine.hr_bridge --map a07=C8:12:34:56:78:9A --map a11=Polar --engine http://localhost:8010
     python -m engine.hr_bridge --replay fixtures/hr_a07_synthetic.csv --speed 10   # no BLE; replay → /hr
+    python -m engine.hr_bridge --replay fixtures/hr_a07_synthetic.csv --speed 1 --live-clock   # rehearse the live path
 
 macOS: run it from Terminal/iTerm and allow that app under System Settings → Privacy & Security → Bluetooth.
 Without that permission CoreBluetooth aborts the process (SIGABRT) on the first scan.
@@ -279,8 +280,11 @@ def read_csv(path: str | Path) -> list[dict[str, Any]]:
 
 
 def replay(rows: Sequence[dict[str, Any]], post: Callable[[dict[str, Any]], Any], speed: float,
-           sleep: Callable[[float], None] = time.sleep) -> int:
-    """Post rows in order with (Δt / speed) pauses. Every posted reading has replay=True."""
+           sleep: Callable[[float], None] = time.sleep, live_clock: bool = False) -> int:
+    """Post rows in order with (Δt / speed) pauses. Every posted reading has replay=True.
+
+    ``live_clock``: stamp each reading with the time it is posted (a rehearsal of the live path — /live/start
+    {"start_now": true}, then the web's live view — without a strap); the readings stay labelled replay."""
     prev = None
     n = 0
     for r in rows:
@@ -288,7 +292,7 @@ def replay(rows: Sequence[dict[str, Any]], post: Callable[[dict[str, Any]], Any]
         if prev is not None and speed > 0:
             sleep(max(t - prev, 0.0) / speed)
         prev = t
-        post({**r, "replay": True})
+        post({**r, "replay": True, **({"ts": now_iso()} if live_clock else {})})
         n += 1
     return n
 
@@ -316,6 +320,8 @@ def main(argv: Sequence[str] | None = None) -> None:
     ap.add_argument("--scan-timeout", type=float, default=8.0)
     ap.add_argument("--replay", default=None, help="CSV to replay to /hr instead of BLE")
     ap.add_argument("--speed", type=float, default=None, help="replay speed-up (default constants.calibration.replay_speed)")
+    ap.add_argument("--live-clock", action="store_true",
+                    help="with --replay: stamp readings with the current time (rehearse the live path; still labelled replay)")
     a = ap.parse_args(argv)
 
     if a.replay:
@@ -324,7 +330,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         rows = read_csv(a.replay)
         post = (lambda r: print(f"[replay] {r['athlete_id']} {r['hr_bpm']} {r['ts']}")) if (a.dry_run or not a.engine) \
             else _http_post(a.engine)
-        n = replay(rows, post, speed)
+        n = replay(rows, post, speed, live_clock=a.live_clock)
         print(f"replayed {n} readings at {speed}× (replay=true)")
         return
     if a.scan:
