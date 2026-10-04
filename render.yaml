@@ -33,6 +33,8 @@ services:
       - key: HEATTWIN_INTEGRATOR          # "auto" = numba kernel (measured ~230 MB peak, 320 MB with the embedding model).
         value: auto                       # "numpy" never imports numba (77 MB) but a cold search is ~6x slower; the
                                           # build's warm-up always uses numba (docs/DEPLOY.md, Memory)
+      - key: HEATTWIN_CACHE_DIR           # committed demo cache (docs/DEPLOY.md): the build finds both optimizer results and takes seconds
+        value: deploy/demo_cache          # instead of ~4 min on a laptop and far longer on 0.1 vCPU. Any engine change needs a regenerate.
       - key: FASTEMBED_MODEL              # engine/decide.py embedding model; scripts/fetch_fastembed_model.py downloads it
         value: BAAI/bge-small-en-v1.5
       - key: FASTEMBED_CACHE_DIR          # inside the project dir so the build's download survives to run time
