@@ -1,8 +1,9 @@
-# CONTRACTS.md — frozen data shapes (v1.4)
+# CONTRACTS.md — frozen data shapes (v1.5)
 
 Freeze at M0. Additive changes only after that.
 **v1.1 (additive, Oct 3):** fields marked `// v1.1` are new and optional; every v1 field keeps its meaning.
 **v1.2 (additive, Oct 3 night):** `// v1.2` — Drill.drill_type, OptimizeResult.top_changes/top_changes_text, voice-tool endpoints. Units are in field names. Times are ISO 8601 with offset; durations are in minutes.
+**v1.5 (additive, final-ui):** `GET /live/state` (the web polls the live HR session), `LiveReplay.source.{date, device, label}`.
 **v1.4 (additive, Oct 3 night):** `?source=node` (node demo scenario weather; never with ?demo=1), `OptimizeResult.fewest_changes` (minimum compliant edit), `GET /demo/comparison` (same plan, three weather inputs), `/voice/answer` optional `question`, `first_cross_min: number | null`. GET /weather is implemented (engine/weather_routes.py, display only).
 **v1.3 (additive, Oct 3 evening, audit-fixes):** `// v1.3` — /demo/inputs, POST /athlete_status and /field_conditions (act on the plan on screen), /live/replay, /node + /node/latest implemented, /plan/parse* (Gemini plan entry, already shipped), voice Q&A: /voice/intent → /voice/answer → /voice/tts. GET /weather is still not implemented (the engine reads the cached NWS fixture; live NWS only with HEATTWIN_WEATHER=live, never with ?demo=1).
 
@@ -270,3 +271,25 @@ type DemoComparison = {                // GET /demo/comparison — a stored snap
 ```
 | POST | `/voice/answer` | v1.4 optional `question` (the coach's words): when it asks whether someone is "safe/fine/OK/cleared", `say` starts with the boundary sentence (no clearance is given) |
 | GET | `/demo/comparison` | v1.4 → `DemoComparison` (snapshot; 404 until scripts/demo_numbers.py has run) |
+| GET | `/live/state` | v1.5 → `LiveState` (poll every few seconds). Start with `POST /live/start {"start_now": true}`; readings arrive from `engine/hr_bridge.py` (`POST /hr`) |
+
+```ts
+// v1.5
+type LiveState = {
+  active: boolean;                 // a live session exists (POST /live/start)
+  receiving: boolean;              // some athlete's strap reading is newer than constants.live_hr.stale_after_s
+  plan_id?: string; plan_start?: string; now?: string;
+  minute?: number;                 // minutes since plan start (wall clock)
+  athletes: Record<string, {       // athletes with readings
+    hr_bpm: number; ts: string; device: string;   // device display name, e.g. "Amazfit Helio Strap"
+    replay: boolean; age_s: number; receiving: boolean; minute: number;
+    calib: { met_scale: number; met_scale_sd: number } | null;
+    gates: LiveReplay["frames"][number]["gates"] | null;
+    athlete: { core_c_p50: number[]; core_c_p95: number[]; peak_core_c_p95: number; status: string; first_cross_min: number | null } | null;
+  }>;
+  reforecast?: SimulationResult;   // whole roster, latest calibration (plan forecast for athletes without HR)
+  labels: string[];                // "live · Amazfit Helio Strap" (or "replay (hr_bridge) · …") + plan labels
+};
+// LiveReplay.source (v1.5 additive): date: string | null; device: string | null;
+//   label: "replay · <date> · <device>" | "replay · synthetic HR file (not a real athlete)"
+```

@@ -112,7 +112,12 @@ def run_replay(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], wea
                        "athlete": {k: a.get(k) for k in ("core_c_p50", "core_c_p95", "peak_core_c_p95", "status",
                                                          "first_cross_min")}})
     return {
-        "source": {"file": f"fixtures/{path.name}", "synthetic": synthetic, "athletes": sorted({r["athlete_id"] for r in rows}),
+        "source": {"file": f"fixtures/{path.name}", "synthetic": synthetic,
+                   "date": None if synthetic else (rows_all[0]["ts"][:10] if rows_all else None),
+                   "device": None if synthetic else hr_device(rows_all),
+                   "label": ("replay · synthetic HR file (not a real athlete)" if synthetic else
+                             f"replay · {rows_all[0]['ts'][:10] if rows_all else '?'} · {hr_device(rows_all)}"),
+                   "athletes": sorted({r["athlete_id"] for r in rows}),
                    "n_readings": len(rows), "first_ts": rows[0]["ts"] if rows else None,
                    "last_ts": rows[-1]["ts"] if rows else None, "aligned_to_plan_start": aligned},
         "plan_forecast": prior,
