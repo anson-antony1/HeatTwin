@@ -1,7 +1,7 @@
 import { useSession } from '../data/engine'
 import { useEngineMeta } from '../data/engineMeta'
 import { zoneColor } from '../data/constants'
-import { FHSAA_CITATION, fieldSourceLabel, SNAPSHOT_LABEL, weatherSourceLabel, zoneRule, zoneRuleText, zoneShortText } from '../data/selectors'
+import { FHSAA_CITATION, fieldSensorNote, fieldSourceChip, isFieldSensorHour, SNAPSHOT_LABEL, weatherSourceLabel, zoneRule, zoneRuleText, zoneShortText } from '../data/selectors'
 import { NumberTicker } from './NumberTicker'
 import { OfflineBadge } from './OfflineBadge'
 import { fieldHour, useWeather } from '../data/weather'
@@ -23,14 +23,17 @@ export function FieldCard() {
   const offline = s.source === 'offline' || meta.link === 'offline'
   const where = weather.location ? `${weather.location.name} · ` : ''
   const coverNote = weather.location ? undefined : s.labels.find((l) => /nearest hours/i.test(l))
+  // v1.7: the Arduino field sensor — the active source and the last reading's age (a place picked in Settings is not the field).
+  const sensorNote = weather.location ? null : fieldSensorNote(hour, meta.node?.source)
+  const sensorHour = isFieldSensorHour(hour)
   const sourceTitle = hour
-    ? `${where}${hour.time_shifted_min != null ? `${SNAPSHOT_LABEL}: the pinned NWS forecast, shifted ${hour.time_shifted_min} min to this session` : hour.source === 'fixture' ? 'cached NWS forecast (fixture)' : weatherSourceLabel(hour.source)} · WBGT and FHSAA zone from the HeatTwin engine${coverNote ? ` · ${coverNote}` : ''}`
+    ? `${where}${sensorHour ? (sensorNote ?? 'Field sensor (Arduino) + NWS') : hour.time_shifted_min != null ? `${SNAPSHOT_LABEL}: the pinned NWS forecast, shifted ${hour.time_shifted_min} min to this session` : hour.source === 'fixture' ? 'cached NWS forecast (fixture)' : weatherSourceLabel(hour.source)} · WBGT and FHSAA zone from the HeatTwin engine${coverNote ? ` · ${coverNote}` : ''}${sensorNote && !sensorHour ? ` · ${sensorNote}` : ''}`
     : undefined
   return (
     <section className="field glass" aria-label="Field conditions">
       <div className="field__top">
         <span className="eyebrow">WBGT · field</span>
-        {offline ? <OfflineBadge /> : <span className="field__src" title={sourceTitle}>{fieldSourceLabel(hour)}</span>}
+        {offline ? <OfflineBadge /> : <span className="field__src" title={sourceTitle}>{fieldSourceChip(hour, meta.node?.source)}</span>}
       </div>
       <div className="field__value display-lg">
         <NumberTicker value={hour?.wbgt_f ?? Number.NaN} decimals={1} suffix="°F" />

@@ -22,6 +22,10 @@ export interface WeatherHour {
   source: 'nws_forecast' | 'field_node' | 'assimilated' | 'fixture' | string
   /** v1.6: a live session on the pinned forecast shifted to now, by this many minutes ("forecast snapshot (time-shifted)"). */
   time_shifted_min?: number
+  /** v1.7: the Arduino's air temperature with humidity / wind / sunlight from NWS (`weather_from` "nws") or from the
+   *  time-shifted pinned forecast ("snapshot"). */
+  field_mode?: boolean
+  weather_from?: 'nws' | 'snapshot'
 }
 
 export interface AtSettings {
@@ -219,6 +223,20 @@ export interface NodeLatest {
   labels: string[]
   /** Indoor sensor demo: > 0 while it runs; bumps when the sensor's inferred sun changes enough to change results. */
   demo_version?: number
+  /** v1.7: which weather a live session would use now, and how old the Arduino's last reading is. */
+  source?: NodeSource
+}
+
+/** v1.7 `source` of GET /node/latest and /node/status. `field_sensor_*`: a fresh Arduino reading (air temperature) with
+ *  NWS or snapshot humidity / wind / sunlight; `nws` / `snapshot`: no recent reading, so live NWS or the time-shifted
+ *  pinned forecast; `none`: no sensor path. `reading_age_s` keeps counting after an unplug (null: never read). */
+export interface NodeSource {
+  id: 'field_sensor_nws' | 'field_sensor_snapshot' | 'demo_scenario' | 'nws' | 'snapshot' | 'none'
+  label: string | null
+  mode: 'field' | 'demo'
+  sensor_fresh: boolean
+  reading_age_s: number | null
+  stale_after_s: number
 }
 
 /** The indoor sensor demo is running (POST /node demo readings arriving): simulate with ?source=node. */
