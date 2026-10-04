@@ -1083,7 +1083,7 @@
   },
   "wbgt_gap": {
     "computed_by": "validation/wbgt_gap.py",
-    "computed_at": "2026-10-03T23:59:37+00:00",
+    "computed_at": "2026-10-04T00:16:36+00:00",
     "synthetic": false,
     "inputs_note": "Cached real NWS gridpoint forecasts (fixtures/); no network. Our WBGT is engine/wbgt.py as engine/weather.py runs it; NWS's is its wetBulbGlobeTemperature layer.",
     "site": {
@@ -1753,7 +1753,7 @@
             2.27,
             4.83
           ],
-          "attributed_to": "solar irradiance \u2014 NWS's clear-sky curve (daily maximum at solar noon \u00d7 Gaussian), the one documented NWS input we cannot reproduce",
+          "attributed_to": "unexplained residual \u2014 hypothesis (not established): NWS's effective sunlight is lower than ours at all daytime hours including noon; see MODEL.md \u00a712d",
           "evidence": {
             "night_residual_f": {
               "mean": -0.06,
@@ -3549,7 +3549,7 @@
             2.37,
             4.54
           ],
-          "attributed_to": "solar irradiance \u2014 NWS's clear-sky curve (daily maximum at solar noon \u00d7 Gaussian), the one documented NWS input we cannot reproduce",
+          "attributed_to": "unexplained residual \u2014 hypothesis (not established): NWS's effective sunlight is lower than ours at all daytime hours including noon; see MODEL.md \u00a712d",
           "evidence": {
             "night_residual_f": {
               "mean": -0.29,

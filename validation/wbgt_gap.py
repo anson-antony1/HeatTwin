@@ -375,8 +375,9 @@ def analyse(raw: dict[str, Any], label: str, raw_file: str, all_rows: bool = Tru
             "mean_f": resid["mean"] if top == "residual" else summary["demo_window"]["delta_f"][top]["mean"],
             "range_f": ([resid["min"], resid["max"]] if top == "residual" else
                         [summary["demo_window"]["delta_f"][top]["min"], summary["demo_window"]["delta_f"][top]["max"]]),
-            "attributed_to": ("solar irradiance — NWS's clear-sky curve (daily maximum at solar noon × Gaussian), the "
-                              "one documented NWS input we cannot reproduce" if top == "residual" else INPUT[top]),
+            "attributed_to": ("unexplained residual — hypothesis (not established): NWS's effective sunlight is lower "
+                              "than ours at all daytime hours including noon; see MODEL.md §12d" if top == "residual"
+                              else INPUT[top]),
             "evidence": {
                 "night_residual_f": summary["night"]["residual_f"],
                 "implied_solar_scale_our_model": ko,
