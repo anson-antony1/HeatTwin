@@ -43,6 +43,7 @@ const SCREENS = {
     await page.getByRole('button', { name: /Start collapse response/i }).first().click()
     await settle(page, 2000)
   },
+  settings: nav('Settings'),
   dock: async (page) => {
     await page.locator('.dock__text').first().click()
     await settle(page)
