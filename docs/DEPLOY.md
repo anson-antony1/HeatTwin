@@ -38,7 +38,7 @@ uvicorn engine.api:app --host 0.0.0.0 --port $PORT
 | `HEATTWIN_DISABLE_PAID_APIS` | `1` | Kill switch ON (`engine/paid_api.py`). Also the engine's default; set explicitly. `/health` reports the counter. |
 | `HEATTWIN_NODE` | `off` | No USB on Render: skips the Arduino bridge. |
 | `HEATTWIN_CORS_ORIGINS` | `https://heattwin-web.onrender.com` | The static site's origin (scheme + host, no path or trailing slash). Comma-separate several; `*` allows any. Unset = today's `http://localhost:5173,http://127.0.0.1:5173`. |
-| `HEATTWIN_PROFILE` | `demo` | Placeholder for the fictional "Demo athlete (live)" profile (committed fixture). Profiles are not implemented on this branch; the engine ignores it until they are. |
+| `HEATTWIN_PROFILE` | `demo` | The live-demo athlete is always the fictional "Demo athlete (live)" (`fixtures/profiles/demo_athlete_live.json`, synthetic). `engine/profiles.py`; personal profiles live only in git-ignored `profiles/local/` on the laptop. |
 | `HEATTWIN_INTEGRATOR` | `auto` | `auto` = numba kernel (what the pinned numbers come from). `numpy` = never import numba; see "Memory". `warm_build.py` always uses numba. |
 | `FASTEMBED_MODEL` | `BAAI/bge-small-en-v1.5` | Embedding model for `engine/decide.py` (another workstream). |
 | `FASTEMBED_CACHE_DIR` | `.cache/fastembed` | Inside the project dir, so the build's download survives to run time. Relative to the repo root, where both commands run. |

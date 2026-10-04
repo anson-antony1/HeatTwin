@@ -28,8 +28,8 @@ services:
         value: "off"
       - key: HEATTWIN_CORS_ORIGINS        # the static site's origin (scheme + host, no path, no trailing slash)
         value: https://heattwin-web.onrender.com
-      - key: HEATTWIN_PROFILE             # placeholder: the committed fictional "Demo athlete (live)" profile (the lead
-        value: demo                       # implements profiles; the engine ignores this variable until then)
+      - key: HEATTWIN_PROFILE             # engine/profiles.py: always the committed fictional "Demo athlete (live)"
+        value: demo                       # (fixtures/profiles/demo_athlete_live.json, synthetic); no personal data
       - key: HEATTWIN_INTEGRATOR          # "auto" = numba kernel (measured ~230 MB peak, 320 MB with the embedding model).
         value: auto                       # "numpy" never imports numba (77 MB) but a cold search is 6x slower and lands on
                                           # a different plan; the build's warm-up ignores it (docs/DEPLOY.md, Memory)
