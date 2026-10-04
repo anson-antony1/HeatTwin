@@ -70,8 +70,11 @@ function set(patch: Partial<PlanState>) {
 
 function persist() {
   try {
-    const { plan, source, draft, opt, preset, original, confirmedAt } = state
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ plan, source, draft, opt, preset, original, confirmedAt }))
+    const { plan, source, draft, opt, preset, original, confirmedAt, previous } = state
+    // The plan before the last optimization is kept too, so Undo still works after a reload (its results are re-run).
+    const prev = previous ? { plan: previous.plan, source: previous.source, draft: previous.draft, preset: previous.preset ?? null,
+      confirmedAt: previous.confirmedAt } : null
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ plan, source, draft, opt, preset, original, confirmedAt, previous: prev }))
   } catch {
     /* storage full or blocked — the plan still works for this session */
   }
@@ -276,7 +279,9 @@ export const planStore = {
         sim: null,
         phase: 'idle',
         error: null,
-        previous: null,
+        previous: saved.previous?.plan
+          ? { ...saved.previous, sim: null, opt: null, original: null, preset: saved.previous.preset ?? null } as Snapshot
+          : null,
       })
     } catch {
       /* corrupt entry — start fresh */

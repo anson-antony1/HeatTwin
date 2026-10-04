@@ -32,3 +32,14 @@ describe('fmtCore', () => {
     expect(coreValue(38.5, null)).toBe(38.5)
   })
 })
+
+describe('fmtCore rounds like the engine (demo-qa should-fix 2)', () => {
+  it('an exact half goes to the even digit, matching Python round() and the spoken sentence', async () => {
+    const { fmtCore, roundLikeEngine } = await import('../format')
+    expect(fmtCore(41.125)).toBe('41.12')        // Mason's peak: toFixed alone gave 41.13
+    expect(fmtCore(41.135)).toBe(roundLikeEngine(41.135, 2).toFixed(2))
+    expect(roundLikeEngine(0.375, 2)).toBe(0.38)  // 37.5 → 38 (even)
+    expect(roundLikeEngine(0.125, 2)).toBe(0.12)  // 12.5 → 12 (even)
+    expect(fmtCore(38.996, 39.0)).toBe('38.99')   // still never rounded onto the line
+  })
+})

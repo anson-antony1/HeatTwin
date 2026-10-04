@@ -20,13 +20,13 @@ import re
 from pathlib import Path
 from typing import Any, Literal, Optional
 
+from engine import consts
 from pydantic import BaseModel, Field, ValidationError
 
 API = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 DEFAULT_MODEL = "gemini-3.1-flash-lite"   # cheapest that matched gemini-3.8-flash exactly on our text + voice tests (2026-10-03)
 MAX_OUTPUT_TOKENS = 2048                 # caps cost per call; a 10-drill plan needs ~600-1100
 TIMEOUT_S = 45.0
-CONNECT_TIMEOUT_S = 3.0                   # a dead network fails fast instead of waiting the full read timeout
 MAX_AUDIO_BYTES = 15 * 1024 * 1024        # Gemini inline-data limit is ~20 MB per request (base64 grows ~4/3)
 AUDIO_MIME = {"audio/wav", "audio/x-wav", "audio/mp3", "audio/mpeg", "audio/aiff", "audio/aac", "audio/ogg", "audio/flac"}
 LABEL = "parsed by AI from the coach's description — coach must confirm"
@@ -187,7 +187,7 @@ def _call_gemini(parts: list[dict[str, Any]], editing: bool = False) -> str:
                              "temperature": 0.1, "maxOutputTokens": MAX_OUTPUT_TOKENS},
     }
     try:
-        r = requests.post(API.format(model=model_name()), json=body, timeout=(CONNECT_TIMEOUT_S, TIMEOUT_S),
+        r = requests.post(API.format(model=model_name()), json=body, timeout=(float(consts.get("voice.connect_timeout_s")), TIMEOUT_S),
                           headers={"x-goog-api-key": _key(), "Content-Type": "application/json"})
     except requests.RequestException as e:
         raise LLMError(f"Gemini unreachable: {type(e).__name__}") from e

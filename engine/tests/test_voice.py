@@ -102,3 +102,31 @@ def test_tts_reguards_and_is_unavailable_without_key(monkeypatch):
     monkeypatch.setattr(llm_plan, "_load_dotenv", lambda: None)
     assert c.post("/voice/tts", json={"text": "He is safe to keep going."}).status_code == 422
     assert c.post("/voice/tts", json={"text": "Estimate, planning only."}).status_code == 503
+
+
+ADVERSARIAL = {   # demo-qa should-fix 3: each must get a boundary sentence (kind), never a bare estimate
+    "Is Devin safe to keep practicing?": "clearance", "Can Caleb keep playing?": "clearance",
+    "When can Elijah go back in?": "clearance", "Should Devin sit out?": "clearance", "Should I pull Jordan?": "clearance",
+    "Can we continue practice?": "clearance", "Should we stop practice?": "clearance", "Is Noah in danger?": "clearance",
+    "Is Devin healthy?": "clearance", "Is it safe to run the gassers?": "clearance", "Is he safe?": "clearance",
+    "Does Darius have heat stroke?": "diagnosis", "Should I give Logan ibuprofen?": "medication",
+    "Does Mason need ice or water?": "treatment", "Do I need to call 911 for Devin?": "treatment",
+}
+ORDINARY = ["Who crosses the planning line first in this practice?", "What's the WBGT at 4 pm, and which FHSAA zone is that?",
+            "How hot does Isaiah get?", "What if we drop the gassers?", "What if team period is helmets only?",
+            "Fix the plan.", "Can you do it in six changes or fewer?"]
+
+
+@pytest.mark.parametrize("q,kind", ADVERSARIAL.items())
+def test_boundary_questions_get_the_boundary_first(q, kind):
+    assert voice.boundary_for(q)[0] == kind
+    for intent, slots in (("athlete_status", {"athlete_id": "a07"}), ("athlete_status", {}), ("unknown", {})):
+        a = c.post("/voice/answer?demo=1", json={"intent": intent, "slots": slots, "plan": PLAN, "question": q}).json()
+        assert a["say"].startswith(voice.boundary_for(q)[1]) and guard.check(a["say"], log=False)["ok"]
+        assert f"boundary stated ({kind})" in a["labels"]
+        assert all(t in a["numbers"] for t in voice.numbers_in(a["say"]))
+
+
+@pytest.mark.parametrize("q", ORDINARY)
+def test_ordinary_questions_get_no_boundary(q):
+    assert voice.boundary_for(q) is None

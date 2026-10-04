@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-10-04T00:28:33+00:00",
-  "engine_commit": "7184cac",
+  "generated_at": "2026-10-04T01:11:44+00:00",
+  "engine_commit": "112132f",
   "demo": {
     "computed_by": "validation/demo_numbers.py via the engine API with ?demo=1",
-    "computed_at": "2026-10-04T00:26:46+00:00",
+    "computed_at": "2026-10-04T01:05:27+00:00",
     "synthetic": true,
     "inputs": {
       "plan_id": "plan-demo-1",
@@ -133,20 +133,20 @@
     "optimize": {
       "max_load": {
         "feasible": true,
-        "load_kept_pct": 70.7,
-        "changes": 21,
+        "load_kept_pct": 72.9,
+        "changes": 12,
         "after": {
           "athletes": 16,
           "over_limit": 0,
-          "near_limit": 7,
-          "max_p95_c": 38.99,
-          "team_mean_p95_c": 38.71,
+          "near_limit": 8,
+          "max_p95_c": 38.98,
+          "team_mean_p95_c": 38.72,
           "first_cross_min": null,
           "limit_c": 39.0,
           "fhsaa_violations": 0,
-          "practice_min": 128.0
+          "practice_min": 133.0
         },
-        "top_changes_text": "Biggest heat reductions: 1) Ran 'Team period' in 2 platoons (8 athletes \u00d7 12 min, 8 athletes \u00d7 13 min); the resting platoon waits in the shaded cooling area (team peak estimate 1.0 \u00b0C lower); 2) Added an 8-min shaded water break after 'Inside run (part 2 of 2)' at 16:08 (team peak estimate 0.3 \u00b0C lower); 3) Moved 'Inside run (part 1 of 2)' to 15:40 (was 16:04) (team peak estimate 0.2 \u00b0C lower). Estimate \u2014 planning only.",
+        "top_changes_text": "Biggest heat reductions: 1) Ran 'Team period' in 2 platoons (8 athletes \u00d7 12 min, 8 athletes \u00d7 13 min); the resting platoon waits in the shaded cooling area (team peak estimate 0.7 \u00b0C lower); 2) Moved 'Team period (platoon A)' to 15:44 (was 16:19) (team peak estimate 0.4 \u00b0C lower); 3) Ran 'Inside run' with rotating groups (part 1: 4 athletes \u00d7 7 min, part 2: 8 athletes \u00d7 8 min); athletes not in a part rest in the shaded cooling area; sitting out the whole drill: Tyler (fictional), Caleb (fictional), Logan (fictional), Kai (fictional) (team peak estimate 0.4 \u00b0C lower). Estimate \u2014 planning only.",
         "notes": []
       },
       "fewest_changes": {
@@ -275,10 +275,10 @@
         "peak_zone": 2,
         "over_before": 16,
         "over_after": 0,
-        "load_kept_pct": 70.7,
-        "changes": 21,
+        "load_kept_pct": 72.9,
+        "changes": 12,
         "feasible": true,
-        "practice_end": "17:38",
+        "practice_end": "17:43",
         "window": [
           "2026-10-04T15",
           "2026-10-04T17"
@@ -287,7 +287,7 @@
       {
         "key": "live_nws_wbgt",
         "input": "Live NWS forecast + NWS WBGT",
-        "fetched_at": "2026-10-04T00:01:04+00:00",
+        "fetched_at": "2026-10-04T01:08:04+00:00",
         "wbgt_f_by_hour": [
           [
             "15:00",
@@ -317,7 +317,7 @@
       {
         "key": "live_liljegren",
         "input": "Live NWS forecast + our Liljegren WBGT",
-        "fetched_at": "2026-10-04T00:01:04+00:00",
+        "fetched_at": "2026-10-04T01:08:04+00:00",
         "wbgt_f_by_hour": [
           [
             "15:00",
@@ -335,10 +335,10 @@
         "peak_zone": 3,
         "over_before": 16,
         "over_after": 0,
-        "load_kept_pct": 44.4,
-        "changes": 20,
+        "load_kept_pct": 55.2,
+        "changes": 14,
         "feasible": true,
-        "practice_end": "17:30",
+        "practice_end": "17:20",
         "window": [
           "2026-10-04T15",
           "2026-10-04T17"
@@ -350,7 +350,7 @@
       "estimate \u2014 planning only",
       "same plan and roster (synthetic fixtures), demo mode (fixed seed)",
       "physiology uses air temperature, humidity, wind and sun; WBGT sets the FHSAA zone and its rules",
-      "live rows: stored snapshot of the NWS forecast fetched 2026-10-04T00:01:04+00:00 (rerun online to refresh)"
+      "live rows: NWS forecast fetched 2026-10-04T01:08:04+00:00 (a snapshot; NWS updates its forecast)"
     ]
   },
   "live_hours": {
@@ -2468,6 +2468,6 @@
         "fhsaa_zone": 1
       }
     ],
-    "fetched_at": "2026-10-04T00:01:04+00:00"
+    "fetched_at": "2026-10-04T01:08:04+00:00"
   }
 }

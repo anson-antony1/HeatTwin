@@ -23,9 +23,35 @@ from engine import consts, guard, llm_plan, voice_tools
 INTENTS = ("plan_summary", "optimize", "what_if", "athlete_status", "field_conditions", "unknown")
 CHANGES = ("gear", "duration", "shade", "intensity", "remove", "add_break", "move")
 LABEL = "intent parsed by AI — numbers come from the engine"
-CLEARANCE = re.compile(r"\b(safe|fine|ok|okay|cleared?|good to go|all right|alright)\b", re.I)
-BOUNDARY = ("HeatTwin can't clear an athlete to keep practicing — that call belongs to your athletic trainer. "
-            "The estimate:")
+# Questions HeatTwin must not answer with a judgement (CLAUDE.md rule 4). The first matching kind wins; the boundary
+# sentence comes before any estimate, and on its own when there is nothing to estimate.
+BOUNDARIES: list[tuple[str, re.Pattern, str]] = [
+    ("medication", re.compile(r"\b(ibuprofen|advil|motrin|tylenol|acetaminophen|aspirin|aleve|naproxen|medicines?|"
+                              r"medications?|meds|pills?|drugs?|dose)\b", re.I),
+     "HeatTwin can't advise on that — ask your athletic trainer or a physician."),
+    ("diagnosis", re.compile(r"\b(heat ?stroke|heat exhaustion|heat illness|heat cramps?|dehydrated|sick|ill|"
+                             r"concussion|does \w+ have|what'?s wrong)\b", re.I),
+     "HeatTwin can't tell what is wrong with an athlete. If you are worried about an athlete, follow your school's "
+     "emergency action plan and get your athletic trainer."),
+    ("treatment", re.compile(r"\b(ice|ice bath|cold ?tub|cool (him|her|them) down|immerse|911|ambulance|ems|"
+                             r"need (water|fluids)|give (him|her|them))\b", re.I),
+     "HeatTwin doesn't make care decisions. If you are worried about an athlete, follow your school's emergency "
+     "action plan; Collapse mode reads the KSI cold-water-immersion steps."),
+    ("clearance", re.compile(r"\b(safe|fine|ok|okay|cleared?|good to go|all right|alright|healthy|in danger|danger|"
+                             r"keep (playing|practicing|going)|go back in|return to play|sit (out|him|her)|pull (him|her|"
+                             r"them|\w+ out)|should (i|we) (pull|stop|bench|rest)|stop practice|continue practice|"
+                             r"can (we|they|he|she|\w+) (continue|keep|play|practice|go))\b", re.I),
+     "HeatTwin can't clear an athlete or decide whether practice continues — that call belongs to your athletic "
+     "trainer."),
+]
+
+
+def boundary_for(question: Optional[str]) -> Optional[tuple[str, str]]:
+    """(kind, sentence) when the question asks HeatTwin to clear, diagnose, treat or medicate; else None."""
+    for kind, rx, sentence in BOUNDARIES:
+        if question and rx.search(question):
+            return kind, sentence
+    return None
 UNKNOWN_SAY = ("I can answer about the whole plan, one athlete, the field conditions, or a what-if change to one drill. "
                "Estimate, planning only.")
 
@@ -202,8 +228,10 @@ def ask_back(missing: Sequence[str]) -> str:
 
 def finish(intent: str, say: str, data: Mapping[str, Any], labels: Sequence[str],
            question: Optional[str] = None) -> dict[str, Any]:
-    if question and CLEARANCE.search(question):  # asked whether someone is safe/OK: state the boundary first
-        say = f"{BOUNDARY} {say}"
+    b = boundary_for(question)
+    if b:  # asked to clear, diagnose, treat or medicate: state the boundary first (the estimate follows, if any)
+        say = f"{b[1]} The estimate: {say}" if numbers_in(say) else f"{b[1]} {say}"
+        labels = [*labels, f"boundary stated ({b[0]})"]
     g = guard.check(say, source=f"voice.answer.{intent}")
     say = g["redacted_text"]
     return {"intent": intent, "say": say, "numbers": numbers_in(say), "data": dict(data),

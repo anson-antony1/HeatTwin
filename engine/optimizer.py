@@ -861,13 +861,15 @@ def optimize(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weath
         beam_cfg = {k: dm[k] for k in ("beam_width", "beam_depth", "beam_candidates_per_state") if k in dm}
         seed, n_ensemble = int(dm["seed"]), int(dm["n_ensemble"])
         max_iterations, budget_s = int(dm["sa_iterations"]), float(dm["safety_budget_s"])
-        extra_labels = [*extra_labels, f"demo mode: seed {seed}, {max_iterations} annealing iterations (reproducible)"]
+        dl = f"demo mode: seed {seed}, {max_iterations} annealing iterations (reproducible)"
+        extra_labels = [*extra_labels, dl] if dl not in extra_labels else list(extra_labels)
     presets = consts.get("optimizer_presets")
     if preset not in presets or preset in ("status", "note"):
         raise ValueError(f"unknown preset {preset!r}")
     max_changes = presets[preset]["max_changes"] if _cap is None else _cap
-    if max_changes is not None and _cap is None:
-        extra_labels = [*extra_labels, f"preset fewest_changes: at most {max_changes} changes"]
+    pl = f"preset fewest_changes: at most {max_changes} changes"
+    if max_changes is not None and _cap is None and pl not in extra_labels:
+        extra_labels = [*extra_labels, pl]
     t_start = time.perf_counter()
     budget = float(budget_s if budget_s is not None else _opt("default_budget_s"))
     deadline = t_start + budget

@@ -162,46 +162,37 @@ only" once, and that the 39.0 °C line and the near band are illustrative defaul
    - **Forecast:** the Gainesville forecast is NWS's own WBGT grid, cached and labelled. Practice runs 15:30–17:23 at 86 / 83 / 82 °F WBGT, FHSAA zones 2 / 2 / 1.
    - **Plan:** load the 113-minute practice (or say it to Kelvin: Gemini drafts the drills, the coach confirms). Gear follows NATA phasing.
    - **Heat strip:** every athlete's p95 estimate crosses the 39.0 °C planning line between minute 46 and minute 52. First: Caleb and Isaiah (acclimatization day 2) at minute 46; then Jordan, Logan, Darius and Kai at minute 47.
-   - **FHSAA:** the engine finds 2 issues: Hour 2026-10-04T15:00:00-04:00: 0 separate shaded rest breaks of ≥4 min scheduled, 2 required for 30 min of practice; Hour 2026-10-04T16:00:00-04:00: 2 separate shaded rest breaks of ≥4 min scheduled, 3 required for 60 min of practice.
+   - **FHSAA:** the engine finds 2 issues: 3 PM hour: 0 separate shaded rest breaks of ≥4 min scheduled, 2 required for 30 min of practice; 4 PM hour: 2 separate shaded rest breaks of ≥4 min scheduled, 3 required for 60 min of practice.
 3. **(30 s) Watch** — do this BEFORE Optimize (the HR replay was recorded on this plan; after Optimize, Undo first).
    - Live: a teammate wears the Amazfit Helio Strap (`python -m engine.hr_bridge --map a07=Helio` after `POST /live/start {"start_now": true}`); the recording lands in `fixtures/hr_<date>.csv` and becomes the default replay.
    - Otherwise the replay is `fixtures/hr_a07_synthetic.csv`, labelled "synthetic HR (not a real athlete)". met_scale moves to 1.2392 over 59 one-minute updates; the gate reads "re-forecast shows crossing".
    - Field node: until a node recording exists (`data/node_<date>.csv`), the field panel says "no field recording yet".
 4. **(40 s) Optimize** (max-load preset, warmed).
-   - **Engine's change list (21 changes):**
-     - Moved 'Inside run (part 1 of 2)' to 15:40 (was 16:04)
-     - Moved 'Special teams (part 1 of 2)' to 15:52 (was 16:48)
-     - Moved 'Conditioning (gassers)' to 17:00 (was 17:03)
-     - Moved 'Individual period' to 17:08 (was 15:40)
-     - Trimmed 'Individual period' from 20 to 18 min
-     - 'Individual period': full pads → helmet only
-     - 'Water break': full pads → helmet only
-     - Split 'Inside run' into 2 parts around shaded breaks (8 + 7 min)
-     - 'Inside run': full pads → helmet only / full pads
-     - Ran 'Inside run' with rotating groups (part 1: 10 athletes × 8 min, part 2: 16 athletes × 7 min); athletes not in a part rest in the shaded cooling area
+   - **Engine's change list (12 changes):**
+     - Moved 'Team period (platoon A)' to 15:44 (was 16:19)
+     - Moved 'Individual period' to 17:15 (was 15:40)
+     - Split 'Inside run' into 2 parts around shaded breaks (7 + 8 min)
+     - 'Inside run': full pads → helmet + shoulder pads
+     - Ran 'Inside run' with rotating groups (part 1: 4 athletes × 7 min, part 2: 8 athletes × 8 min); athletes not in a part rest in the shaded cooling area; sitting out the whole drill: Tyler (fictional), Caleb (fictional), Logan (fictional), Kai (fictional)
      - Ran 'Team period' in 2 platoons (8 athletes × 12 min, 8 athletes × 13 min); the resting platoon waits in the shaded cooling area
      - 'Team period': full pads → helmet only
-     - 'Water break': full pads → helmet + shoulder pads
-     - Split 'Special teams' into 2 parts around shaded breaks (5 + 7 min)
-     - Trimmed 'Special teams' from 15 to 12 min
-     - 'Special teams': full pads → no pads / helmet only
-     - Trimmed 'Conditioning (gassers)' from 12 to 8 min
-     - Added a 4-min shaded water break after 'Inside run (part 1 of 2)' at 15:48
-     - Added an 8-min shaded water break after 'Inside run (part 2 of 2)' at 16:08
-     - Added a 4-min shaded water break after 'Team period (platoon B)' at 16:41
-     - Added an 8-min shaded water break after 'Special teams (part 2 of 2)' at 16:52
-   - **Say:** "All 16 athletes are under 39.0 °C at p95 (max 38.99); 7 are in the near band. 0 FHSAA and NATA issues. 70.7% of the training load kept with 21 changes. Practice runs to 17:38, 15 minutes longer."
+     - 'Water break': full pads → helmet only
+     - 'Conditioning (gassers)': helmet only → no pads
+     - Added a 4-min shaded water break after 'Dynamic warmup' at 15:40
+     - Added a 4-min shaded water break after 'Inside run (platoon B)' at 16:32
+     - Added a 12-min shaded water break after 'Special teams' at 16:51
+   - **Say:** "All 16 athletes are under 39.0 °C at p95 (max 38.98); 8 are in the near band. 0 FHSAA and NATA issues. 72.9% of the training load kept with 12 changes. Practice runs to 17:43, 20 minutes longer."
    - **Top 3 changes by heat reduction** (Kelvin reads the engine's `top_changes_text`):
-     1. "Ran 'Team period' in 2 platoons (8 athletes × 12 min, 8 athletes × 13 min); the resting platoon waits in the shaded cooling area" — about 1.0 °C off the estimated team peak.
-     2. "Added an 8-min shaded water break after 'Inside run (part 2 of 2)' at 16:08" — about 0.3 °C off the estimated team peak.
-     3. "Moved 'Inside run (part 1 of 2)' to 15:40 (was 16:04)" — about 0.2 °C off the estimated team peak.
+     1. "Ran 'Team period' in 2 platoons (8 athletes × 12 min, 8 athletes × 13 min); the resting platoon waits in the shaded cooling area" — about 0.7 °C off the estimated team peak.
+     2. "Moved 'Team period (platoon A)' to 15:44 (was 16:19)" — about 0.4 °C off the estimated team peak.
+     3. "Ran 'Inside run' with rotating groups (part 1: 4 athletes × 7 min, part 2: 8 athletes × 8 min); athletes not in a part rest in the shaded cooling area; sitting out the whole drill: Tyler (fictional), Caleb (fictional), Logan (fictional), Kai (fictional)" — about 0.4 °C off the estimated team peak.
    - **Fewest changes (optional):** "Ask for 6 changes or fewer: it says no plan within 11 changes meets every rule with everyone under the line — it needs at least 12 — and shows that plan (72.9% of the load kept)."
-   - **Inputs (optional):** the comparison panel shows the same plan with three weather inputs — Saved forecast (cached NWS, NWS WBGT) — pinned: zone 2, 70.7% kept, 21 changes; Live NWS forecast + NWS WBGT: zone 2, 73.7% kept, 20 changes; Live NWS forecast + our Liljegren WBGT: zone 3, 44.4% kept, 20 changes. Our Liljegren WBGT runs hotter than NWS's (see MODEL.md); the headline uses NWS's.
+   - **Inputs (optional):** the comparison panel shows the same plan with three weather inputs — Saved forecast (cached NWS, NWS WBGT) — pinned: zone 2, 72.9% kept, 12 changes; Live NWS forecast + NWS WBGT: zone 2, 73.7% kept, 20 changes; Live NWS forecast + our Liljegren WBGT: zone 3, 55.2% kept, 14 changes. Our Liljegren WBGT runs hotter than NWS's (see MODEL.md); the headline uses NWS's.
    - **Ask Kelvin (optional):** "Who crosses first?", "What if we drop the gassers?" — Gemini only picks the question type; the engine computes and writes the sentence, checked by the language guard and the per-answer number check before it is shown or spoken.
 5. **(30 s) Respond.** Hit Collapse. The clock starts, the voice reads the KSI cold-water-immersion steps, and an EMS timeline is generated. The tub panel says "no probe connected" unless a node reports tub temperature. Every generated sentence passes `engine/guard.py`.
 6. **(20 s) Close.** Validation, from `validation/results.json`, said plainly:
    - **Armstrong 2010 (lab):** calibrated on the full-uniform rise (conservative mode); whole-protocol rise RMSE 0.03 °C over 2 clothing conditions.
-   - **Football practice pill data (field, held out):** published practice peaks: group-mean practice peaks 38.2–38.8 °C; individual maxima 39.1–39.3 °C; no reading ≥ 40 °C reported. Our median peak runs 0.85–2.31 °C above the measured group means at matched conditions (overcast to clear-sky, 6 study groups). Our drill intensities are game values; live HR from the team's own practices is how we calibrate that down, and until then the estimate errs hot.
+   - **Football practice pill data (field, held out):** published practice peaks: group-mean practice peaks 38.2–38.8 °C; individual maxima 39.1–39.3 °C; no reading ≥ 40 °C reported. Rerun at each study's own conditions (3 study groups), our median peak runs 0.85–2.31 °C above the measured group means (overcast to clear-sky); 3 further comparisons (the demo roster on the demo forecast vs study cohorts at a similar WBGT) run 1.4–1.73 °C above. Our drill intensities are game values; live HR from the team's own practices is how we calibrate that down, and until then the estimate errs hot.
    - Then the node cost vs per-athlete wearables (§4), the IP position, and the next step: pilot with one Gainesville high school, then UF I2E.
 <!-- demo-numbers:end -->
 

@@ -118,6 +118,14 @@ def comparison(c, plan: dict, offline: bool, old: dict | None) -> dict[str, Any]
 
 # ── rendering ────────────────────────────────────────────────────────────────
 
+def _hour_words(text: str) -> str:
+    """'Hour 2026-10-04T15:00:00-04:00: …' → '3 PM hour: …' (the engine's text, readable aloud)."""
+    def f(m):
+        h = int(m.group(1))
+        return f"{(h + 11) % 12 + 1} {'PM' if h >= 12 else 'AM'} hour:"
+    return re.sub(r"Hour \d{4}-\d\d-\d\dT(\d\d):\d\d(?::\d\d)?(?:[-+]\d\d:\d\d|Z)?:", f, text)
+
+
 def _names(c) -> dict[str, str]:
     return {a["id"]: re.sub(r"\s*\(fictional\)", "", a["name"]) for a in c.get("/demo/inputs").json()["roster"]}
 
@@ -147,10 +155,17 @@ def facts(c, demo: dict, comp: dict) -> dict[str, Any]:
     arm, fp = res["armstrong_2010"], res["field_plausibility"]
     mode = "conservative"
     arm_s = arm["summary_at_reference_air_speed"][mode]
-    gaps = [g for sc in fp["scenarios"] for g in (sc.get("p50_minus_measured_mean_c") or {}).values() if g is not None]
+    # matched-condition reruns (overcast / clear-sky at the study's own conditions) vs demo-roster comparisons at a
+    # similar WBGT — reported separately (demo-qa: they are different kinds of comparison)
+    matched = [sc for sc in fp["scenarios"] if {"overcast", "clear"} <= set(sc.get("p50_minus_measured_mean_c") or {})]
+    other = [sc for sc in fp["scenarios"] if sc not in matched]
+    g_m = [g for sc in matched for g in sc["p50_minus_measured_mean_c"].values()]
+    g_o = [g for sc in other for g in (sc.get("p50_minus_measured_mean_c") or {}).values() if g is not None]
     validation = {"arm_mode": mode, "arm_rmse": arm_s["rise_rmse_c"], "arm_n": arm_s["n_comparisons"],
-                  "field_summary": fp["field_summary"], "gap_lo": round(min(gaps), 2), "gap_hi": round(max(gaps), 2),
-                  "n_groups": len(fp["scenarios"])}
+                  "field_summary": fp["field_summary"],
+                  "matched_n": len(matched), "matched_lo": round(min(g_m), 2), "matched_hi": round(max(g_m), 2),
+                  "other_n": len(other), "other_lo": round(min(g_o), 2) if g_o else None,
+                  "other_hi": round(max(g_o), 2) if g_o else None}
     return {
         "validation": validation,
         "athletes": s["athletes"], "limit": s["limit_c"], "over": s["over_limit"], "near": s["near_limit"],
@@ -163,7 +178,7 @@ def facts(c, demo: dict, comp: dict) -> dict[str, Any]:
         "near_after": ml["after"]["near_limit"], "max_p95_after": ml["after"]["max_p95_c"],
         "added_min": int(ml["after"]["practice_min"] - s["practice_min"]),
         "replay": rep, "fewest_fc": fc.get("fewest_changes"), "comp": comp,
-        "fhsaa_details": [v["detail"] for v in sim["fhsaa_violations"]],
+        "fhsaa_details": [_hour_words(v["detail"]) for v in sim["fhsaa_violations"]],
     }
 
 
@@ -258,7 +273,7 @@ only" once, and that the {f['limit']} °C line and the near band are illustrativ
 5. **(30 s) Respond.** Hit Collapse. The clock starts, the voice reads the KSI cold-water-immersion steps, and an EMS timeline is generated. The tub panel says "no probe connected" unless a node reports tub temperature. Every generated sentence passes `engine/guard.py`.
 6. **(20 s) Close.** Validation, from `validation/results.json`, said plainly:
    - **Armstrong 2010 (lab):** calibrated on the full-uniform rise ({v['arm_mode']} mode); whole-protocol rise RMSE {v['arm_rmse']} °C over {v['arm_n']} clothing conditions.
-   - **Football practice pill data (field, held out):** published practice peaks: {v['field_summary']}. Our median peak runs {v['gap_lo']}–{v['gap_hi']} °C above the measured group means at matched conditions (overcast to clear-sky, {v['n_groups']} study groups). Our drill intensities are game values; live HR from the team's own practices is how we calibrate that down, and until then the estimate errs hot.
+   - **Football practice pill data (field, held out):** published practice peaks: {v['field_summary']}. Rerun at each study's own conditions ({v['matched_n']} study groups), our median peak runs {v['matched_lo']}–{v['matched_hi']} °C above the measured group means (overcast to clear-sky); {v['other_n']} further comparisons (the demo roster on the demo forecast vs study cohorts at a similar WBGT) run {v['other_lo']}–{v['other_hi']} °C above. Our drill intensities are game values; live HR from the team's own practices is how we calibrate that down, and until then the estimate errs hot.
    - Then the node cost vs per-athlete wearables (§4), the IP position, and the next step: pilot with one Gainesville high school, then UF I2E.
 {END}"""
 

@@ -215,6 +215,41 @@ describe('Fewest changes (decision 4)', () => {
   })
 })
 
+describe('reload after Optimize (demo-qa should-fix 1)', () => {
+  it('restores the optimized plan with Undo still available, and Undo returns to the coach plan', async () => {
+    const mem = new Map<string, string>()
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => mem.get(k) ?? null,
+      setItem: (k: string, v: string) => void mem.set(k, v),
+      removeItem: (k: string) => void mem.delete(k),
+    })
+    vi.stubGlobal('fetch', async (url: string) => {
+      const body = url.includes('/demo/inputs')
+        ? { plan, roster, weather: [], labels: [], synthetic: { plan: true, roster: true, weather: false } }
+        : url.includes('/optimize')
+          ? { original: engineSim(plan.id), optimized: engineSim(plan.id), plan: { ...plan, drills: [...plan.drills].reverse() },
+              changes: [], load_kept_pct: 80, feasible: true }
+          : url.includes('/simulate')
+            ? engineSim(plan.id)
+            : url.includes('/live/replay')
+              ? { source: { file: 'f', synthetic: true, athletes: [], n_readings: 0, first_ts: '', last_ts: '', aligned_to_plan_start: false }, plan_forecast: engineSim(plan.id), frames: [], hr_series: {}, labels: [] }
+              : {}
+      return new Response(JSON.stringify(body), { status: 200 })
+    })
+    const first = await freshStores()
+    await first.planStore.boot()
+    await first.planStore.optimize()
+    expect(first.planStore.get().source).toBe('optimized')
+    const after = await freshStores()            // a page reload: new modules, same storage
+    await after.planStore.boot()
+    expect(after.planStore.get().source).toBe('optimized')
+    expect(after.planStore.get().previous?.plan.drills.map((d) => d.id)).toEqual(plan.drills.map((d: { id: string }) => d.id))
+    after.planStore.undo()
+    expect(after.planStore.get().source).not.toBe('optimized')
+    expect(after.planStore.get().plan.drills.map((d) => d.id)).toEqual(plan.drills.map((d: { id: string }) => d.id))
+  })
+})
+
 describe('offline stand-in', () => {
   it('labels every result and athlete OFFLINE FALLBACK and generates no heart rate', () => {
     const off = offlineSimulate(plan, roster)

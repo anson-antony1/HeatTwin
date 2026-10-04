@@ -101,6 +101,11 @@ def plan_summary(res: Mapping[str, Any]) -> dict[str, Any]:
 def optimize_summary(opt: Mapping[str, Any]) -> dict[str, Any]:
     """Optimizer result + an engine-written sentence (voice intent ``optimize``)."""
     after = _summary(opt["optimized"])
+    if opt["feasible"] and not opt["changes"]:   # already compliant: say so instead of "0 changes"
+        say = (f"The plan on screen already meets every rule, with every athlete estimated under the {after['limit_c']} °C "
+               "planning line — no changes needed. Estimate, planning only.")
+        return {"feasible": True, "load_kept_pct": opt["load_kept_pct"], "changes": 0, "after": after, "top_changes": [],
+                "say": guard.check(say, source="voice.optimize")["redacted_text"], "labels": _labels(opt)}
     notes = [x.removeprefix("fewest_changes: ").rstrip(".") + "." for x in opt.get("labels", [])
              if x.startswith("fewest_changes:")]
     notes = [n[0].upper() + n[1:] for n in notes]

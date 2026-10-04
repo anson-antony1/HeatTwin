@@ -473,7 +473,8 @@ def voice_answer(req: VoiceAnswerRequest, demo_mode: bool = Query(False, alias="
                                                     preset=preset))
     elif req.intent == "athlete_status":
         if not s.get("athlete_id"):
-            return voice.finish("athlete_status", voice.ask_back(["athlete_id"]), {}, [twonode.ESTIMATE_LABEL])
+            return voice.finish("athlete_status", voice.ask_back(["athlete_id"]), {}, [twonode.ESTIMATE_LABEL],
+                                req.question)
         out = _athlete_status(base, s["athlete_id"], demo_mode)
     elif req.intent == "field_conditions":
         out = _field_conditions(base, demo_mode)
@@ -485,10 +486,10 @@ def voice_answer(req: VoiceAnswerRequest, demo_mode: bool = Query(False, alias="
             missing.append(str(e).strip("'"))
             change = None
         if change is None:
-            return voice.finish("what_if", voice.ask_back(missing), {}, [twonode.ESTIMATE_LABEL])
+            return voice.finish("what_if", voice.ask_back(missing), {}, [twonode.ESTIMATE_LABEL], req.question)
         out = what_if(WhatIfRequest(**base.model_dump(exclude_none=True), change=change), demo_mode=demo_mode)
     else:
-        return voice.finish("unknown", voice.UNKNOWN_SAY, {}, [twonode.ESTIMATE_LABEL])
+        return voice.finish("unknown", voice.UNKNOWN_SAY, {}, [twonode.ESTIMATE_LABEL], req.question)
     data = {k: v for k, v in out.items() if k not in ("say", "labels")}
     return voice.finish(req.intent, out["say"], data, out.get("labels", [twonode.ESTIMATE_LABEL]), req.question)
 

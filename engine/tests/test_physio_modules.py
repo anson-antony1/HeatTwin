@@ -145,10 +145,12 @@ def test_exact_mrt_delivers_the_solarcal_field():
 
 
 def test_unverified_gear_level_is_labelled():
-    """The plan uses 'helmet', whose clothing values are TODO — the label must say so (reviewer B3)."""
+    """The plan uses 'helmet', whose clothing values are not measured (DESIGN, justified; owner decision Oct 3) — the
+    label must still say so (reviewer B3)."""
     from engine.physio.twonode import simulate_roster
     res = simulate_roster(fixtures.roster()[:2], fixtures.plan(), fixtures.forecast(), n_ensemble=5)
-    assert any("gear_clothing.levels.helmet (TODO)" in lab for lab in res["labels"])
+    assert any("gear_clothing.levels.helmet (DESIGN)" in lab for lab in res["labels"])
+    assert consts.get("gear_clothing.levels.helmet.justification")
 
 
 def test_conservative_calibration_reproduces_armstrong_full():
