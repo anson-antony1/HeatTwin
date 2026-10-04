@@ -1,10 +1,10 @@
 import { useId, useMemo, useRef, type KeyboardEvent, type PointerEvent } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
-import type { ContractDrill } from '../data/llmPlan'
+import type { ChartDrill } from '../data/types'
 import { bandPath, downsample, splinePath, type Pt } from '../lib/spline'
-import { chartDomain, clockLabel, heatColor, heatStops, niceTicks, type HeatScale } from '../lib/heat'
+import { clockLabel, HEAT_STOPS, heatColor } from '../lib/heat'
+import { fmtCore, fmtLimit } from '../lib/format'
 import { ease } from '../lib/motion'
-import { fmtCore } from '../lib/format'
 import { useSize } from '../lib/useSize'
 import './TempChart.css'
 
@@ -23,16 +23,13 @@ interface Props {
   band: number[]
   total: number
   now: number
+  /** Estimate at `now` (NaN when there is none). */
   live: number
+  /** The engine's planning line (`limit_core_c`); no line when unknown. */
+  limit: number | null
   compact?: boolean
   reveal?: boolean
-  drills?: ContractDrill[]
-  /** Planning line (the result's `limit_core_c`, AT-owned); null hides it. */
-  limit: number | null
-  /** Start of the near band (limit − GET /settings near_limit_margin_c); null hides it. */
-  near?: number | null
-  /** Colour boundaries from the engine (lib/useHeatScale). */
-  scale: HeatScale | null
+  drills?: ChartDrill[]
   domain?: [number, number]
   /** Optional comparison series (e.g. original plan) drawn faint. */
   ghost?: number[]
@@ -41,6 +38,7 @@ interface Props {
   startHour?: number
   scrub?: number | null
   onScrub?: (minute: number | null) => void
+  onSeek?: (minute: number) => void
 }
 
 export function TempChart({
@@ -50,18 +48,17 @@ export function TempChart({
   total,
   now,
   live,
+  limit,
   compact = false,
   reveal = false,
   drills,
-  limit,
-  near = null,
-  scale,
-  domain: domainProp,
+  domain = [36.8, 39.6],
   ghost,
   view,
   startHour,
   scrub = null,
   onScrub,
+  onSeek,
 }: Props) {
   const [ref, { width, height }] = useSize<HTMLDivElement>()
   const reduce = useReducedMotion()
@@ -76,12 +73,16 @@ export function TempChart({
   const x = (m: number) => pad.l + ((m - v0) / span) * w
   const minuteAt = (px: number) => Math.max(0, Math.min(total, Math.round(v0 + ((px - pad.l) / (w || 1)) * span)))
   const pressed = useRef(false)
-  // y-range from the data and the planning line unless the caller shares one across rows.
-  const domain = useMemo(
-    () => domainProp ?? chartDomain([...history, ...forecast.map((v, i) => v + (band[i] ?? 0)), ...forecast.map((v, i) => v - (band[i] ?? 0))], [limit, near]),
-    [domainProp, history, forecast, band, limit, near],
-  )
-  const y = (c: number) => pad.t + (1 - (c - domain[0]) / (domain[1] - domain[0])) * h
+  const hasLive = Number.isFinite(live)
+  const hasLimit = limit != null && Number.isFinite(limit)
+  const dataTop = Math.max(domain[1], ...(hasLimit ? [limit] : []), ...(hasLive ? [live] : []),
+    ...history.filter(Number.isFinite), ...forecast.map((value, i) => value + (band[i] ?? 0)).filter(Number.isFinite),
+    ...(ghost ?? []).filter(Number.isFinite))
+  const dataBottom = Math.min(domain[0], ...(hasLive ? [live] : []), ...history.filter(Number.isFinite),
+    ...forecast.map((value, i) => value - (band[i] ?? 0)).filter(Number.isFinite))
+  const floor = Math.min(domain[0], Math.floor((dataBottom - 0.15) * 2) / 2)
+  const ceiling = Math.max(domain[1], Math.ceil((dataTop + 0.15) * 2) / 2)
+  const y = (c: number) => pad.t + (1 - (c - floor) / (ceiling - floor)) * h
 
   const paths = useMemo(() => {
     if (!w || !h) return null
@@ -89,7 +90,7 @@ export function TempChart({
     // More samples when zoomed, so the curve keeps its detail.
     const target = compact ? 36 : Math.min(400, Math.round((90 * (total || 1)) / span))
     const histPts: Pt[] = downsample(history, target).map(({ value, index }) => [x(index), y(value)])
-    if (now > k) histPts.push([x(now), y(live)])
+    if (now > k && hasLive) histPts.push([x(now), y(live)])
 
     const fut = forecast.slice(k)
     const futSampled = downsample(fut, Math.max(2, Math.round((target * fut.length) / (total || 1))))
@@ -116,12 +117,11 @@ export function TempChart({
     }
     // x/y are pure functions of the inputs listed here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [history, forecast, band, now, live, w, h, total, compact, ghost, v0, v1, domain])
+  }, [history, forecast, band, now, live, w, h, total, compact, ghost, v0, v1, floor, ceiling])
 
-  const stops = scale ? heatStops(scale) : null
-  const gradTop = stops ? y(stops[stops.length - 1][0]) : 0
-  const gradBottom = stops ? y(stops[0][0]) : 1
-  const ticks = compact ? [] : niceTicks(domain).filter((t) => t > domain[0] && t < domain[1])
+  const gradTop = y(HEAT_STOPS[HEAT_STOPS.length - 1][0])
+  const gradBottom = y(HEAT_STOPS[0][0])
+  const ticks = compact ? [] : Array.from({ length: Math.ceil((ceiling - floor) * 2) + 1 }, (_, i) => floor + i * 0.5).filter((t) => t > floor && t < ceiling)
   const tickStep = span <= 32 ? 5 : span <= 64 ? 10 : 15
   const timeTicks = compact
     ? []
@@ -132,7 +132,7 @@ export function TempChart({
     const k = Math.floor(now)
     if (m <= k) return { c: history[m] ?? live, band: 0, measured: true }
     if (m <= now) return { c: live, band: 0, measured: true }
-    return { c: forecast[m] ?? forecast[forecast.length - 1], band: band[m] ?? 0, measured: false }
+    return { c: forecast[m] ?? forecast[forecast.length - 1] ?? Number.NaN, band: band[m] ?? 0, measured: false }
   }
 
   const handleMove = (e: PointerEvent<SVGRectElement>) => {
@@ -145,20 +145,25 @@ export function TempChart({
     if (!onScrub) return
     const step = e.shiftKey ? 5 : 1
     const from = scrub ?? Math.round(now)
-    if (e.key === 'ArrowRight') onScrub(Math.min(total, from + step))
-    else if (e.key === 'ArrowLeft') onScrub(Math.max(0, from - step))
-    else if (e.key === 'Escape') onScrub(null)
-    else return
+    if (e.key === 'Escape') onScrub(null)
+    else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      const target = Math.max(0, Math.min(total, from + (e.key === 'ArrowRight' ? step : -step)))
+      if (onSeek) {
+        onSeek(target)
+        onScrub(null)
+      } else onScrub(target)
+    } else return
     e.preventDefault()
   }
 
-  const scrubRead = scrub != null ? read(scrub) : null
+  const scrubRaw = scrub != null ? read(scrub) : null
+  const scrubRead = scrubRaw && Number.isFinite(scrubRaw.c) ? scrubRaw : null
   const drillAtScrub = (() => {
     if (scrub == null || !drills) return null
     let t = 0
     for (const d of drills) {
-      if (scrub < t + d.duration_min) return d
-      t += d.duration_min
+      if (scrub < t + d.minutes) return d
+      t += d.minutes
     }
     return drills[drills.length - 1] ?? null
   })()
@@ -167,11 +172,11 @@ export function TempChart({
     <>
       <defs>
         <linearGradient id={`heat-${uid}`} gradientUnits="userSpaceOnUse" x1="0" y1={gradBottom} x2="0" y2={gradTop}>
-          {stops?.map(([c], i) => (
+          {HEAT_STOPS.map(([c]) => (
             <stop
-              key={i}
-              offset={(c - stops[0][0]) / (stops[stops.length - 1][0] - stops[0][0] || 1)}
-              stopColor={heatColor(c, scale)}
+              key={c}
+              offset={(c - HEAT_STOPS[0][0]) / (HEAT_STOPS[HEAT_STOPS.length - 1][0] - HEAT_STOPS[0][0])}
+              stopColor={heatColor(c)}
             />
           ))}
         </linearGradient>
@@ -183,8 +188,7 @@ export function TempChart({
           <path d={paths.area} fill={`url(#wash-${uid})`} />
         </mask>
         <clipPath id={`plot-${uid}`}>
-          {/* Curves never draw outside the plot (the svg itself allows overflow for the head glow). */}
-          <rect x={pad.l - 12} y={pad.t - 6} width={w + 24} height={h + pad.b + 6} />
+          <rect x={pad.l} y={pad.t} width={w} height={h} />
         </clipPath>
       </defs>
 
@@ -203,7 +207,6 @@ export function TempChart({
         </text>
       ))}
 
-      <g clipPath={`url(#plot-${uid})`}>
       {/* Drill underlay */}
       {drills && (
         <g>
@@ -211,19 +214,19 @@ export function TempChart({
             let t = 0
             return drills.map((d) => {
               const x0 = x(t)
-              t += d.duration_min
+              t += d.minutes
               const x1 = x(t)
               return (
                 <rect
                   key={d.id}
-                  className={`chart__drill chart__drill--${drillTone(d)}`}
+                  className={`chart__drill chart__drill--${d.kind}`}
                   x={x0 + 0.5}
                   y={pad.t + h + 26}
                   width={Math.max(0, x1 - x0 - 1)}
                   height={6}
                   rx={3}
                 >
-                  <title>{`${d.name} · ${d.duration_min} min`}</title>
+                  <title>{`${d.name} · ${d.minutes} min`}</title>
                 </rect>
               )
             })
@@ -231,26 +234,17 @@ export function TempChart({
         </g>
       )}
 
-      {/* Planning line (result limit_core_c) and near band (GET /settings) — AT-owned illustrative defaults */}
-      {near != null && limit != null && near < limit && (
-        <>
-          <line className="chart__near" x1={pad.l} x2={pad.l + w} y1={y(near)} y2={y(near)} />
-          {!compact && (
-            <text className="chart__near-label" x={pad.l + w} y={y(near) + 13} textAnchor="end">
-              near band from {near.toFixed(1)}°
-            </text>
-          )}
-        </>
-      )}
-      {limit != null && (
-        <>
-          <line className="chart__threshold" x1={pad.l} x2={pad.l + w} y1={y(limit)} y2={y(limit)} />
-          {!compact && (
-            <text className="chart__threshold-label" x={pad.l + w} y={y(limit) - 7} textAnchor="end">
-              {limit.toFixed(1)}° planning line (AT-owned default)
-            </text>
-          )}
-        </>
+      <g clipPath={`url(#plot-${uid})`}>
+
+      {/* Alert line: the engine's planning line */}
+      {hasLimit && (
+        <line
+          className="chart__threshold"
+          x1={pad.l}
+          x2={pad.l + w}
+          y1={y(limit)}
+          y2={y(limit)}
+        />
       )}
 
       {paths.ghost && <path className="chart__ghost" d={paths.ghost} />}
@@ -268,13 +262,18 @@ export function TempChart({
       <path className="chart__history" d={paths.hist} stroke={`url(#heat-${uid})`} />
 
       </g>
+      {!compact && hasLimit && (
+        <text className="chart__threshold-label" x={pad.l + w} y={y(limit) - 7} textAnchor="end">
+          {fmtLimit(limit)}° alert line
+        </text>
+      )}
 
       {/* Now marker + live head */}
-      {now > 0 && now < total && now >= v0 && now <= v1 && (
+      {now > 0 && now < total && now >= v0 && now <= v1 && hasLive && (
         <>
           {!compact && <line className="chart__now" x1={x(now)} x2={x(now)} y1={pad.t} y2={pad.t + h} />}
-          <circle className="chart__head-glow" cx={x(now)} cy={y(live)} r={compact ? 6 : 10} fill={heatColor(live, scale, 0.28)} />
-          <circle cx={x(now)} cy={y(live)} r={compact ? 2.6 : 4} fill={heatColor(live, scale)} stroke="white" strokeWidth={compact ? 1.2 : 2} />
+          <circle className="chart__head-glow" cx={x(now)} cy={y(live)} r={compact ? 6 : 10} fill={heatColor(live, 0.28)} />
+          <circle cx={x(now)} cy={y(live)} r={compact ? 2.6 : 4} fill={heatColor(live)} stroke="white" strokeWidth={compact ? 1.2 : 2} />
         </>
       )}
 
@@ -290,7 +289,7 @@ export function TempChart({
               y2={y(scrubRead.c - scrubRead.band)}
             />
           )}
-          <circle cx={x(scrub)} cy={y(scrubRead.c)} r={5.5} fill={heatColor(scrubRead.c, scale)} stroke="white" strokeWidth={2.5} />
+          <circle cx={x(scrub)} cy={y(scrubRead.c)} r={5.5} fill={heatColor(scrubRead.c)} stroke="white" strokeWidth={2.5} />
         </g>
       )}
 
@@ -306,10 +305,18 @@ export function TempChart({
             e.currentTarget.setPointerCapture(e.pointerId)
             const r = e.currentTarget.ownerSVGElement!.getBoundingClientRect()
             onScrub(minuteAt(e.clientX - r.left))
+            onSeek?.(minuteAt(e.clientX - r.left))
           }}
-          onPointerMove={handleMove}
+          onPointerMove={(e) => {
+            handleMove(e)
+            if (pressed.current) {
+              const r = e.currentTarget.ownerSVGElement!.getBoundingClientRect()
+              onSeek?.(minuteAt(e.clientX - r.left))
+            }
+          }}
           onPointerUp={() => {
             pressed.current = false
+            onScrub(null)
           }}
           onPointerCancel={() => {
             pressed.current = false
@@ -331,7 +338,7 @@ export function TempChart({
       aria-label={onScrub ? 'Core temperature chart. Use arrow keys to scrub through practice.' : undefined}
     >
       {width > 0 && (
-        <svg width={width} height={height} role="img" aria-label={`Estimated core temperature ${fmtCore(live, limit)} degrees Celsius`}>
+        <svg width={width} height={height} role="img" aria-label={`Estimated core temperature ${fmtCore(live, limit, 1)} degrees Celsius`}>
           {reveal && !reduce ? (
             <motion.g
               initial={{ clipPath: 'inset(0 100% 0 0)' }}
@@ -354,7 +361,7 @@ export function TempChart({
           <div className="chart__tip-time num">
             {startHour != null ? clockLabel(startHour, scrub) : ''} · {scrub}′
           </div>
-          <div className="chart__tip-temp num" style={{ color: heatColor(scrubRead.c, scale) }}>
+          <div className="chart__tip-temp num" style={{ color: heatColor(scrubRead.c) }}>
             {fmtCore(scrubRead.c, limit)}°C
             {scrubRead.band > 0 && <span className="chart__tip-band"> ±{scrubRead.band.toFixed(2)}</span>}
           </div>
@@ -366,12 +373,4 @@ export function TempChart({
       )}
     </div>
   )
-}
-
-/** CSS tone for a plan block on the chart's drill underlay (display only). */
-function drillTone(d: ContractDrill): string {
-  if (d.is_break) return 'break'
-  if (d.intensity === 'max') return 'conditioning'
-  if (d.intensity === 'hard') return 'team'
-  return 'individual'
 }

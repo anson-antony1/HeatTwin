@@ -800,3 +800,8 @@ wbgt_gap_ablation:
   context_day_local: "2026-10-04"
   raw_pinned: "nws_raw/JAX_43_32_update_2026-10-03T1207Z.json"
   raw_context: "weather_cache/nws_raw_2026-10-03.json"
+
+live_hr:
+  status: DESIGN
+  justification: "Display only: a strap that has sent nothing for this long is shown as not receiving (the BLE strap streams about once a second). Not physiology."
+  stale_after_s: 15

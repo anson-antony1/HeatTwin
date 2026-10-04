@@ -1,45 +1,31 @@
 import { describe, expect, it } from 'vitest'
-import { CORE_DECIMALS, coreValue, fmtCore } from '../format'
+import { coreValue, fmtCore, fmtLimit, roundLikeEngine, tickerCore } from '../format'
 
-// Peaks never round onto the planning line (demo-QA: 38.995 and 38.95 showed as "39.0°").
-// Lines here are test values; 37.5 is deliberately not a real default.
-
-describe('fmtCore', () => {
-  it('prints two decimals', () => {
-    expect(CORE_DECIMALS).toBe(2)
-    expect(fmtCore(38.95)).toBe('38.95')
-    expect(fmtCore(41.645)).toBe('41.65')
-    expect(fmtCore(38.98, 39)).toBe('38.98')
+describe('peak formatting (2 decimals, rounded like Python)', () => {
+  it('prints the demo headline peak as docs/demo_numbers.md does', () => {
+    expect(fmtCore(38.98, 39.0)).toBe('38.98')
+    expect(fmtCore(41.648, 39.0)).toBe('41.65')
   })
 
-  it('never prints a value below the line as the line', () => {
-    expect(fmtCore(38.995, 39)).toBe('38.99')
-    expect(fmtCore(38.996, 39)).toBe('38.99')
-    expect(fmtCore(38.9999, 39)).toBe('38.99')
-    expect(fmtCore(37.4961, 37.5)).toBe('37.49')
+  it('rounds an exact half to even like Python round(), not up like toFixed', () => {
+    expect(roundLikeEngine(41.125, 2)).toBe(41.12) // exact binary tie → even
+    expect(roundLikeEngine(41.375, 2)).toBe(41.38)
+    expect(roundLikeEngine(41.645, 2)).toBe(41.65) // stored just above the tie → up (Python agrees)
+    expect(roundLikeEngine(0.5, 0)).toBe(0)
+    expect(roundLikeEngine(1.5, 0)).toBe(2)
   })
 
-  it('leaves values at or over the line alone', () => {
-    expect(fmtCore(39, 39)).toBe('39.00')
-    expect(fmtCore(39.004, 39)).toBe('39.00')
-    expect(fmtCore(40.931, 39)).toBe('40.93')
+  it('never prints a below-line value on (or over) the line', () => {
+    expect(fmtCore(38.996, 39.0)).toBe('38.99')
+    expect(coreValue(38.96, 39.0, 1)).toBe(38.9)
+    expect(fmtCore(39.004, 39.0)).toBe('39.00') // at/over the line: only rounded
   })
 
-  it('handles missing numbers and missing lines', () => {
+  it('no number → "—" (and NaN for the ticker, which prints "—")', () => {
     expect(fmtCore(null)).toBe('—')
-    expect(fmtCore(Number.NaN, 39)).toBe('—')
-    expect(fmtCore(38.996)).toBe('39.00') // no line to compare with: plain rounding
-    expect(coreValue(38.5, null)).toBe(38.5)
-  })
-})
-
-describe('fmtCore rounds like the engine (demo-qa should-fix 2)', () => {
-  it('an exact half goes to the even digit, matching Python round() and the spoken sentence', async () => {
-    const { fmtCore, roundLikeEngine } = await import('../format')
-    expect(fmtCore(41.125)).toBe('41.12')        // Mason's peak: toFixed alone gave 41.13
-    expect(fmtCore(41.135)).toBe(roundLikeEngine(41.135, 2).toFixed(2))
-    expect(roundLikeEngine(0.375, 2)).toBe(0.38)  // 37.5 → 38 (even)
-    expect(roundLikeEngine(0.125, 2)).toBe(0.12)  // 12.5 → 12 (even)
-    expect(fmtCore(38.996, 39.0)).toBe('38.99')   // still never rounded onto the line
+    expect(fmtCore(undefined)).toBe('—')
+    expect(fmtLimit(null)).toBe('—')
+    expect(fmtLimit(39)).toBe('39.0')
+    expect(Number.isNaN(tickerCore(null))).toBe(true)
   })
 })

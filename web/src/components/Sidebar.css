@@ -31,14 +31,17 @@
 }
 
 .sidebar__nav {
-  /* Never shrink below the nav items: on short screens the field card scrolls instead. */
-  flex: 1 0 auto;
+  flex: 1;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   padding: 14px;
   min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
 }
+
+.sidebar__nav::-webkit-scrollbar { display: none; }
 
 .sidebar__list {
   position: relative;
@@ -132,6 +135,10 @@
   font-size: 14px;
 }
 
+@media (max-height: 820px) {
+  .sidebar__foot { display: none; }
+}
+
 @media (max-width: 1100px) {
   .sidebar {
     width: 88px;
@@ -156,10 +163,4 @@
     padding: 0 5px;
     font-size: 11px;
   }
-}
-
-.sidebar > .field {
-  flex: 0 1 auto;
-  min-height: 0;
-  overflow-y: auto;
 }

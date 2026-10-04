@@ -2,19 +2,19 @@ import { useCallback, useEffect, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { engine, useSession } from './data/engine'
 import { useRoster } from './data/roster'
+import { liveStore } from './data/liveStore'
 import { Background, type Tone } from './components/Background'
 import { Sidebar, type View } from './components/Sidebar'
 import { DemoBar } from './components/DemoBar'
 import { VoiceDock } from './components/VoiceDock'
 import { planStore } from './data/planStore'
-import { settingsStore } from './data/settingsStore'
-import { weatherStore } from './data/weatherStore'
-import { SettingsView } from './views/SettingsView'
 import { CoachDashboard } from './views/CoachDashboard'
 import { AthleteView } from './views/AthleteView'
 import { PlanView } from './views/PlanView'
 import { ResponseView } from './views/ResponseView'
 import { CollapseMode } from './views/CollapseMode'
+import { SettingsView } from './views/SettingsView'
+import { weatherStore } from './data/weather'
 import { ease } from './lib/motion'
 import './App.css'
 
@@ -29,45 +29,24 @@ export default function App() {
   const [ackState, setAckState] = useState<{ session: number; ids: Set<string> }>({ session: 0, ids: new Set() })
   const [collapseFor, setCollapseFor] = useState<string | null>(null)
 
-  // App start: the engine's demo inputs → /simulate for the current plan → every view. The Settings location
-  // is where plans are modeled; live conditions for it (GET /weather) are shown on the Settings page only —
-  // estimates keep the engine's weather selection (?demo=1 → the pinned saved forecast).
   useEffect(() => {
-    const applySite = () => {
-      const l = settingsStore.get().location
-      void planStore.setSite({ ...planStore.get().plan.site, name: l.name, lat: l.lat, lon: l.lon })
-    }
-    void planStore.boot().then(() => {
-      applySite()
-      engine.play()
-    })
-    const offPlan = planStore.subscribe(() => weatherStore.setPlanDate(planStore.get().plan.start.slice(0, 10)))
-    const offSettings = settingsStore.subscribe(applySite)
-    // Once live weather gives the site's UTC offset, keep practice at the same local clock time there.
-    const offTz = weatherStore.subscribe(() => {
-      const w = weatherStore.get()
-      if (w.source !== 'nws_forecast' || !w.now) return
-      const l = settingsStore.get().location
-      if (w.location.lat !== l.lat || w.location.lon !== l.lon) return
-      void planStore.setSite({ ...planStore.get().plan.site, name: l.name, lat: l.lat, lon: l.lon }, w.now.time.slice(19))
-    })
-    const stopWeather = weatherStore.start()
+    void planStore.boot()
+    weatherStore.restore()
+    const stopLive = liveStore.start()
+    engine.play()
     return () => {
+      stopLive()
       engine.pause()
-      offPlan()
-      offSettings()
-      offTz()
-      stopWeather()
     }
   }, [])
 
   const acked = ackState.session === s.session ? ackState.ids : new Set<string>()
 
   // Alerts are the engine's HR-calibration gate flags (gates.flag), nothing computed here.
-  const live = Object.values(s.athletes)
-  const alertIds = live.filter((a) => a.flag).map((a) => a.id)
+  const alertIds = roster.athletes.filter((a) => s.athletes[a.id]?.flag).map((a) => a.id)
   const unacked = alertIds.filter((id) => !acked.has(id))
-  const hottest = live.length ? [...live].sort((a, b) => b.coreC - a.coreC)[0].id : null
+  // Hottest by the engine's estimate at this minute (first athlete when there are no numbers).
+  const hottest = [...roster.athletes].sort((a, b) => (s.athletes[b.id]?.coreC ?? -Infinity) - (s.athletes[a.id]?.coreC ?? -Infinity))[0]?.id ?? athleteId
 
   const tone: Tone = unacked.length && view === 'live' ? 'alert' : view === 'athlete' ? 'athlete' : 'coach'
 
@@ -106,8 +85,8 @@ export default function App() {
             )}
             {view === 'plan' && <PlanView />}
             {view === 'athlete' && <AthleteView athleteId={athleteId} onSelect={setAthleteId} onCollapse={setCollapseFor} />}
-            {view === 'settings' && <SettingsView />}
             {view === 'response' && <ResponseView onStart={() => setCollapseFor(unacked[0] ?? alertIds[0] ?? hottest)} />}
+            {view === 'settings' && <SettingsView />}
           </motion.main>
         </AnimatePresence>
       </div>

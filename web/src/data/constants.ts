@@ -1,7 +1,7 @@
 // Display-only constants. No physiological, regulatory or physical numbers
-// belong here: the planning line comes from the engine result
-// (`limit_core_c`) and GET /settings; FHSAA zones from the engine's
-// WeatherHour.fhsaa_zone; zone rule text from GET /sources.
+// belong here: the planning line comes from the engine result (`limit_core_c`)
+// and GET /settings; FHSAA zones from the engine's WeatherHour.fhsaa_zone; zone
+// rule text from GET /sources.
 
 /** Colour for an FHSAA zone number (1–5) from the engine. Display only. */
 const ZONE_COLOR_BY_NUMBER: Record<number, string> = {
@@ -19,5 +19,5 @@ export function zoneColor(zone: number | null | undefined): string {
 export const ESTIMATE_LABEL = 'estimate — planning only'
 
 export const SAFETY_LINE =
-  // Must pass engine/guard.py (POST /guard): "stop cooling" trips its treatment rule.
+  // Passes engine/guard.py (POST /guard); "stop cooling" trips its treatment rule.
   'Estimated core temperature is for planning and early warning only. It does not diagnose, and it does not decide when cooling ends — only a rectal temperature can guide that.'

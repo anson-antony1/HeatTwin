@@ -1,9 +1,9 @@
-import type { ContractGear, PracticePlan } from './llmPlan'
+import type { ContractGear, ContractIntensity, PracticePlan } from './llmPlan'
 
-// Typed client for the HeatTwin engine (CONTRACTS.md v1.3). Every number the
-// web shows comes from one of these responses; the in-browser stand-ins under
-// src/offline/ are used only when the engine can't be reached, and are badged.
-// Only the fields the UI reads are typed; the engine may send more.
+// Typed client for the HeatTwin engine (CONTRACTS.md v1.1–v1.5). Every heat,
+// zone, status and HR number the web shows comes from one of these responses.
+// Demo calls carry ?demo=1 (fixed seed, pinned saved forecast). Only the fields
+// the UI reads are typed; the engine may send more.
 
 const ENGINE = (import.meta.env?.VITE_ENGINE_URL as string | undefined) ?? '/engine'
 
@@ -19,7 +19,7 @@ export interface WeatherHour {
   solar_w_m2?: number
   wbgt_f: number
   fhsaa_zone: FhsaaZone
-  source: 'nws_forecast' | 'field_node' | 'assimilated' | 'fixture'
+  source: 'nws_forecast' | 'field_node' | 'assimilated' | 'fixture' | string
 }
 
 export interface AtSettings {
@@ -68,17 +68,11 @@ export interface PlanChange {
 
 export type OptimizePreset = 'max_load' | 'fewest_changes'
 
-/** v1.4: on OptimizeResult when preset=fewest_changes — the minimum compliant edit. */
+/** v1.4: on OptimizeResult when preset=fewest_changes. */
 export interface FewestChanges {
-  /** The preset's change cap (constants.optimizer_presets). */
   cap: number
-  /**
-   * Smallest cap (searched upward from `cap`) giving a plan that meets every FHSAA/NATA rule with every athlete under
-   * the line; null if none up to max_load's count. When > cap, the result IS the plan found at that count.
-   */
   min_compliant_changes: number | null
   searched_caps: number[]
-  /** True only if no capped plan qualified and the max_load plan is shown. */
   fell_back: boolean
 }
 
@@ -92,7 +86,6 @@ export interface OptimizeResult {
   infeasible_reasons?: string[]
   top_changes_text?: string
   labels?: string[]
-  /** v1.4, preset=fewest_changes only. */
   fewest_changes?: FewestChanges
 }
 
@@ -120,7 +113,7 @@ export interface DemoInputs {
   synthetic: { plan: boolean; roster: boolean; weather: boolean }
 }
 
-export interface ReplayGates {
+export interface Gates {
   crossing: boolean
   persistent: boolean
   coverage_ok: boolean
@@ -131,20 +124,23 @@ export interface ReplayGates {
   message: string
 }
 
+/** One athlete's re-forecast after an HR calibration update (replay frame or live entry). */
+export interface CalibratedCurve {
+  core_c_p50: number[]
+  core_c_p95: number[]
+  peak_core_c_p95: number
+  status: AthleteStatus
+  first_cross_min: number | null
+}
+
 export interface ReplayFrame {
   /** Minutes since plan start. */
   minute: number
   athlete_id: string
   hr_bpm: number
   calib: { met_scale: number; met_scale_sd: number }
-  gates: ReplayGates
-  athlete: {
-    core_c_p50: number[]
-    core_c_p95: number[]
-    peak_core_c_p95: number
-    status: AthleteStatus
-    first_cross_min: number | null
-  }
+  gates: Gates
+  athlete: CalibratedCurve
 }
 
 /** v1.3 POST /live/replay — a recorded (or the labelled synthetic) HR file run through live calibration. */
@@ -157,6 +153,11 @@ export interface LiveReplay {
     first_ts: string
     last_ts: string
     aligned_to_plan_start: boolean
+    /** v1.5 */
+    date?: string | null
+    device?: string | null
+    /** v1.5: "replay · <date> · <device>" or "replay · synthetic HR file (not a real athlete)". */
+    label?: string
   }
   plan_forecast: SimulationResult
   frames: ReplayFrame[]
@@ -165,24 +166,32 @@ export interface LiveReplay {
   labels: string[]
 }
 
-/** v1.4 GET /demo/comparison — the same plan under three weather inputs. A stored snapshot (scripts/demo_numbers.py). */
-export interface DemoComparisonRow {
-  key: 'saved_forecast' | 'live_nws_wbgt' | 'live_liljegren'
-  input: string
-  fetched_at: string | null
-  wbgt_f_by_hour: [string, number][]
-  peak_zone: number
-  over_before: number
-  over_after: number
-  load_kept_pct: number
-  changes: number
-  feasible: boolean
+/** v1.5 GET /live/state — the live HR session (poll every few seconds). */
+export interface LiveAthlete {
+  hr_bpm: number
+  ts: string
+  /** Display name of the strap, e.g. "Amazfit Helio Strap". */
+  device: string
+  replay: boolean
+  age_s: number
+  receiving: boolean
+  minute: number
+  calib: { met_scale: number; met_scale_sd: number } | null
+  gates: Gates | null
+  athlete: CalibratedCurve | null
 }
 
-export interface DemoComparison {
-  plan_id: string
-  rows: DemoComparisonRow[]
-  headline: 'saved_forecast'
+export interface LiveState {
+  active: boolean
+  receiving: boolean
+  plan_id?: string
+  plan_start?: string
+  now?: string
+  /** Minutes since plan start (wall clock). */
+  minute?: number
+  athletes: Record<string, LiveAthlete>
+  /** Whole roster, latest calibration (plan forecast for athletes without HR). */
+  reforecast?: SimulationResult
   labels: string[]
 }
 
@@ -199,9 +208,23 @@ export interface NodeLatest {
     field_minus_forecast_f: number | null
     fhsaa_zone: number
     globe_calibrated: boolean
+    tub_temp_c?: number | null
   }
   series: { ts: string; node_wbgt_f: number; forecast_wbgt_f: number }[]
   file: string | null
+  labels: string[]
+}
+
+/** GET /weather?lat&lon&date (engine/weather_routes.py). */
+export interface WeatherResponse {
+  lat: number
+  lon: number
+  place: string | null
+  source: 'nws_forecast' | 'fixture' | 'none'
+  now: WeatherHour | null
+  next_hours: WeatherHour[]
+  day: WeatherHour[]
+  fetched_at?: string
   labels: string[]
 }
 
@@ -240,8 +263,87 @@ export interface NataPhase {
 export interface Sources {
   fhsaa_wbgt_zones?: { status?: string; source?: string; zones?: FhsaaZoneRule[] }
   nata_gear_phasing?: { status?: string; source?: string; phases?: NataPhase[] }
-  nata_ehs?: { status?: string; source?: string; acclimatization_days?: number[] }
+  nata_ehs?: { status?: string; source?: string; acclimatization_days?: number[]; [k: string]: unknown }
+  ksi_cwi?: { status?: string; source?: string; [k: string]: unknown }
   [block: string]: unknown
+}
+
+export interface GuardResult {
+  ok: boolean
+  redacted_text: string
+  hits: { rule: string; [k: string]: unknown }[]
+}
+
+export type VoiceIntentName = 'plan_summary' | 'optimize' | 'what_if' | 'athlete_status' | 'field_conditions' | 'unknown'
+
+export interface VoiceSlots {
+  athlete_id?: string
+  drill_id?: string
+  change?: 'gear' | 'duration' | 'shade' | 'intensity' | 'remove' | 'add_break' | 'move'
+  gear?: ContractGear
+  duration_min?: number
+  intensity?: ContractIntensity
+  shade?: boolean
+  move_to?: number
+  preset?: OptimizePreset
+}
+
+/** v1.3 POST /voice/answer. `say` is engine-written and guarded; `numbers` lists every number token in it. */
+export interface VoiceAnswer {
+  intent: VoiceIntentName
+  say: string
+  numbers: string[]
+  data: Record<string, unknown>
+  labels: string[]
+}
+
+/** v1.2 POST /what_if team summaries. */
+export interface WhatIfSummary {
+  athletes: number
+  over_limit: number
+  near_limit: number
+  max_p95_c: number
+  team_mean_p95_c: number
+  first_cross_min: number | null
+  limit_c: number
+  fhsaa_violations: number
+  practice_min: number
+}
+
+export interface WhatIfResult {
+  before: WhatIfSummary
+  after: WhatIfSummary
+  delta_team_mean_p95_c: number
+  say: string
+  labels: string[]
+}
+
+export type WhatIfChange =
+  | { drill_id: string; gear?: ContractGear; duration_min?: number; shade?: boolean; intensity?: ContractIntensity; move_to?: number; remove?: boolean }
+  | { add_break_after: string; minutes: number }
+
+/** v1.3 POST /athlete_status. */
+export interface AthleteStatusResult {
+  id: string
+  name: string
+  position?: string
+  acclimatization_day: number
+  gear_limit?: string | null
+  peak_p50_c: number
+  peak_p95_c: number
+  status: AthleteStatus
+  first_cross_min: number | null
+  limit_c: number
+  say: string
+  labels: string[]
+}
+
+/** v1.3 POST /field_conditions. */
+export interface FieldConditions {
+  hours: { time: string; wbgt_f: number; fhsaa_zone: number; air_temp_c: number; rh_pct: number; source: string }[]
+  sources: string[]
+  say: string
+  labels: string[]
 }
 
 export class EngineError extends Error {
@@ -255,16 +357,16 @@ export class EngineError extends Error {
   }
 }
 
-/** The engine is down (not merely refusing a request): the views fall back to the badged stand-in. */
+/** The engine is down (not merely refusing a request). */
 export function isUnreachable(e: unknown): boolean {
   return e instanceof EngineError && e.unreachable
 }
 
 const TIMEOUT_MS = 60_000
 
-async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown, signal?: AbortSignal, timeoutMs = TIMEOUT_MS): Promise<T> {
   let r: Response
-  const timeout = AbortSignal.timeout(TIMEOUT_MS)
+  const timeout = AbortSignal.timeout(timeoutMs)
   try {
     r = await fetch(`${ENGINE}${path}`, {
       method,
@@ -278,8 +380,8 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown, 
     throw new EngineError(0, `Can't reach the engine (${ENGINE}). Is it running?`, true)
   }
   if (!r.ok) {
-    // FastAPI always answers errors as JSON {detail}. A non-JSON 5xx comes from the dev proxy
-    // when nothing is listening behind it — i.e. the engine is down.
+    // FastAPI answers errors as JSON {detail}. A non-JSON 5xx comes from the dev proxy when nothing is listening
+    // behind it — i.e. the engine is down.
     let msg = r.statusText
     let json = false
     try {
@@ -317,16 +419,56 @@ export function getSources(signal?: AbortSignal) {
   return request<Sources>('GET', '/sources', undefined, signal)
 }
 
+/** v1.2: one plan edit → before/after team summary + an engine sentence. */
+export function whatIf(change: WhatIfChange, plan: PracticePlan, signal?: AbortSignal) {
+  return request<WhatIfResult>('POST', '/what_if?demo=1', { change, plan }, signal)
+}
+
+/** v1.3: one athlete's estimate on the plan sent (id or name). */
+export function athleteStatus(athlete: string, plan: PracticePlan, signal?: AbortSignal) {
+  return request<AthleteStatusResult>('POST', '/athlete_status?demo=1', { athlete, plan }, signal)
+}
+
+/** v1.3: hourly WBGT / FHSAA zone over the plan's window. */
+export function fieldConditions(plan: PracticePlan, signal?: AbortSignal) {
+  return request<FieldConditions>('POST', '/field_conditions?demo=1', { plan }, signal)
+}
+
 /** v1.3: replay the HR file through live calibration on this plan (deterministic in demo mode). */
 export function liveReplay(plan: PracticePlan, signal?: AbortSignal) {
   return request<LiveReplay>('POST', '/live/replay?demo=1', { plan }, signal)
 }
 
-/** v1.4: 404 until scripts/demo_numbers.py has written the snapshot. */
-export function getDemoComparison(signal?: AbortSignal) {
-  return request<DemoComparison>('GET', '/demo/comparison', undefined, signal)
+/** v1.5: the live HR session (strap → engine/hr_bridge.py → POST /hr). */
+export function getLiveState(signal?: AbortSignal) {
+  return request<LiveState>('GET', '/live/state', undefined, signal, 10_000)
 }
 
 export function getNodeLatest(signal?: AbortSignal) {
   return request<NodeLatest>('GET', '/node/latest', undefined, signal)
+}
+
+/** Engine weather for a location: NWS hourly forecast + Liljegren WBGT + FHSAA zone (fixture when NWS is unreachable). */
+export function getWeather(lat: number, lon: number, date: string | null, signal?: AbortSignal) {
+  const q = new URLSearchParams({ lat: lat.toFixed(4), lon: lon.toFixed(4) })
+  if (date) q.set('date', date)
+  return request<WeatherResponse>('GET', `/weather?${q}`, undefined, signal, 30_000)
+}
+
+/** engine/guard.py over HTTP: {ok, redacted_text, hits}. */
+export function guardText(text: string, signal?: AbortSignal) {
+  return request<GuardResult>('POST', '/guard', { text }, signal, 20_000)
+}
+
+export interface VoiceAnswerRequest {
+  intent: VoiceIntentName
+  slots?: VoiceSlots
+  plan: PracticePlan
+  /** v1.4: the coach's words (the engine states its boundary first when they ask for clearance). */
+  question?: string
+}
+
+/** v1.3: the engine runs the tool for an intent and writes the sentence. */
+export function voiceAnswer(req: VoiceAnswerRequest, signal?: AbortSignal) {
+  return request<VoiceAnswer>('POST', '/voice/answer?demo=1', { slots: {}, ...req }, signal)
 }

@@ -89,3 +89,13 @@ def test_live_start_now_sets_plan_clock():
     from engine.api import app
     r = TestClient(app).post("/live/start", json={"start_now": True}).json()
     assert r["ok"] and "plan clock set to now for a live HR session" in r["labels"]
+
+
+def test_replay_live_clock_stamps_now_and_stays_labelled_replay():
+    from engine import hr_bridge
+    rows = [{"athlete_id": "a07", "ts": "2026-10-04T15:30:00-04:00", "hr_bpm": 100.0, "device": "x"},
+            {"athlete_id": "a07", "ts": "2026-10-04T15:30:01-04:00", "hr_bpm": 101.0, "device": "x"}]
+    sent = []
+    hr_bridge.replay(rows, sent.append, speed=0, live_clock=True)
+    assert all(r["replay"] is True for r in sent)
+    assert all(not r["ts"].startswith("2026-10-04T15:30") for r in sent)

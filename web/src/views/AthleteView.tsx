@@ -1,40 +1,30 @@
 import { useEffect, useRef, useState } from 'react'
 import { animate, AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { replayHeldNote, replayLabel, useSession } from '../data/engine'
+import { athleteOf, engine, replayHeldNote, useSession } from '../data/engine'
 import { useEngineMeta } from '../data/engineMeta'
-import { useRoster } from '../data/roster'
+import { SYNTHETIC_ROSTER_LABEL, useRoster } from '../data/roster'
 import { ESTIMATE_LABEL, SAFETY_LINE } from '../data/constants'
 import {
-  basisLabel,
+  bodySurfaceAreaM2,
+  acclimatizationDays,
   breakWindow,
-  noHrLabel,
   drillAtMinute,
-  nataMaxGear,
-  planMinutes,
-  seriesByMinute,
-  withPlanLabel,
-  type AthleteLive,
+  inEarlyPhase,
+  maxBetween,
+  modelLabel,
+  statusTone,
 } from '../data/selectors'
 import { BodyFigure } from '../components/BodyFigure'
 import { NumberTicker } from '../components/NumberTicker'
 import { StatusPill } from '../components/StatusPill'
 import { TempChart } from '../components/TempChart'
-import { OfflineBadge, OfflineBanner } from '../components/OfflineBadge'
-import { ProvenanceLabels } from '../components/ProvenanceLabels'
 import { IconDrop, IconHeart, IconResponse } from '../components/Icons'
-import { chartDomain, clockLabel, cToF, heatColor } from '../lib/heat'
-import { useHeatScale, useNearMargin } from '../lib/useHeatScale'
+import { clockLabel, cToF, gearLabel, heatColor } from '../lib/heat'
 import { ease, spring } from '../lib/motion'
-import { CORE_DECIMALS, coreValue, fmtCore } from '../lib/format'
 import { gearFor, usePlanState } from '../data/planStore'
 import { AI_NAME } from '../lib/brand'
+import { fmtCore, fmtLimit, tickerCore } from '../lib/format'
 import './AthleteView.css'
-
-// Athlete twin. Every number is the engine's estimate for this athlete at the
-// demo playback minute: the HR-replay calibration frame when there is one,
-// else the plan forecast (selectors.ts). Estimate — planning only.
-
-const GEAR: Record<string, string> = { none: 'No pads', helmet: 'Helmet', helmet_shoulder_pads: 'Helmet + shoulder pads', full_pads: 'Full pads' }
 
 interface Props {
   athleteId: string
@@ -44,12 +34,8 @@ interface Props {
 
 export function AthleteView({ athleteId, onSelect, onCollapse }: Props) {
   const reduce = useReducedMotion()
-  const s = useSession()
-  const meta = useEngineMeta()
-  const heldNote = replayHeldNote(s.replay, usePlanState().source)
   return (
     <div className="twin">
-      {s.source === 'offline' && <OfflineBanner />}
       <header className="twin__head">
         <div>
           <div className="eyebrow">Athlete twin</div>
@@ -57,12 +43,6 @@ export function AthleteView({ athleteId, onSelect, onCollapse }: Props) {
         </div>
         <Picker athleteId={athleteId} onSelect={onSelect} />
       </header>
-      <div className="twin__provenance">
-        <span className="twin__tag">demo playback — not live</span>
-        {replayLabel(s.replay) && <span className="twin__tag twin__tag--replay">{replayLabel(s.replay)}</span>}
-        {heldNote && <span className="twin__tag twin__tag--held">{heldNote}</span>}
-        <ProvenanceLabels labels={withPlanLabel(s.labels, s.plan, meta.inputs)} title={s.source === 'offline' ? 'Offline' : s.replay.status === 'ready' ? 'Engine /live/replay' : 'Engine /simulate'} />
-      </div>
 
       <AnimatePresence mode="wait" initial={false}>
         <motion.div
@@ -72,11 +52,7 @@ export function AthleteView({ athleteId, onSelect, onCollapse }: Props) {
           exit={reduce ? { opacity: 0 } : { opacity: 0, filter: 'blur(4px)', transition: { duration: 0.12 } }}
           transition={{ duration: 0.28, ease: ease.out }}
         >
-          {s.athletes[athleteId] ? (
-            <TwinBody athleteId={athleteId} onCollapse={onCollapse} />
-          ) : (
-            <p className="faint">Loading the engine’s forecast…</p>
-          )}
+          <TwinBody athleteId={athleteId} onCollapse={onCollapse} />
         </motion.div>
       </AnimatePresence>
     </div>
@@ -90,20 +66,19 @@ function Picker({ athleteId, onSelect }: { athleteId: string; onSelect: (id: str
     <div className="picker glass" role="tablist" aria-label="Choose athlete">
       {roster.athletes.map((a) => {
         const on = a.id === athleteId
-        const live = s.athletes[a.id]
-        const tone = live?.flag ? 'alert' : live && live.status !== 'below_limit' ? 'watch' : 'steady'
+        const status = statusTone(athleteOf(s, a.id).status, athleteOf(s, a.id).flag)
         return (
           <button
             key={a.id}
             role="tab"
             aria-selected={on}
-            className={`picker__chip num ${on ? 'is-on' : ''} picker__chip--${tone}`}
+            className={`picker__chip num ${on ? 'is-on' : ''} picker__chip--${status}`}
             onClick={() => onSelect(a.id)}
             title={roster.name(a.id)}
           >
             {on && <motion.span layoutId="picker-thumb" className="picker__thumb" transition={spring.ui} />}
-            <span className="picker__label">{a.id.replace(/^\D+/, '') || a.id}</span>
-            {tone !== 'steady' && <span className="picker__flag" aria-label={live?.status} />}
+            <span className="picker__label">{a.position ?? '—'}</span>
+            {status !== 'steady' && status !== 'none' && <span className="picker__flag" aria-label={status} />}
           </button>
         )
       })}
@@ -113,16 +88,19 @@ function Picker({ athleteId, onSelect }: { athleteId: string; onSelect: (id: str
 
 function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (id: string) => void }) {
   const s = useSession()
-  const roster = useRoster()
   const meta = useEngineMeta()
+  const roster = useRoster()
+  const planState = usePlanState()
   const a = roster.byId(athleteId)
-  const live = s.athletes[athleteId]
-  const drills = s.plan?.drills ?? []
-  const drill = drillAtMinute(drills, s.minute)?.drill
-  const offline = live.basis === 'offline'
-  const scale = useHeatScale()
-  const margin = useNearMargin()
-  const near = s.limitC != null && margin != null ? s.limitC - margin : null
+  const live = athleteOf(s, athleteId)
+  const limit = s.limitC
+  const at = s.plan ? drillAtMinute(s.plan.drills, s.minute) : null
+  const drill = at ? s.drills[at.index] : null
+  // p95 − p50 one minute ahead (the engine's band), else at this minute.
+  const nextBand = live.band[Math.floor(s.minute) + 1] ?? live.bandC
+  const acclimDays = acclimatizationDays(meta.sources)
+  const bsa = a ? bodySurfaceAreaM2(a, meta.sources) : null
+  const early = a ? inEarlyPhase(meta.sources?.nata_gear_phasing?.phases, a.acclimatization_day) : null
 
   // Scrubbing the chart drives the whole page: figure, number, and labels read
   // the scrubbed minute until the coach lets go (mouse) or taps "Live".
@@ -130,24 +108,24 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
   const scrubbed = scrub != null ? readAt(live, s.minute, scrub) : null
   const coreShown = scrubbed ? scrubbed.c : live.coreC
   const zoom = useZoom(s.totalMinutes, scrub ?? s.minute)
-
-  const acclimDays = meta.sources?.nata_ehs?.acclimatization_days
-  const ticks = acclimDays?.length ? Math.max(...acclimDays) : 0
-  const gearMax = a ? nataMaxGear(meta.sources?.nata_gear_phasing?.phases, a.acclimatization_day, a.gear_limit) : null
+  if (!a) return null
+  const tone = statusTone(live.status, live.flag)
+  const held = replayHeldNote(s.replay, planState.source)
+  const model =
+    s.source === 'engine' ? `Engine · ${modelLabel(live)}` : s.source === 'offline' ? 'offline fallback — no estimate' : '—'
+  const heartLabel = live.basis === 'live' && !live.liveSource?.startsWith('replay') ? `Heart · ${live.device ?? 'strap'}` : 'Heart · HR replay'
 
   return (
     <div className="twin__grid">
       {/* Vitals — the Figma's tall left card */}
       <section className="glass card vitals">
         <div className="vitals__who">
-          <span className="vitals__num num">{a?.position ?? '—'}</span>
+          <span className="vitals__num num">{a.position ?? '—'}</span>
           <div>
-            <div className="display-sm">{roster.name(athleteId)}</div>
-            {a && (
-              <div className="faint" style={{ fontSize: 13 }}>
-                {a.mass_kg} kg · {a.height_m} m · age {a.age_yr}
-              </div>
-            )}
+            <div className="display-sm">{roster.name(a.id)}</div>
+            <div className="faint" style={{ fontSize: 13 }}>
+              {a.position ?? '—'} · {a.mass_kg} kg · {Math.round(a.height_m * 100)} cm
+            </div>
           </div>
         </div>
 
@@ -164,28 +142,28 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
               >
                 {scrubbed
                   ? `${scrubbed.measured ? 'Estimate' : 'Forecast'} · ${clockLabel(s.startHour, scrub!)}`
-                  : 'Estimated core (p50)'}
+                  : 'Estimated core'}
               </motion.span>
             </AnimatePresence>
             {scrubbed && (
               <button className="vitals__live pressable" onClick={() => setScrub(null)}>
-                Now
+                Live
               </button>
             )}
           </div>
-          <div className="display-xl vitals__temp" style={{ color: heatColor(coreShown, scale) }}>
-            <NumberTicker value={coreValue(coreShown, s.limitC)} decimals={CORE_DECIMALS} suffix="°C" />
+          <div className="display-xl vitals__temp" style={{ color: heatColor(coreShown ?? Number.NaN) }}>
+            <NumberTicker value={tickerCore(coreShown, limit, 1)} decimals={1} suffix="°C" />
           </div>
           <div className="muted num" style={{ fontSize: 14 }}>
-            {cToF(coreShown).toFixed(1)} °F · ±{(scrubbed ? scrubbed.band : live.bandC).toFixed(2)}° (p95 − p50)
-            {offline && <OfflineBadge compact />}
+            {coreShown != null ? cToF(coreShown).toFixed(1) : '—'} °F · ±{fmtCore(scrubbed ? scrubbed.band : nextBand)}° (p95)
           </div>
           <div className="faint" style={{ fontSize: 12.5 }}>
-            {ESTIMATE_LABEL}
+            {s.source === 'offline' ? 'offline fallback — no estimate' : ESTIMATE_LABEL}
+            {roster.synthetic && ` · ${SYNTHETIC_ROSTER_LABEL}`}
           </div>
         </div>
 
-        <StatusPill status={live.status} />
+        <StatusPill status={tone} />
 
         <dl className="vitals__list">
           <div>
@@ -197,24 +175,24 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
                   <NumberTicker value={live.hr} suffix="bpm" />
                 </span>
               ) : (
-                <span className="faint">{noHrLabel(live)}</span>
+                <span className="faint">No strap paired</span>
               )}
             </dd>
           </div>
           <div>
-            <dt>Forecast peak (p95)</dt>
+            <dt>Forecast peak</dt>
             <dd className="num">
-              {fmtCore(live.peakP95C, s.limitC)}°{live.peakMin != null ? ` at ${clockLabel(s.startHour, live.peakMin)}` : ''}
+              {fmtCore(live.peakP95C, limit)}° at {live.peakMin != null ? clockLabel(s.startHour, live.peakMin) : '—'}
             </dd>
           </div>
           <div>
             <dt>Model</dt>
-            <dd>{basisLabel(live)}</dd>
+            <dd title={(s.clock === 'live' ? [s.live.label] : [s.replay.label, held]).filter(Boolean).join(' · ') || undefined}>{model}</dd>
           </div>
         </dl>
 
         {live.flag && (
-          <button className="btn btn--alert pressable vitals__cta" onClick={() => onCollapse(athleteId)}>
+          <button className="btn btn--alert pressable vitals__cta" onClick={() => onCollapse(a.id)}>
             <IconResponse width={18} height={18} /> Collapse response
           </button>
         )}
@@ -222,15 +200,15 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
 
       {/* The twin itself */}
       <section className="twin__figure" aria-label="Thermal figure">
-        <BodyFigure coreC={coreShown} hr={scrubbed ? null : live.hr} scale={scale} />
+        <BodyFigure coreC={coreShown ?? Number.NaN} hr={scrubbed ? null : live.hr} />
         <div className="twin__callout twin__callout--core">
-          <span className="twin__callout-dot" style={{ background: heatColor(coreShown, scale) }} />
-          Core (estimate)
+          <span className="twin__callout-dot" style={{ background: heatColor(coreShown ?? Number.NaN) }} />
+          Core
         </div>
         {live.hr != null && !scrubbed && (
           <div className="twin__callout twin__callout--hr">
             <span className="twin__callout-dot" />
-            HR replay
+            {heartLabel}
           </div>
         )}
       </section>
@@ -238,28 +216,23 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
       {/* Today — top-right card */}
       <section className="glass card today">
         <div className="today__now">
-          <div className="eyebrow">Demo clock · {clockLabel(s.startHour, s.minute)}</div>
-          <div className="display-sm">{drill ? drill.name.charAt(0).toUpperCase() + drill.name.slice(1) : '—'}</div>
-          {drill && (
-            <div className="muted" style={{ fontSize: 13.5 }}>
-              {GEAR[gearFor(drill, athleteId)]} · <span className="num">{Math.ceil(s.drillMinuteLeft)}</span> min left
-            </div>
-          )}
+          <div className="eyebrow">Now</div>
+          <div className="display-sm">{drill?.name ?? '—'}</div>
+          <div className="muted" style={{ fontSize: 13.5 }}>
+            {drill ? gearLabel(drill.gear) : '—'} ·{' '}
+            <span className="num">{Math.ceil(s.drillMinuteLeft)}</span> min left
+          </div>
         </div>
-        <BreakRing minutes={s.nextBreakIn} window={breakWindow(drills, s.minute)} now={s.minute} />
+        <BreakRing minutes={s.nextBreakIn} window={s.plan ? breakWindow(s.plan.drills, s.minute) : null} />
       </section>
 
       {/* Forecast — tall right card */}
       <section className="glass card forecast">
         <div className="forecast__head">
           <div>
-            <div className="eyebrow">Core temperature · this session · {ESTIMATE_LABEL}</div>
+            <div className="eyebrow">Core temperature · this session</div>
             <div className="display-sm">
-              {live.status === 'over_limit'
-                ? 'Forecast p95 crosses the planning line'
-                : live.status === 'near_limit'
-                  ? 'Forecast p95 near the planning line'
-                  : 'Forecast p95 below the planning line'}
+              {live.status == null ? 'Forecast —' : live.status === 'over_limit' ? 'Forecast crosses the line' : 'Forecast stays under the line'}
             </div>
           </div>
           <div className="forecast__tools">
@@ -292,15 +265,14 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
             band={live.band}
             total={s.totalMinutes}
             now={s.minute}
-            live={live.coreC}
-            drills={drills}
-            limit={s.limitC}
-            near={near}
-            scale={scale}
+            live={live.coreC ?? Number.NaN}
+            limit={limit}
+            drills={s.drills}
             view={zoom.view}
             startHour={s.startHour}
             scrub={scrub}
             onScrub={setScrub}
+            onSeek={(minute) => { engine.pause(); engine.seek(minute) }}
           />
         </div>
         <AnimatePresence initial={false}>
@@ -313,7 +285,7 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
               transition={{ duration: 0.22, ease: ease.out }}
               style={{ overflow: 'hidden' }}
             >
-              <Navigator series={live.forecast} total={s.totalMinutes} view={zoom.view} onPan={zoom.panTo} limit={s.limitC} />
+              <Navigator series={live.forecast} total={s.totalMinutes} view={zoom.view} onPan={zoom.panTo} />
             </motion.div>
           )}
         </AnimatePresence>
@@ -328,49 +300,44 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
           <div>
             <div className="eyebrow">Heat acclimatization</div>
             <div className="display-sm">
-              Day <span className="num">{a?.acclimatization_day ?? '—'}</span>
-              {ticks > 0 && <> of {ticks}</>}
+              Day <span className="num">{a.acclimatization_day}</span> of {acclimDays ?? '—'}
             </div>
           </div>
+          {/* DuBois, with the engine's coefficients from /sources. */}
+          <div className="acclim__bsa faint num">BSA {bsa != null ? bsa.toFixed(2) : '—'} m²</div>
         </div>
-        {ticks > 0 && a && (
-          <div className="acclim__bar" aria-hidden="true" style={{ gridTemplateColumns: `repeat(${ticks}, 1fr)` }}>
-            {Array.from({ length: ticks }, (_, i) => (
-              <span key={i} className={i < a.acclimatization_day ? 'is-on' : ''} style={{ transitionDelay: `${i * 30}ms` }} />
-            ))}
-          </div>
-        )}
-        {gearMax && (
-          <p className="acclim__note muted">
-            Gear allowed today: <strong>{GEAR[gearMax]}</strong>
-            {a?.gear_limit ? ' (AT-set limit)' : ''} — NATA 2009 preseason phasing by acclimatization day.
-          </p>
-        )}
-        {acclimDays?.length ? (
-          <p className="acclim__note faint">NATA: heat acclimatization takes {acclimDays.join('–')} days.</p>
-        ) : null}
+        <div className="acclim__bar" aria-hidden="true">
+          {Array.from({ length: acclimDays ?? 0 }, (_, i) => (
+            <span
+              key={i}
+              className={i < a.acclimatization_day ? 'is-on' : ''}
+              style={{ transitionDelay: `${i * 30}ms` }}
+            />
+          ))}
+        </div>
+        <p className="acclim__note muted">
+          {early == null
+            ? '—'
+            : early
+              ? 'Early days carry the most risk — the body hasn’t yet learned to sweat sooner and more.'
+              : 'Sweat response is adapting. Keep breaks; acclimatization fades after a few days off.'}
+        </p>
       </section>
 
-      <AthletePlanCard athleteId={athleteId} minute={s.minute} />
+      <AthletePlanCard athleteId={a.id} minute={s.minute} />
 
       <p className="twin__safety faint">{SAFETY_LINE}</p>
     </div>
   )
 }
 
-function BreakRing({
-  minutes,
-  window: win,
-  now,
-}: {
-  minutes: number | null
-  window: { from: number; to: number } | null
-  now: number
-}) {
+function BreakRing({ minutes, window }: { minutes: number | null; window: { from: number; to: number } | null }) {
   const r = 30
   const c = 2 * Math.PI * r
   const onBreak = minutes === 0
-  const frac = onBreak ? 1 : win && win.to > win.from ? Math.max(0, Math.min(1, (now - win.from) / (win.to - win.from))) : 0
+  // Fraction of the stretch from the last break (or practice start) to the next one — plan arithmetic only.
+  const span = window ? window.to - window.from : 0
+  const frac = minutes == null ? 0 : onBreak ? 1 : span > 0 ? Math.max(0, Math.min(1, 1 - minutes / span)) : 0
   return (
     <div className="ring">
       <svg width="76" height="76" viewBox="0 0 76 76" aria-hidden="true">
@@ -405,11 +372,11 @@ const ZOOMS = [1, 2, 4] as const
 type ZoomLevel = (typeof ZOOMS)[number]
 
 /** Value the page shows for a minute: the estimate so far, or the forecast (with its band) beyond now. */
-function readAt(live: Pick<AthleteLive, 'history' | 'forecast' | 'band' | 'coreC'>, now: number, m: number) {
+function readAt(live: { history: number[]; forecast: number[]; band: number[]; coreC: number | null }, now: number, m: number) {
   const k = Math.floor(now)
   if (m <= k) return { c: live.history[m] ?? live.coreC, band: 0, measured: true }
   if (m <= now) return { c: live.coreC, band: 0, measured: true }
-  return { c: live.forecast[m] ?? live.forecast[live.forecast.length - 1], band: live.band[m] ?? 0, measured: false }
+  return { c: live.forecast[m] ?? live.forecast[live.forecast.length - 1] ?? null, band: live.band[m] ?? 0, measured: false }
 }
 
 /** Zoom level + visible window. Zoom changes glide (on-screen movement → ease-in-out); panning tracks 1:1. */
@@ -466,17 +433,16 @@ function Navigator({
   total,
   view,
   onPan,
-  limit,
 }: {
   series: number[]
   total: number
   view: [number, number]
   onPan: (center: number) => void
-  limit: number | null
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const grab = useRef<number | null>(null)
-  const [lo, hi] = chartDomain(series, [limit])
+  const lo = 36.8
+  const hi = 39.6
   const pts = series.map((v, i) => `${((i / total) * 100).toFixed(2)},${(32 - ((v - lo) / (hi - lo)) * 28).toFixed(2)}`)
   const minuteAt = (clientX: number) => {
     const r = ref.current!.getBoundingClientRect()
@@ -514,33 +480,33 @@ function Navigator({
   )
 }
 
-/** Today's plan as this athlete will live it: their gear, their engine p95 per block. */
+const PLAN_GEAR: Record<string, string> = { none: 'No pads', helmet: 'Helmet', helmet_shoulder_pads: 'Shells', full_pads: 'Full pads' }
+
+/** Today's plan as this athlete will live it: their gear, their engine forecast per block. */
 function AthletePlanCard({ athleteId, minute }: { athleteId: string; minute: number }) {
   const p = usePlanState()
   const reduce = useReducedMotion()
-  const scale = useHeatScale()
   const drills = p.plan.drills
-  const total = planMinutes(p.plan)
+  const total = drills.reduce((sum, d) => sum + d.duration_min, 0)
   const simA = p.sim?.athletes.find((x) => x.id === athleteId)
-  const offA = !p.sim ? p.offline?.athletes.find((x) => x.id === athleteId) : undefined
-  const p95 = simA && p.sim ? seriesByMinute(simA.core_c_p95, p.sim.step_min, total) : (offA?.curve ?? null)
-  const limit = p.sim?.limit_core_c ?? p.offline?.limitC ?? null
+  const step = p.sim?.step_min ?? 1
+  const limit = p.sim?.limit_core_c ?? null
 
   const source =
     p.source === 'voice'
       ? `Described by voice${p.confirmedAt ? ` · ${new Date(p.confirmedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}`
       : p.source === 'optimized'
-        ? 'Optimized by the engine'
+        ? `Optimized by ${AI_NAME}`
         : p.source === 'edited'
           ? 'Edited by the coach'
-          : 'Engine demo plan'
+          : 'Default plan'
 
   const starts = drills.map((_, i) => drills.slice(0, i).reduce((sum, d) => sum + d.duration_min, 0))
   const blocks = drills.map((d, i) => {
     const start = starts[i]
     const end = start + d.duration_min
-    const seg = p95 ? p95.slice(Math.round(start), Math.round(end) + 1) : []
-    const peak = seg.length ? Math.max(...seg) : null
+    // The engine's p95 for this athlete over the block (highest output in it).
+    const peak = simA ? maxBetween(simA.core_c_p95, step, start, end) : null
     const sitsOut = d.participants != null && !d.participants.includes(athleteId)
     return { d, peak, sitsOut, gear: gearFor(d, athleteId) }
   })
@@ -549,12 +515,12 @@ function AthletePlanCard({ athleteId, minute }: { athleteId: string; minute: num
     <section className="glass card dayplan" aria-label="Today's plan">
       <div className="dayplan__head">
         <div>
-          <div className="eyebrow">Today’s plan</div>
+          <div className="eyebrow">Today’s plan · from Coach Reyes</div>
           <div className="display-sm">
-            {simA && limit != null
+            {simA
               ? simA.first_cross_min != null
-                ? `Forecast p95 crosses ${limit.toFixed(1)}° at minute ${Math.round(simA.first_cross_min)}`
-                : `Forecast p95 peak ${fmtCore(simA.peak_core_c_p95, limit)}° (line ${limit.toFixed(1)}°)`
+                ? `Forecast crosses ${fmtLimit(limit)}° at minute ${Math.round(simA.first_cross_min)}`
+                : `Forecast stays under ${fmtLimit(limit)}° · peak ${fmtCore(simA.peak_core_c_p95, limit)}°`
               : `${drills.length} blocks · ${Math.round(total)} min`}
           </div>
         </div>
@@ -574,22 +540,22 @@ function AthletePlanCard({ athleteId, minute }: { athleteId: string; minute: num
             <motion.div
               key={d.id}
               className={`dayblock ${d.is_break ? 'is-break' : ''} ${sitsOut ? 'is-out' : ''}`}
-              style={{ flexGrow: d.duration_min, flexBasis: 0, ['--heat' as string]: peak != null && !d.is_break ? heatColor(peak, scale) : undefined }}
+              style={{ flexGrow: d.duration_min, flexBasis: 0, ['--heat' as string]: peak != null && !d.is_break ? heatColor(peak) : undefined }}
               initial={reduce ? { opacity: 0 } : { opacity: 0, transform: 'translateY(6px)' }}
               animate={{ opacity: 1, transform: 'translateY(0px)' }}
               transition={{ duration: 0.28, ease: ease.out, delay: i * 0.035 }}
-              title={`${d.name} · ${d.duration_min} min · ${GEAR[gear]}${peak != null ? ` · peak p95 ${fmtCore(peak, limit)}°` : ''}`}
+              title={`${d.name} · ${d.duration_min} min · ${PLAN_GEAR[gear]}${peak != null ? ` · peak ${fmtCore(peak, limit)}° (p95)` : ''}`}
             >
               {d.duration_min / total > 0.07 && (
                 <span className="dayblock__text">
                   <span className="dayblock__name">{d.is_break ? 'Water' : d.name.charAt(0).toUpperCase() + d.name.slice(1)}</span>
                   <span className="dayblock__meta num">
-                    {d.duration_min}′{!d.is_break && ` · ${sitsOut ? 'sits out' : GEAR[gear]}`}
+                    {d.duration_min}′{!d.is_break && ` · ${sitsOut ? 'sits out' : PLAN_GEAR[gear]}`}
                   </span>
                 </span>
               )}
-              {peak != null && limit != null && !d.is_break && d.duration_min / total > 0.07 && (
-                <span className={`dayblock__peak num ${peak >= limit ? 'is-over' : ''}`}>{fmtCore(peak, limit)}°</span>
+              {peak != null && !d.is_break && d.duration_min / total > 0.07 && (
+                <span className={`dayblock__peak num ${limit != null && peak >= limit ? 'is-over' : ''}`}>{fmtCore(peak, limit)}°</span>
               )}
             </motion.div>
           ))}
@@ -601,10 +567,10 @@ function AthletePlanCard({ athleteId, minute }: { athleteId: string; minute: num
 
       <div className="dayplan__foot faint">
         {simA
-          ? `Peak per block is the engine’s p95 estimate for this athlete — ${ESTIMATE_LABEL}. The line is an illustrative default an athletic trainer owns.`
-          : offA
-            ? 'OFFLINE FALLBACK — stand-in curve, not the validated model.'
-            : `Tap the mic and describe today’s practice to ${AI_NAME} to model it on the engine.`}
+          ? 'Peak per block is the engine’s p95 estimate for this athlete — planning only.'
+          : p.offline
+            ? 'Offline fallback — the engine is unreachable, so no estimates are shown.'
+            : 'Tap the mic and describe today’s practice to model it on the engine.'}
         {p.draft?.transcript && p.source !== 'fixture' && <span className="dayplan__quote"> “{p.draft.transcript}”</span>}
       </div>
     </section>

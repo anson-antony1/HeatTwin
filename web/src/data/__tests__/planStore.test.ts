@@ -1,263 +1,157 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import planFile from '../../../../fixtures/plan.json'
-import rosterFile from '../../../../fixtures/roster.json'
-import { basisLabel } from '../selectors'
-import { OFFLINE_LABEL, offlineAthleteAt, offlineSimulate } from '../../offline/standIn'
-import type { PracticePlan } from '../llmPlan'
-import type { RosterAthlete } from '../engineApi'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { DemoInputs, OptimizeResult, RosterAthlete } from '../engineApi'
+import type { PlanDraft, PracticePlan } from '../llmPlan'
+import { fmtCore } from '../../lib/format'
+import { PLAN, replay, sim, WEATHER } from './helpers'
 
-// planStore.boot(): the app's first paint reads engine numbers — GET
-// /demo/inputs then POST /simulate?demo=1 for that plan — and falls back to the
-// badged stand-in only when the engine can't be reached.
+// The stores against a mocked engine (fetch). Fresh modules per test: the stores are module singletons.
 
-const plan = planFile.plan as unknown as PracticePlan
-const roster = rosterFile.roster as RosterAthlete[]
+const ROSTER: RosterAthlete[] = [
+  { id: 'a01', name: 'Marcus (fictional)', position: 'OL', height_m: 1.88, mass_kg: 125, age_yr: 17, sex: 'male', acclimatization_day: 5 },
+  { id: 'a02', name: 'Devin (fictional)', position: 'OL', height_m: 1.9, mass_kg: 132, age_yr: 17, sex: 'male', acclimatization_day: 2 },
+]
+const INPUTS: DemoInputs = { plan: PLAN, roster: ROSTER, weather: WEATHER, labels: ['estimate — planning only'], synthetic: { plan: true, roster: true, weather: false } }
+const OPT_PLAN: PracticePlan = { ...PLAN, drills: [...PLAN.drills, { ...PLAN.drills[1], id: 'b2' }] }
+const OPT: OptimizeResult = {
+  original: sim(),
+  optimized: sim({ athletes: sim().athletes.map((a) => ({ ...a, status: 'near_limit' as const })) }),
+  plan: OPT_PLAN,
+  changes: [{ kind: 'insert_break', drill_id: 'b2', detail: 'Added a break' }],
+  load_kept_pct: 80,
+  feasible: true,
+}
 
-function engineSim(planId: string) {
+type Calls = { method: string; path: string; body: unknown }[]
+
+function mockEngine(calls: Calls, opts: { down?: boolean } = {}) {
+  return vi.fn(async (url: string, init?: RequestInit) => {
+    const path = String(url).replace(/^\/engine/, '')
+    const body = init?.body ? JSON.parse(String(init.body)) : undefined
+    calls.push({ method: init?.method ?? 'GET', path, body })
+    if (opts.down) throw new TypeError('fetch failed')
+    const json = (x: unknown) => new Response(JSON.stringify(x), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    if (path === '/demo/inputs') return json(INPUTS)
+    if (path === '/settings') return json({ owner: 'athletic trainer', settings: [] })
+    if (path === '/sources') return json({})
+    if (path === '/node/latest') return json({ reading: null, series: [], file: null, labels: ['no field recording yet'] })
+    if (path.startsWith('/simulate')) return json(sim())
+    if (path.startsWith('/optimize')) return json(OPT)
+    if (path.startsWith('/live/replay')) return json(replay())
+    return new Response(JSON.stringify({ detail: 'not found' }), { status: 404, headers: { 'Content-Type': 'application/json' } })
+  })
+}
+
+async function fresh() {
+  vi.resetModules()
+  const planStore = (await import('../planStore')).planStore
+  const { engine, athleteOf } = await import('../engine')
+  const { engineMeta } = await import('../engineMeta')
+  return { planStore, engine, athleteOf, engineMeta }
+}
+
+const flush = () => new Promise((r) => setTimeout(r, 0))
+const sims = (calls: Calls) => calls.filter((c) => c.path.startsWith('/simulate'))
+
+function memoryStorage(): Storage {
+  const m = new Map<string, string>()
   return {
-    plan_id: planId,
-    step_min: 1,
-    times: ['t'],
-    weather: [],
-    athletes: roster.map((a) => ({ id: a.id, name: a.name, core_c_p50: [1], core_c_p95: [2], first_cross_min: null, peak_core_c_p95: 2, status: 'below_limit' })),
-    limit_core_c: 3,
-    fhsaa_violations: [],
-    training_load_met_min: 0,
-    labels: ['estimate — planning only'],
+    get length() {
+      return m.size
+    },
+    clear: () => m.clear(),
+    getItem: (k) => m.get(k) ?? null,
+    key: (i) => [...m.keys()][i] ?? null,
+    removeItem: (k) => void m.delete(k),
+    setItem: (k, v) => void m.set(k, String(v)),
   }
 }
 
-async function freshStores() {
-  vi.resetModules()
-  const { planStore } = await import('../planStore')
-  const { engineMeta } = await import('../engineMeta')
-  const { engine } = await import('../engine')
-  return { planStore, engineMeta, engine }
-}
-
-afterEach(() => vi.unstubAllGlobals())
-
-describe('planStore.boot', () => {
-  it('shows the engine demo plan and its /simulate result before any coach confirm', async () => {
-    const enginePlan = { ...plan, id: 'plan-from-engine' }
-    const calls: string[] = []
-    vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
-      calls.push(`${init?.method ?? 'GET'} ${url}`)
-      const body = url.includes('/demo/inputs')
-        ? { plan: enginePlan, roster, weather: [], labels: ['synthetic plan (fixture)'], synthetic: { plan: true, roster: true, weather: false } }
-        : url.includes('/simulate')
-          ? engineSim(JSON.parse(String(init?.body)).plan.id)
-          : url.includes('/settings')
-            ? { owner: 'athletic trainer', settings: [] }
-            : url.includes('/node/latest')
-              ? { reading: null, series: [], file: null, labels: ['no field recording yet'] }
-              : {}
-      return new Response(JSON.stringify(body), { status: 200 })
-    })
-    const { planStore, engineMeta, engine } = await freshStores()
-    await planStore.boot()
-    const s = planStore.get()
-    expect(s.plan.id).toBe('plan-from-engine')
-    expect(s.sim?.plan_id).toBe('plan-from-engine')
-    expect(s.offline).toBeNull()
-    expect(s.phase).toBe('ready')
-    expect(engineMeta.get().link).toBe('online')
-    expect(calls).toContain('POST /engine/simulate?demo=1')
-    // The session reads the engine result, not a browser model.
-    const live = engine.getSnapshot()
-    expect(live.source).toBe('engine')
-    expect(Object.keys(live.athletes)).toHaveLength(roster.length)
-    expect(live.limitC).toBe(3)
+describe('planStore + session against the engine', () => {
+  let calls: Calls
+  beforeEach(() => {
+    calls = []
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
-  it('falls back to the stand-in, badged OFFLINE FALLBACK, only when the engine is unreachable', async () => {
-    vi.stubGlobal('fetch', async () => {
-      throw new TypeError('Failed to fetch')
-    })
-    const { planStore, engineMeta, engine } = await freshStores()
+  it('boot: shows the engine demo plan and its /simulate numbers; replays HR only on that plan', async () => {
+    vi.stubGlobal('fetch', mockEngine(calls))
+    const { planStore, engine, athleteOf } = await fresh()
     await planStore.boot()
-    const s = planStore.get()
-    expect(s.sim).toBeNull()
-    expect(s.offline?.labels[0]).toBe(OFFLINE_LABEL)
+    await flush()
+    expect(calls.map((c) => c.path)).toEqual(expect.arrayContaining(['/demo/inputs', '/simulate?demo=1', '/live/replay?demo=1']))
+    const s = engine.getSnapshot()
+    expect(s.source).toBe('engine')
+    expect(s.limitC).toBe(39.0)
+    expect(s.weather?.fhsaa_zone).toBe(2)
+    expect(athleteOf(s, 'a02').coreC).toBe(37.0)
+    expect(athleteOf(s, 'a02').status).toBe('over_limit')
+    expect(s.replay.label).toBe('replay · synthetic HR file (not a real athlete)')
+    expect(planStore.get().offline).toBe(false)
+  })
+
+  it('offline: the same screens get "—" and the offline badge state, never stand-in numbers', async () => {
+    vi.stubGlobal('fetch', mockEngine(calls, { down: true }))
+    const { planStore, engine, athleteOf, engineMeta } = await fresh()
+    await planStore.boot()
+    const s = engine.getSnapshot()
     expect(engineMeta.get().link).toBe('offline')
-    const live = engine.getSnapshot()
-    expect(live.source).toBe('offline')
-    const one = Object.values(live.athletes)[0]
-    expect(one.basis).toBe('offline')
-    expect(basisLabel(one)).toBe(OFFLINE_LABEL)
+    expect(planStore.get().offline).toBe(true)
+    expect(planStore.get().sim).toBeNull()
+    expect(s.source).toBe('offline')
+    expect(s.plan?.drills.length).toBeGreaterThan(0) // plan structure from the fixture JSON
+    const a = athleteOf(s, 'a01')
+    expect([a.coreC, a.peakP95C, a.status, a.hr]).toEqual([null, null, null, null])
+    expect(fmtCore(a.coreC, s.limitC)).toBe('—')
+    expect(s.weather).toBeNull()
+    expect(s.limitC).toBeNull()
   })
 
-  it('does not go offline when the engine answers with an error (it shows the error instead)', async () => {
-    vi.stubGlobal('fetch', async (url: string) =>
-      url.includes('/simulate')
-        ? new Response(JSON.stringify({ detail: 'roster is empty' }), { status: 422 })
-        : new Response(JSON.stringify({ plan, roster, weather: [], labels: [], synthetic: { plan: true, roster: true, weather: false } }), { status: 200 }),
-    )
-    const { planStore } = await freshStores()
+  it('a voice draft is simulated only after Confirm', async () => {
+    vi.stubGlobal('fetch', mockEngine(calls))
+    const { planStore } = await fresh()
     await planStore.boot()
-    const s = planStore.get()
-    expect(s.phase).toBe('error')
-    expect(s.error).toBe('roster is empty')
-    expect(s.offline).toBeNull()
-  })
-})
-
-describe('the HR replay follows the plan it was recorded on (S1)', () => {
-  it('replays on the demo plan, not on the optimized plan, and again after Undo', async () => {
-    const replayBody = {
-      source: { file: 'fixtures/hr_a07_synthetic.csv', synthetic: true, athletes: ['a07'], n_readings: 1, first_ts: '', last_ts: '', aligned_to_plan_start: false },
-      plan_forecast: engineSim(plan.id),
-      frames: [],
-      hr_series: { a07: [[0, 100]] },
-      labels: ['replay', 'synthetic HR (not a real athlete)'],
+    const before = sims(calls).length
+    const draft: PlanDraft = {
+      plan: { ...PLAN, id: 'plan-voice' },
+      transcript: 'warmup, water, team period',
+      assumptions: [],
+      unclear: [],
+      total_min: 10,
+      needs_confirmation: true,
+      labels: ['parsed by AI — coach must confirm'],
+      model: 'test',
     }
-    // Same id, different drills — what /optimize returns for the demo plan.
-    const optimizedPlan = { ...plan, drills: [...plan.drills].reverse() }
-    const calls: string[] = []
-    vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
-      calls.push(`${init?.method ?? 'GET'} ${url}`)
-      const body = url.includes('/demo/inputs')
-        ? { plan, roster, weather: [], labels: [], synthetic: { plan: true, roster: true, weather: false } }
-        : url.includes('/simulate')
-          ? engineSim(plan.id)
-          : url.includes('/optimize')
-            ? { original: engineSim(plan.id), optimized: engineSim(plan.id), plan: optimizedPlan, changes: [], load_kept_pct: 90, feasible: true }
-            : url.includes('/live/replay')
-              ? replayBody
-              : url.includes('/settings')
-                ? { owner: 'athletic trainer', settings: [] }
-                : {}
-      return new Response(JSON.stringify(body), { status: 200 })
-    })
-    const { planStore, engine } = await freshStores()
-    const replays = () => calls.filter((c) => c.includes('/live/replay')).length
+    // The draft exists (the dock shows it) — nothing has run on it.
+    expect(sims(calls).length).toBe(before)
+    await planStore.confirm(draft)
+    expect(sims(calls).length).toBe(before + 1)
+    expect((sims(calls).at(-1)!.body as { plan: PracticePlan }).plan.id).toBe('plan-voice')
+    expect(planStore.get().source).toBe('voice')
+  })
 
+  it('optimize starts from the coach\'s plan (max_load) and Undo survives a reload', async () => {
+    const storage = memoryStorage()
+    vi.stubGlobal('localStorage', storage)
+    vi.stubGlobal('fetch', mockEngine(calls))
+    let { planStore } = await fresh()
     await planStore.boot()
-    await vi.waitFor(() => expect(engine.getSnapshot().replay.status).toBe('ready'))
-    expect(replays()).toBe(1)
-
     await planStore.optimize()
+    const opt = calls.find((c) => c.path.startsWith('/optimize'))!
+    expect(opt.path).toBe('/optimize?demo=1&preset=max_load')
+    expect((opt.body as { plan: PracticePlan }).plan.drills).toHaveLength(PLAN.drills.length)
     expect(planStore.get().source).toBe('optimized')
-    expect(engine.getSnapshot().replay.status).toBe('other_plan')
-    expect(engine.getSnapshot().athletes.a07.basis).toBe('plan_forecast')
-    expect(replays()).toBe(1)
 
-    planStore.undo()
-    await vi.waitFor(() => expect(engine.getSnapshot().replay.status).toBe('ready'))
-    expect(replays()).toBe(2)
-    expect(calls.filter((c) => c.includes('/live/replay')).every((c) => c === 'POST /engine/live/replay?demo=1')).toBe(true)
-  })
-})
-
-describe('Fewest changes (decision 4)', () => {
-  it('calls /optimize?demo=1&preset=fewest_changes and keeps the preset and v1.4 fewest_changes for the views', async () => {
-    const fewest = { cap: 6, min_compliant_changes: 9, searched_caps: [6, 7, 8, 9], fell_back: false }
-    const calls: string[] = []
-    vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
-      calls.push(`${init?.method ?? 'GET'} ${url}`)
-      const body = url.includes('/demo/inputs')
-        ? { plan, roster, weather: [], labels: [], synthetic: { plan: true, roster: true, weather: false } }
-        : url.includes('/optimize')
-          ? {
-              original: engineSim(plan.id),
-              optimized: engineSim(plan.id),
-              plan: { ...plan, drills: [...plan.drills].reverse() },
-              changes: Array.from({ length: 9 }, (_, i) => ({ kind: 'reorder', drill_id: `d${i}`, detail: 'x' })),
-              load_kept_pct: 80,
-              feasible: true,
-              fewest_changes: fewest,
-            }
-          : url.includes('/simulate')
-            ? engineSim(plan.id)
-            : url.includes('/live/replay')
-              ? { source: { file: 'f', synthetic: true, athletes: [], n_readings: 0, first_ts: '', last_ts: '', aligned_to_plan_start: false }, plan_forecast: engineSim(plan.id), frames: [], hr_series: {}, labels: [] }
-              : {}
-      return new Response(JSON.stringify(body), { status: 200 })
-    })
-    const { planStore } = await freshStores()
+    // reload
+    ;({ planStore } = await fresh())
     await planStore.boot()
-    await planStore.optimize('fewest_changes')
-    expect(calls).toContain('POST /engine/optimize?demo=1&preset=fewest_changes')
-    const s = planStore.get()
-    expect(s.source).toBe('optimized')
-    expect(s.preset).toBe('fewest_changes')
-    expect(s.opt?.fewest_changes).toEqual(fewest)
+    expect(planStore.get().source).toBe('optimized')
+    expect(planStore.get().plan.drills).toHaveLength(OPT_PLAN.drills.length)
+    expect(planStore.get().previous?.plan.drills).toHaveLength(PLAN.drills.length)
     planStore.undo()
-    expect(planStore.get().preset).toBeNull()
-  })
-
-  it('switching preset after an optimization re-optimizes the original plan, and Undo returns to it', async () => {
-    const bodies: { url: string; plan: { drills: { id: string }[] } }[] = []
-    vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
-      if (url.includes('/optimize')) bodies.push({ url, plan: JSON.parse(String(init?.body)).plan })
-      const body = url.includes('/demo/inputs')
-        ? { plan, roster, weather: [], labels: [], synthetic: { plan: true, roster: true, weather: false } }
-        : url.includes('/optimize')
-          ? { original: engineSim(plan.id), optimized: engineSim(plan.id), plan: { ...plan, drills: [...plan.drills].reverse() },
-              changes: [], load_kept_pct: 80, feasible: true }
-          : url.includes('/simulate')
-            ? engineSim(plan.id)
-            : url.includes('/live/replay')
-              ? { source: { file: 'f', synthetic: true, athletes: [], n_readings: 0, first_ts: '', last_ts: '', aligned_to_plan_start: false }, plan_forecast: engineSim(plan.id), frames: [], hr_series: {}, labels: [] }
-              : {}
-      return new Response(JSON.stringify(body), { status: 200 })
-    })
-    const { planStore } = await freshStores()
-    await planStore.boot()
-    await planStore.optimize('max_load')
-    await planStore.optimize('fewest_changes')
-    const ids = (b: (typeof bodies)[number]) => b.plan.drills.map((d) => d.id)
-    expect(bodies).toHaveLength(2)
-    expect(ids(bodies[1])).toEqual(plan.drills.map((d: { id: string }) => d.id))   // the original, not the optimized plan
-    planStore.undo()
-    expect(planStore.get().source).not.toBe('optimized')
-    expect(planStore.get().plan.drills.map((d) => d.id)).toEqual(plan.drills.map((d: { id: string }) => d.id))
-  })
-})
-
-describe('reload after Optimize (demo-qa should-fix 1)', () => {
-  it('restores the optimized plan with Undo still available, and Undo returns to the coach plan', async () => {
-    const mem = new Map<string, string>()
-    vi.stubGlobal('localStorage', {
-      getItem: (k: string) => mem.get(k) ?? null,
-      setItem: (k: string, v: string) => void mem.set(k, v),
-      removeItem: (k: string) => void mem.delete(k),
-    })
-    vi.stubGlobal('fetch', async (url: string) => {
-      const body = url.includes('/demo/inputs')
-        ? { plan, roster, weather: [], labels: [], synthetic: { plan: true, roster: true, weather: false } }
-        : url.includes('/optimize')
-          ? { original: engineSim(plan.id), optimized: engineSim(plan.id), plan: { ...plan, drills: [...plan.drills].reverse() },
-              changes: [], load_kept_pct: 80, feasible: true }
-          : url.includes('/simulate')
-            ? engineSim(plan.id)
-            : url.includes('/live/replay')
-              ? { source: { file: 'f', synthetic: true, athletes: [], n_readings: 0, first_ts: '', last_ts: '', aligned_to_plan_start: false }, plan_forecast: engineSim(plan.id), frames: [], hr_series: {}, labels: [] }
-              : {}
-      return new Response(JSON.stringify(body), { status: 200 })
-    })
-    const first = await freshStores()
-    await first.planStore.boot()
-    await first.planStore.optimize()
-    expect(first.planStore.get().source).toBe('optimized')
-    const after = await freshStores()            // a page reload: new modules, same storage
-    await after.planStore.boot()
-    expect(after.planStore.get().source).toBe('optimized')
-    expect(after.planStore.get().previous?.plan.drills.map((d) => d.id)).toEqual(plan.drills.map((d: { id: string }) => d.id))
-    after.planStore.undo()
-    expect(after.planStore.get().source).not.toBe('optimized')
-    expect(after.planStore.get().plan.drills.map((d) => d.id)).toEqual(plan.drills.map((d: { id: string }) => d.id))
-  })
-})
-
-describe('offline stand-in', () => {
-  it('labels every result and athlete OFFLINE FALLBACK and generates no heart rate', () => {
-    const off = offlineSimulate(plan, roster)
-    expect(off.labels).toContain(OFFLINE_LABEL)
-    expect(off.athletes).toHaveLength(roster.length)
-    const a = offlineAthleteAt(off, roster[0].id, 30)!
-    expect(a.basis).toBe('offline')
-    expect(a.hr).toBeNull()
-    expect(a.flag).toBe(false)
+    await flush()
+    expect(planStore.get().plan.drills).toHaveLength(PLAN.drills.length)
+    expect(planStore.get().source).toBe('fixture')
   })
 })

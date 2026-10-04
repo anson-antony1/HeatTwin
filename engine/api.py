@@ -333,6 +333,7 @@ def live_start(req: LiveStart | None = None) -> dict[str, Any]:
             labels = [x for x in labels if x not in ("forecast is fixture", node_routes.DEMO_LABEL)]
             weather = _forecast_for(plan, labels, node_scenario=True)
     _LIVE["session"] = LiveSession(plan, roster, weather, settings=_settings(req), seed=req.seed, extra_labels=labels)
+    _LIVE["last"], _LIVE["prior"] = {}, _guard(_LIVE["session"].reforecast())   # plan forecast before any HR
     return {"ok": True, "plan_id": plan["id"], "start": plan["start"], "athletes": [a["id"] for a in roster],
             "labels": labels}
 
@@ -347,7 +348,57 @@ def hr(reading: HrReading) -> dict[str, Any]:
     if "reforecast" in out:
         out["reforecast"] = _guard(out["reforecast"])
     out["labels"] = __import__("engine.guard", fromlist=["guard_strings"]).guard_strings(out["labels"], "hr")
+    _remember_hr(reading, out)
     return out
+
+
+def _device_label(device: str | None) -> str:
+    """Display name of the strap ('live · Amazfit Helio Strap')."""
+    d = (device or "").strip()
+    return "Amazfit Helio Strap" if "helio" in d.lower() else (d or "HR strap")
+
+
+def _remember_hr(reading: "HrReading", out: dict[str, Any]) -> None:
+    """Keep the latest reading, calibration, gates and re-forecast per athlete for GET /live/state (the web polls it)."""
+    aid = reading.athlete_id
+    last = _LIVE.setdefault("last", {})
+    prev = last.get(aid, {})
+    entry = {"hr_bpm": reading.hr_bpm, "ts": reading.ts, "device": _device_label(reading.device),
+             "replay": bool(reading.replay), "calib": out.get("calib"), "gates": out.get("gates", prev.get("gates")),
+             "athlete": prev.get("athlete")}
+    if "reforecast" in out:
+        _LIVE["reforecast"] = out["reforecast"]
+        a = next((x for x in out["reforecast"]["athletes"] if x["id"] == aid), None)
+        if a is not None:
+            entry["athlete"] = {k: a.get(k) for k in ("core_c_p50", "core_c_p95", "peak_core_c_p95", "status",
+                                                      "first_cross_min")}
+    last[aid] = entry
+
+
+@app.get("/live/state")
+def live_state() -> dict[str, Any]:
+    """Live HR session for the web (poll): per mapped athlete the latest HR, strap, calibration, gates and the engine's
+    re-forecast; ``reforecast`` = the whole roster (plan forecast for athletes without HR). Start with POST /live/start
+    {"start_now": true}; readings come from engine/hr_bridge.py (POST /hr)."""
+    from datetime import datetime
+    s = _LIVE.get("session")
+    if s is None or "prior" not in _LIVE:
+        return {"active": False, "receiving": False, "athletes": {}, "labels": ["no live session (POST /live/start)"]}
+    now = datetime.now().astimezone()
+    t0 = twonode.parse_time(s.plan["start"])
+    stale = float(consts.get("live_hr.stale_after_s"))
+    athletes = {}
+    for aid, v in _LIVE.get("last", {}).items():
+        age = (now - twonode.parse_time(v["ts"])).total_seconds()
+        athletes[aid] = {**v, "age_s": round(age, 1), "receiving": age <= stale,
+                         "minute": round((twonode.parse_time(v["ts"]) - t0).total_seconds() / 60.0, 2)}
+    receiving = any(a["receiving"] for a in athletes.values())
+    devices = sorted({a["device"] for a in athletes.values() if a["receiving"]})
+    replay = any(a["replay"] for a in athletes.values() if a["receiving"])
+    labels = ([f"{'replay (hr_bridge)' if replay else 'live'} · {d}" for d in devices] or ["live session — no HR yet"])
+    return {"active": True, "receiving": receiving, "plan_id": s.plan["id"], "plan_start": s.plan["start"],
+            "now": now.isoformat(), "minute": round((now - t0).total_seconds() / 60.0, 2), "athletes": athletes,
+            "reforecast": _LIVE.get("reforecast", _LIVE["prior"]), "labels": [*labels, *s.extra_labels]}
 
 
 class WhatIfRequest(SimulateRequest):

@@ -1,15 +1,7 @@
-// Legacy roster shape still read by Collapse mode and the voice dock (owned by
-// other workstreams). New code reads the engine's shapes in ./engineApi.ts.
+// UI-side shapes. Engine shapes live in ./engineApi.ts (CONTRACTS.md); pure
+// mappings from them in ./selectors.ts.
 
-export type Position = 'OL' | 'DL' | 'LB' | 'TE' | 'RB' | 'QB' | 'WR' | 'DB' | 'K' | string
+export type { AthleteLive, ChartDrill, DrillKind, LiveBasis, Tone } from './selectors'
 
-export interface Athlete {
-  id: string
-  /** Carries "(fictional)" for the synthetic demo roster. */
-  name: string
-  position: Position
-  massKg: number
-  heightCm: number
-  /** Days practiced in the heat this preseason. */
-  acclimDay: number
-}
+/** Pill / row tone for an engine status (`below_limit` → steady, `near_limit` → watch, `over_limit` → alert). */
+export type Status = 'steady' | 'watch' | 'alert' | 'none'

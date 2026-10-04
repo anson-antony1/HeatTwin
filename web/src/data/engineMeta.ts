@@ -11,10 +11,10 @@ import {
   type Sources,
 } from './engineApi'
 
-// Everything the views need from the engine besides a plan's simulation:
-// the demo plan/roster/weather (/demo/inputs), AT-owned settings (/settings),
-// cited constants (/sources: FHSAA zone rules, NATA phasing) and the field
-// node (/node/latest). Loaded once on app start.
+// Everything the views need from the engine besides a plan's simulation: the
+// demo plan/roster/weather (/demo/inputs), AT-owned settings (/settings), cited
+// constants (/sources: FHSAA zone rules, NATA, KSI) and the field node
+// (/node/latest). Loaded once on app start.
 
 export type EngineLink = 'loading' | 'online' | 'offline'
 
@@ -42,8 +42,8 @@ async function settle<T>(p: Promise<T>, what: string): Promise<T | null> {
   try {
     return await p
   } catch (e) {
-    if (!isUnreachable(e)) set({ errors: [...state.errors, `${what}: ${(e as Error).message}`] })
-    else throw e
+    if (isUnreachable(e)) throw e
+    set({ errors: [...state.errors, `${what}: ${(e as Error).message}`] })
     return null
   }
 }
@@ -80,7 +80,7 @@ export const engineMeta = {
     return loading
   },
 
-  /** Re-read the field node (it may start recording mid-demo). */
+  /** Re-read the field node (it may start recording, or a tub probe may be wired, mid-demo). */
   async refreshNode() {
     try {
       set({ node: await getNodeLatest() })
@@ -95,6 +95,13 @@ export const engineMeta = {
   },
   markOffline() {
     if (state.link !== 'offline') set({ link: 'offline' })
+  },
+
+  /** Tests only. */
+  _reset(next: Partial<EngineMeta> = {}) {
+    state = { link: 'loading', inputs: null, settings: null, sources: null, node: null, errors: [], ...next }
+    loading = null
+    listeners.forEach((fn) => fn())
   },
 }
 

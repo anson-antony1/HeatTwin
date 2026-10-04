@@ -165,7 +165,7 @@ only" once, and that the 39.0 °C line and the near band are illustrative defaul
    - **FHSAA:** the engine finds 2 issues: 3 PM hour: 0 separate shaded rest breaks of ≥4 min scheduled, 2 required for 30 min of practice; 4 PM hour: 2 separate shaded rest breaks of ≥4 min scheduled, 3 required for 60 min of practice.
 3. **(30 s) Watch** — do this BEFORE Optimize (the HR replay was recorded on this plan; after Optimize, Undo first).
    - Live: a teammate wears the Amazfit Helio Strap (`python -m engine.hr_bridge --map a07=Helio` after `POST /live/start {"start_now": true}`); the recording lands in `fixtures/hr_<date>.csv` and becomes the default replay.
-   - Otherwise the replay is `fixtures/hr_a07_synthetic.csv`, labelled "synthetic HR (not a real athlete)". met_scale moves to 1.2392 over 59 one-minute updates; the gate reads "re-forecast shows crossing".
+   - Otherwise the replay is `fixtures/hr_2026-10-03.csv`, labelled "real HR recording — Amazfit Helio Strap, 2026-10-03 (fixtures/hr_2026-10-03.csv)". met_scale moves to 1.6344 over 26 one-minute updates; the gate reads "re-forecast shows crossing".
    - Field node: until a node recording exists (`data/node_<date>.csv`), the field panel says "no field recording yet".
 4. **(40 s) Optimize** (max-load preset, warmed).
    - **Engine's change list (12 changes):**

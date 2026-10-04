@@ -424,9 +424,8 @@
   color: var(--alert);
 }
 
-/* Neutral, not a reassuring green: "0 over" is an estimate against a planning line, not a clearance. */
-.result__big.is-none-over .display-lg {
-  color: var(--ink);
+.result__big.is-clear .display-lg {
+  color: var(--steady);
 }
 
 .result__big-text {
@@ -443,12 +442,6 @@
   font-size: 13.5px;
   line-height: 1.5;
   color: var(--ink-2);
-}
-
-/* The fewest-changes result in words ("Needs at least N changes — …"). */
-.result__fewest {
-  color: var(--ink);
-  font-weight: 500;
 }
 
 .result__kept {

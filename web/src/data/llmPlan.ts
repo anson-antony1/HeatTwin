@@ -116,31 +116,3 @@ async function blobToBase64(b: Blob): Promise<string> {
   for (let i = 0; i < bytes.length; i += CHUNK) s += String.fromCharCode(...bytes.subarray(i, i + CHUNK))
   return btoa(s)
 }
-
-// ── Optional: map to the web app's current UI Drill shape (web/src/data/types.ts) ──
-// The UI's Gear has no 'none'; add it to the union (`'none' | 'helmet' | 'shells' | 'full'`) or decide how to show
-// "no pads". MET is not something the AI produces — pass the app's own per-kind values.
-export type UiKind = 'warmup' | 'individual' | 'team' | 'conditioning' | 'break'
-export type UiGear = 'none' | 'helmet' | 'shells' | 'full'
-
-const GEAR_TO_UI: Record<ContractGear, UiGear> = {
-  none: 'none',
-  helmet: 'helmet',
-  helmet_shoulder_pads: 'shells',
-  full_pads: 'full',
-}
-
-export function uiKind(d: ContractDrill, index: number): UiKind {
-  if (d.is_break) return 'break'
-  if (d.intensity === 'max') return 'conditioning'
-  if (d.intensity === 'hard') return 'team'
-  if (d.intensity === 'light' || d.intensity === 'rest') return index === 0 ? 'warmup' : 'individual'
-  return 'individual'
-}
-
-export function toUiDrills(plan: PracticePlan, metFor: (kind: UiKind, d: ContractDrill) => number) {
-  return plan.drills.map((d, i) => {
-    const kind = uiKind(d, i)
-    return { id: d.id, name: d.name, kind, minutes: d.duration_min, met: metFor(kind, d), gear: GEAR_TO_UI[d.gear] }
-  })
-}

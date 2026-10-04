@@ -1,29 +1,31 @@
 import type { ContractDrill, ContractGear, PracticePlan } from './llmPlan'
 import type {
   AthleteStatus,
+  CalibratedCurve,
   DemoInputs,
-  FewestChanges,
   FhsaaZoneRule,
+  Gates,
+  LiveAthlete,
   LiveReplay,
   NataPhase,
   ReplayFrame,
-  ReplayGates,
   SettingsResponse,
   SimulationResult,
+  Sources,
   WeatherHour,
 } from './engineApi'
 
 // Pure mappings from engine responses to what the views draw. No physiology,
-// no thresholds: every number returned here is an engine field, picked out for
-// a practice minute. Unit-tested in __tests__/selectors.test.ts.
+// no thresholds: every number returned here is an engine field picked out for a
+// practice minute (or plan-structure arithmetic). Unit-tested in
+// __tests__/selectors.test.ts.
 
 // ── time axis ──────────────────────────────────────────────────────────────
 
 /**
- * Index into an engine series for practice minute `m`. The engine reports the
- * state at the END of each step (`times[k]` = start + (k + 1)·step_min), so
- * minute m reads the latest output at or before m — no interpolation. Before
- * the first output (m < step) it reads the first one.
+ * Index into an engine series for practice minute `m`. The engine reports the state at the END of each step
+ * (`times[k]` = start + (k + 1)·step_min), so minute m reads the latest output at or before m — no interpolation.
+ * Before the first output (m < step) it reads the first one.
  */
 export function indexAtMinute(stepMin: number, length: number, m: number): number {
   if (length <= 0) return -1
@@ -51,6 +53,17 @@ export function minuteOfPeak(series: number[], stepMin: number): number | null {
   let k = 0
   for (let i = 1; i < series.length; i++) if (series[i] > series[k]) k = i
   return (k + 1) * stepMin
+}
+
+/** Highest value of an engine series between two practice minutes (inclusive), or null when none. */
+export function maxBetween(series: number[], stepMin: number, from: number, to: number): number | null {
+  if (!series.length) return null
+  let best: number | null = null
+  for (let m = Math.round(from); m <= Math.round(to); m++) {
+    const v = valueAtMinute(series, stepMin, m)
+    if (v != null && (best == null || v > best)) best = v
+  }
+  return best
 }
 
 // ── plan ───────────────────────────────────────────────────────────────────
@@ -109,17 +122,60 @@ export function breakWindow(drills: ContractDrill[], m: number): { from: number;
   return null
 }
 
+export type DrillKind = 'warmup' | 'individual' | 'team' | 'conditioning' | 'break'
+
+/** Display kind of a drill (colour of its block only; no MET, no physiology). */
+export function drillKind(d: ContractDrill, index: number): DrillKind {
+  if (d.is_break) return 'break'
+  if (d.intensity === 'max') return 'conditioning'
+  if (d.intensity === 'hard') return 'team'
+  if (d.intensity === 'light' || d.intensity === 'rest') return index === 0 ? 'warmup' : 'individual'
+  return 'individual'
+}
+
+/** A drill as the timeline / chart underlay draws it. */
+export interface ChartDrill {
+  id: string
+  name: string
+  kind: DrillKind
+  minutes: number
+  gear: ContractGear
+}
+
+export function chartDrills(plan: Pick<PracticePlan, 'drills'> | null): ChartDrill[] {
+  return (plan?.drills ?? []).map((d, i) => ({
+    id: d.id,
+    name: d.name.charAt(0).toUpperCase() + d.name.slice(1),
+    kind: drillKind(d, i),
+    minutes: d.duration_min,
+    gear: d.gear,
+  }))
+}
+
+export const GEAR_LABEL: Record<ContractGear, string> = {
+  none: 'No pads',
+  helmet: 'Helmet',
+  helmet_shoulder_pads: 'Shells',
+  full_pads: 'Full pads',
+}
+
 // ── weather & FHSAA ────────────────────────────────────────────────────────
 
 const MS_PER_MIN = 60_000
 const MS_PER_HOUR = 60 * MS_PER_MIN
 
 /**
- * The engine's weather hour that contains practice minute `m` (WeatherHour is
- * hourly: it covers [time, time + 1 h)). No interpolation. Null when the
- * engine sent no hour for that time.
+ * The engine's weather hour that contains practice minute `m` (WeatherHour is hourly: it covers [time, time + 1 h)).
+ * No interpolation. Null when the engine sent no hour for that time.
  */
-export function weatherHourAt(weather: WeatherHour[], startIso: string, m: number): WeatherHour | null {
+export function weatherHourAt(
+  weather: WeatherHour[] | null | undefined,
+  startIso: string,
+  m: number,
+  /** Outside the forecast, use its first / last hour — as the engine does ("nearest hours used", np.interp clamps). */
+  clamp = false,
+): WeatherHour | null {
+  if (!weather?.length) return null
   const t0 = Date.parse(startIso)
   if (Number.isNaN(t0)) return null
   const t = t0 + m * MS_PER_MIN
@@ -127,10 +183,22 @@ export function weatherHourAt(weather: WeatherHour[], startIso: string, m: numbe
     const h0 = Date.parse(h.time)
     if (h0 <= t && t < h0 + MS_PER_HOUR) return h
   }
-  return null
+  if (!clamp) return null
+  const sorted = [...weather].sort((a, b) => Date.parse(a.time) - Date.parse(b.time))
+  return t < Date.parse(sorted[0].time) ? sorted[0] : sorted[sorted.length - 1]
 }
 
-/** FHSAA Policy 41 §41.8.3 rule text for a zone number, from GET /sources. */
+/** Highest engine FHSAA zone over the practice window [0, totalMin]. */
+export function peakZone(weather: WeatherHour[] | null | undefined, startIso: string, totalMin: number): number | null {
+  let z: number | null = null
+  for (let m = 0; m <= totalMin; m += 1) {
+    const h = weatherHourAt(weather, startIso, m)
+    if (h && (z == null || h.fhsaa_zone > z)) z = h.fhsaa_zone
+  }
+  return z
+}
+
+/** FHSAA Policy 41 §41.8.3 rule for a zone number, from GET /sources. */
 export function zoneRule(rules: FhsaaZoneRule[] | undefined, zone: number | null | undefined): FhsaaZoneRule | null {
   if (!rules || zone == null) return null
   return rules.find((r) => r.zone === zone) ?? null
@@ -138,63 +206,63 @@ export function zoneRule(rules: FhsaaZoneRule[] | undefined, zone: number | null
 
 export const FHSAA_CITATION = 'FHSAA Policy 41 §41.8.3'
 
-/** One line of rule text for a zone, words and numbers straight from the cited table. */
+/** One short line of rule text for a zone, words and numbers straight from the cited table. */
 export function zoneRuleText(r: FhsaaZoneRule): string {
-  const parts = [r.activity]
+  if (r.max_duration_min === 0) return r.activity
+  const parts: string[] = []
   if (r.breaks_per_hour != null && r.breaks_per_hour > 0 && r.break_min != null)
     parts.push(`${r.breaks_per_hour} breaks of ${r.break_min} min per hour`)
+  else parts.push(r.activity)
   if (r.max_duration_min != null && r.max_duration_min > 0) parts.push(`max ${r.max_duration_min} min`)
-  if (r.gear && r.gear !== 'any' && r.gear !== 'n/a') parts.push(r.gear)
   return parts.join(' · ')
+}
+
+/** A few words for a zone (field card): its breaks per hour, or the table's activity text. */
+export function zoneShortText(r: FhsaaZoneRule): string {
+  if (r.max_duration_min === 0) return r.activity
+  if (r.breaks_per_hour != null && r.breaks_per_hour > 0) return `${r.breaks_per_hour} breaks/h`
+  return r.activity
+}
+
+/** Display name of a WeatherHour source (the field card chip). */
+export function weatherSourceLabel(source: string | null | undefined): string {
+  if (source === 'nws_forecast') return 'NWS forecast'
+  if (source === 'fixture') return 'NWS fixture'
+  if (source === 'field_node') return 'Field node'
+  if (source === 'assimilated') return 'Node + NWS'
+  return '—'
 }
 
 // ── simulation summaries ───────────────────────────────────────────────────
 
-export function statusCounts(athletes: { status: AthleteStatus }[]): Record<AthleteStatus, number> {
+export function statusCounts(athletes: { status: AthleteStatus | null }[]): Record<AthleteStatus, number> {
   const c: Record<AthleteStatus, number> = { below_limit: 0, near_limit: 0, over_limit: 0 }
-  for (const a of athletes) c[a.status]++
+  for (const a of athletes) if (a.status) c[a.status]++
   return c
 }
 
-export function hottestPeakP95(sim: Pick<SimulationResult, 'athletes'>): number | null {
-  if (!sim.athletes.length) return null
+export function hottestPeakP95(sim: Pick<SimulationResult, 'athletes'> | null | undefined): number | null {
+  if (!sim?.athletes.length) return null
   return Math.max(...sim.athletes.map((a) => a.peak_core_c_p95))
 }
 
-/** The AT-owned near-limit band: GET /settings, else the settings the run used. */
-export function nearMargin(settings: SettingsResponse | null, sim: Pick<SimulationResult, 'settings'> | null): number | null {
-  const s = settings?.settings.find((x) => x.key === 'near_limit_margin_c')
-  if (s && typeof s.value === 'number') return s.value
-  const used = sim?.settings?.near_limit_margin_c
-  return typeof used === 'number' ? used : null
+export function overCount(sim: Pick<SimulationResult, 'athletes'> | null | undefined): number | null {
+  return sim ? sim.athletes.filter((a) => a.status === 'over_limit').length : null
 }
 
-/** The engine roster names fictional athletes "Name (fictional)"; make sure the label is there when synthetic. */
-export function displayName(name: string, synthetic: boolean): string {
-  if (!synthetic || /\(fictional\)/i.test(name)) return name
-  return `${name} (fictional)`
+/** The AT-owned planning line: the result's `limit_core_c`, else GET /settings. */
+export function planningLimit(settings: SettingsResponse | null, sim: Pick<SimulationResult, 'limit_core_c'> | null): number | null {
+  if (sim && Number.isFinite(sim.limit_core_c)) return sim.limit_core_c
+  const s = settings?.settings.find((x) => x.key === 'planning_limit_core_c')
+  return s && typeof s.value === 'number' ? s.value : null
 }
 
-// ── optimizer: fewest-changes preset (v1.4) ────────────────────────────────
-
-/**
- * What the fewest-changes result means, in words (null for max_load or an older engine without `fewest_changes`).
- * Numbers are the engine's (`cap`, `min_compliant_changes`). Never "fell back": when the preset needed more changes
- * than its cap, the plan shown IS the one found at that count.
- */
-export function fewestChangesNote(fc: FewestChanges | null | undefined, changes?: number): string | null {
-  if (!fc) return null
-  if (fc.fell_back) return 'No capped plan qualified; showing the max-load plan.'
-  if (fc.min_compliant_changes == null)
-    return `No plan with ≤ ${fc.cap} changes meets every rule and keeps everyone under the line.`
-  if (fc.min_compliant_changes > fc.cap)
-    return `Needs at least ${fc.min_compliant_changes} changes — no plan with ≤ ${fc.cap} changes meets every rule and keeps everyone under the line.`
-  return changes != null ? `Fewest changes: ${changes} (cap ${fc.cap}).` : `Fewest changes, within the cap of ${fc.cap}.`
+/** The engine roster names fictional athletes "Name (fictional)"; the screens show the name and a "synthetic roster" label. */
+export function shortName(name: string): string {
+  return name.replace(/\s*\(fictional\)\s*/i, '')
 }
 
 // ── the engine's demo plan ─────────────────────────────────────────────────
-
-export const SYNTHETIC_PLAN_LABEL = 'synthetic plan (fixture)'
 
 /** JSON with sorted object keys, so the same drills compare equal whatever key order they arrived in. */
 function canonical(x: unknown): string {
@@ -219,17 +287,12 @@ export function isDemoPlan(
   return plan.id === inputs.plan.id && canonical(plan.drills) === canonical(inputs.plan.drills)
 }
 
-/**
- * A view's labels, plus "synthetic plan (fixture)" (first, so it is never folded away) when the plan on screen is
- * the demo plan /demo/inputs marks synthetic and the engine's labels don't already say so.
- */
-export function withPlanLabel(
-  labels: string[],
-  plan: Pick<PracticePlan, 'id' | 'drills'> | null | undefined,
-  inputs: Pick<DemoInputs, 'plan' | 'synthetic'> | null | undefined,
-): string[] {
-  if (!inputs?.synthetic?.plan || !isDemoPlan(plan, inputs) || labels.includes(SYNTHETIC_PLAN_LABEL)) return labels
-  return [SYNTHETIC_PLAN_LABEL, ...labels]
+// ── cited constants (GET /sources) ─────────────────────────────────────────
+
+/** Length of the heat-acclimatization period: the longest of nata_ehs.acclimatization_days. */
+export function acclimatizationDays(sources: Sources | null | undefined): number | null {
+  const d = sources?.nata_ehs?.acclimatization_days
+  return Array.isArray(d) && d.length ? Math.max(...d) : null
 }
 
 /** NATA 2009 gear phasing for an acclimatization day (phases from GET /sources), tightened by an AT-set cap. */
@@ -243,6 +306,13 @@ export function nataMaxGear(
   if (!phase) return gearLimit ?? null
   if (!gearLimit) return phase.max_gear
   return order.indexOf(gearLimit) < order.indexOf(phase.max_gear) ? gearLimit : phase.max_gear
+}
+
+/** Still in a NATA phase that limits gear (the early, highest-risk days); null when the phases are unknown. */
+export function inEarlyPhase(phases: NataPhase[] | undefined, day: number): boolean | null {
+  if (!phases?.length) return null
+  const g = nataMaxGear(phases, day)
+  return g != null && g !== 'full_pads'
 }
 
 // ── HR replay ──────────────────────────────────────────────────────────────
@@ -259,9 +329,8 @@ export function frameAt(replay: LiveReplay | null, athleteId: string, m: number)
 }
 
 /**
- * Replayed HR at minute m: the latest [minute, bpm] point at or before m.
- * Null before the recording starts and once it has ended (later than one
- * sample spacing after the last point) — a finished file is not a live HR.
+ * Replayed HR at minute m: the latest [minute, bpm] point at or before m. Null before the recording starts and once
+ * it has ended (later than one sample spacing after the last point).
  */
 export function hrAt(replay: LiveReplay | null, athleteId: string, m: number): number | null {
   const s = replay?.hr_series[athleteId]
@@ -277,7 +346,7 @@ export function hrAt(replay: LiveReplay | null, athleteId: string, m: number): n
   return bpm
 }
 
-/** First minute the engine's gates raised a flag for anyone (for "skip ahead"). */
+/** First minute the engine's gates raised a flag for anyone in the replay. */
 export function firstFlagMinute(replay: LiveReplay | null): number | null {
   if (!replay) return null
   let first: number | null = null
@@ -289,46 +358,49 @@ export function hasHr(replay: LiveReplay | null, athleteId: string): boolean {
   return !!replay && (replay.source.athletes.includes(athleteId) || !!replay.hr_series[athleteId]?.length)
 }
 
+/** Provenance label of the replay ("replay · <date> · <device>" / "replay · synthetic HR file (not a real athlete)"). */
+export function replaySourceLabel(replay: LiveReplay | null): string | null {
+  if (!replay) return null
+  if (replay.source.label) return replay.source.label
+  return replay.source.synthetic ? 'replay · synthetic HR file (not a real athlete)' : `replay · ${replay.source.file}`
+}
+
 // ── one athlete at one minute ──────────────────────────────────────────────
 
 /** Where an athlete's numbers come from right now. */
-export type LiveBasis = 'hr_replay' | 'plan_forecast' | 'offline'
+export type LiveBasis = 'live' | 'hr_replay' | 'plan_forecast' | 'offline'
 
 export interface AthleteLive {
   id: string
-  /** Estimated core (p50) at this minute, °C. Estimate — planning only. */
-  coreC: number
-  /** p95 at this minute, °C. */
-  p95C: number
+  /** Estimated core (p50) at this minute, °C — estimate, planning only. Null offline. */
+  coreC: number | null
   /** p95 − p50 at this minute. */
-  bandC: number
+  bandC: number | null
   /** Peak p95 over the session (engine `peak_core_c_p95`). */
-  peakP95C: number
+  peakP95C: number | null
+  /** Practice minute of the p95 peak. */
   peakMin: number | null
   firstCrossMin: number | null
-  status: AthleteStatus
+  status: AthleteStatus | null
   hr: number | null
+  /** This athlete has HR (replay file or a live strap). */
   hasHr: boolean
   basis: LiveBasis
   /** Engine gates say the HR calibration has enough data (`gates.coverage_ok`). */
   calibrated: boolean
-  /** Engine gates raised a flag (`gates.flag`), with its message. */
+  /** Engine gates raised a flag (`gates.flag`). */
   flag: boolean
-  gates: ReplayGates | null
+  gates: Gates | null
+  /** Strap display name when live ("Amazfit Helio Strap"). */
+  device: string | null
+  /** Live provenance for this athlete: "live · Amazfit Helio Strap", or "replay · <device>" when hr_bridge replays a file. */
+  liveSource: string | null
   /** Estimate at each past minute 0…m. */
   history: number[]
-  /** Current forecast, one value per minute 0…total. */
+  /** Current forecast (p50), one value per minute 0…total. */
   forecast: number[]
   /** p95 − p50 per minute 0…total. */
   band: number[]
-}
-
-interface Curve {
-  p50: number[]
-  p95: number[]
-  peak: number
-  status: AthleteStatus
-  firstCross: number | null
 }
 
 /** Per-minute arrays for one engine curve (cached by the caller — they don't change with the clock). */
@@ -353,10 +425,33 @@ export function makeCurveCache(stepMin: number, totalMin: number): CurveCache {
   }
 }
 
+/** No engine: the same row with no numbers ("—" on screen). */
+export function offlineAthlete(id: string): AthleteLive {
+  return {
+    id,
+    coreC: null,
+    bandC: null,
+    peakP95C: null,
+    peakMin: null,
+    firstCrossMin: null,
+    status: null,
+    hr: null,
+    hasHr: false,
+    basis: 'offline',
+    calibrated: false,
+    flag: false,
+    gates: null,
+    device: null,
+    liveSource: null,
+    history: [],
+    forecast: [],
+    band: [],
+  }
+}
+
 /**
- * One athlete at practice minute `m`.
- *  - HR in the replay and a frame at or before m → that frame's re-forecast,
- *    status and gates (engine calibration).
+ * One athlete at practice minute `m` from the plan forecast and the HR replay:
+ *  - HR in the replay and a frame at or before m → that frame's re-forecast, status and gates (engine calibration).
  *  - Otherwise → the plan forecast (no HR).
  */
 export function athleteAtMinute(args: {
@@ -370,23 +465,14 @@ export function athleteAtMinute(args: {
   const { id, minute, totalMin, plan, replay } = args
   const pa = plan.athletes.find((a) => a.id === id)
   if (!pa) return null
-  const step = plan.step_min
-  const curves = args.curves ?? makeCurveCache(step, totalMin)
+  const curves = args.curves ?? makeCurveCache(plan.step_min, totalMin)
   const planC = curves(pa, pa)
   const frame = frameAt(replay, id, minute)
   const withHr = hasHr(replay, id)
-  const k = Math.min(Math.floor(minute), planC.p50.length - 1)
+  const k = Math.max(0, Math.min(Math.floor(minute), planC.p50.length - 1))
 
-  const cur: Curve & { band: number[]; peakMin: number | null } = frame
-    ? (() => {
-        const fc = curves(frame, frame.athlete)
-        return {
-          ...fc,
-          peak: frame.athlete.peak_core_c_p95,
-          status: frame.athlete.status,
-          firstCross: frame.athlete.first_cross_min,
-        }
-      })()
+  const cur = frame
+    ? { ...curves(frame, frame.athlete), peak: frame.athlete.peak_core_c_p95, status: frame.athlete.status, firstCross: frame.athlete.first_cross_min }
     : { ...planC, peak: pa.peak_core_c_p95, status: pa.status, firstCross: pa.first_cross_min ?? null }
 
   // What the estimate was at each past minute: the frame in force then, else the plan forecast.
@@ -398,9 +484,8 @@ export function athleteAtMinute(args: {
 
   return {
     id,
-    coreC: cur.p50[k],
-    p95C: cur.p95[k],
-    bandC: cur.band[k],
+    coreC: cur.p50[k] ?? null,
+    bandC: cur.band[k] ?? null,
     peakP95C: cur.peak,
     peakMin: cur.peakMin,
     firstCrossMin: cur.firstCross,
@@ -411,33 +496,95 @@ export function athleteAtMinute(args: {
     calibrated: !!frame?.gates.coverage_ok,
     flag: !!frame?.gates.flag,
     gates: frame?.gates ?? null,
+    device: null,
+    liveSource: null,
     history,
     forecast: cur.p50,
     band: cur.band,
   }
 }
 
-/** Plain-words model line for an athlete (Coach and Athlete views). */
-export function basisLabel(a: Pick<AthleteLive, 'basis' | 'hasHr' | 'calibrated' | 'gates'>): string {
-  if (a.basis === 'offline') return 'OFFLINE FALLBACK — not the validated model'
-  if (a.basis === 'hr_replay')
-    return a.calibrated ? 'HR-calibrated estimate (replay)' : `HR replay · engine gates: ${a.gates?.message ?? 'waiting'}`
-  return a.hasHr ? 'plan forecast — waiting for the first HR calibration' : 'plan forecast only — no HR'
+/**
+ * One athlete at wall-clock minute `m` of a live HR session (GET /live/state):
+ *  - a strap reading that is still being received and an engine re-forecast → live HR, that curve, status and gates;
+ *  - everyone else → the session's `reforecast` (the plan forecast for athletes without HR).
+ */
+export function athleteFromLive(args: {
+  id: string
+  minute: number
+  totalMin: number
+  reforecast: SimulationResult
+  entry: LiveAthlete | undefined
+  curves?: CurveCache
+}): AthleteLive | null {
+  const { id, minute, totalMin, reforecast, entry } = args
+  const pa = reforecast.athletes.find((a) => a.id === id)
+  const live: CalibratedCurve | null = entry?.receiving && entry.athlete ? entry.athlete : null
+  if (!pa && !live) return null
+  const curves = args.curves ?? makeCurveCache(reforecast.step_min, totalMin)
+  const src: CalibratedCurve = live ?? {
+    core_c_p50: pa!.core_c_p50,
+    core_c_p95: pa!.core_c_p95,
+    peak_core_c_p95: pa!.peak_core_c_p95,
+    status: pa!.status,
+    first_cross_min: pa!.first_cross_min ?? null,
+  }
+  const c = curves(live ?? pa!, src)
+  const k = Math.max(0, Math.min(Math.floor(minute), c.p50.length - 1))
+  const receiving = !!entry?.receiving
+  return {
+    id,
+    coreC: c.p50[k] ?? null,
+    bandC: c.band[k] ?? null,
+    peakP95C: src.peak_core_c_p95,
+    peakMin: c.peakMin,
+    firstCrossMin: src.first_cross_min,
+    status: src.status,
+    hr: receiving ? entry!.hr_bpm : null,
+    hasHr: receiving,
+    basis: live ? 'live' : 'plan_forecast',
+    calibrated: !!(live && entry?.gates?.coverage_ok),
+    flag: !!(live && entry?.gates?.flag),
+    gates: live ? (entry?.gates ?? null) : null,
+    device: receiving ? entry!.device : null,
+    liveSource: receiving ? `${entry!.replay ? 'replay' : 'live'} · ${entry!.device}` : null,
+    history: c.p50.slice(0, k + 1),
+    forecast: c.p50,
+    band: c.band,
+  }
 }
 
-/** HR column text when there is no HR value at this minute. */
-export function noHrLabel(a: Pick<AthleteLive, 'basis' | 'hasHr' | 'calibrated' | 'gates' | 'hr'>): string {
-  if (a.hasHr && a.hr == null && a.basis === 'hr_replay') return `HR replay ended · ${basisLabel(a)}`
-  return basisLabel(a)
+/** Plain-words model line for an athlete (Athlete view "Model"). */
+export function modelLabel(a: Pick<AthleteLive, 'basis' | 'hasHr' | 'calibrated' | 'liveSource'>): string {
+  if (a.basis === 'offline') return 'offline fallback — no estimate'
+  if (a.basis === 'live') return `${a.liveSource ?? 'live'} · ${a.calibrated ? 'calibrated from HR' : 'calibrating…'}`
+  if (a.basis === 'hr_replay') return a.calibrated ? 'HR replay · calibrated from HR' : 'HR replay · calibrating…'
+  return a.hasHr ? 'HR replay · calibrating…' : 'plan forecast only'
 }
 
-export const STATUS_LABEL: Record<AthleteStatus, string> = {
-  below_limit: 'Below line',
-  near_limit: 'Near line',
-  over_limit: 'Over line',
+/**
+ * Display tone (CSS class) with voice-plan's meanings: 'alert' (red row, "Over line") only when the engine flags the
+ * athlete (`gates.flag`); 'watch' when the engine's p95 forecast is near or over the line (voice-plan's "predicted
+ * peak at the line"); 'steady' below it. Colour only — the numbers are the engine's.
+ */
+export type Tone = 'steady' | 'watch' | 'alert' | 'none'
+export function statusTone(s: AthleteStatus | null | undefined, flag = false): Tone {
+  if (flag) return 'alert'
+  return s === 'over_limit' || s === 'near_limit' ? 'watch' : s === 'below_limit' ? 'steady' : 'none'
 }
 
-/** Display tone (CSS class) for an engine status. Colour only. */
-export function statusTone(s: AthleteStatus): 'steady' | 'watch' | 'alert' {
-  return s === 'over_limit' ? 'alert' : s === 'near_limit' ? 'watch' : 'steady'
+/** Earliest first crossing among the athletes on screen (for "Skip to heat"). */
+export function firstCrossing(athletes: Record<string, Pick<AthleteLive, 'firstCrossMin'>>): number | null {
+  let first: number | null = null
+  for (const a of Object.values(athletes)) if (a.firstCrossMin != null && (first == null || a.firstCrossMin < first)) first = a.firstCrossMin
+  return first
+}
+
+/** Body surface area (DuBois) with the engine's own coefficients from GET /sources (constants.body_surface_area);
+ * null when /sources isn't loaded. Same formula the engine's physiology uses. */
+export function bodySurfaceAreaM2(a: { mass_kg: number; height_m: number }, sources: unknown): number | null {
+  const b = (sources as { body_surface_area?: { coeff?: number; mass_exp?: number; height_exp?: number } } | null)
+    ?.body_surface_area
+  if (!b || b.coeff == null || b.mass_exp == null || b.height_exp == null) return null
+  return b.coeff * a.mass_kg ** b.mass_exp * a.height_m ** b.height_exp
 }

@@ -19,8 +19,6 @@
 
 .plan__actions {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
   gap: 10px;
 }
 
@@ -100,24 +98,9 @@
   color: var(--alert);
 }
 
-.rule--none {
-  background: var(--ink-4);
-  color: var(--ink-2);
-}
-
-/* Engine violation text, shown in full. */
-.rule--full {
-  height: auto;
-  min-height: 30px;
-  padding: 6px 12px;
-  border-radius: 14px;
-  line-height: 1.35;
-}
-
-.rule--cite {
-  background: none;
-  padding: 0 4px;
-  font-size: 12px;
+.rule--ok {
+  background: var(--steady-bg);
+  color: var(--steady);
 }
 
 .plan__grid {
@@ -395,12 +378,6 @@
   color: var(--ink-2);
 }
 
-/* The fewest-changes result in words ("Needs at least N changes — …"). */
-.plan__fewest {
-  color: var(--ink);
-  font-weight: 500;
-}
-
 /* ---------- Drill popover ---------- */
 
 .pop {
@@ -507,9 +484,4 @@
 .chip--max {
   background: rgb(255 122 89 / 0.22);
   color: #c4442a;
-}
-
-.plan__line-note {
-  margin: -4px 0 0;
-  font-size: 12.5px;
 }
