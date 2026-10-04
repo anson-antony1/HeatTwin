@@ -1,8 +1,9 @@
-# CONTRACTS.md — frozen data shapes (v1.6)
+# CONTRACTS.md — frozen data shapes (v1.7)
 
 Freeze at M0. Additive changes only after that.
 **v1.1 (additive, Oct 3):** fields marked `// v1.1` are new and optional; every v1 field keeps its meaning.
 **v1.2 (additive, Oct 3 night):** `// v1.2` — Drill.drill_type, OptimizeResult.top_changes/top_changes_text, voice-tool endpoints. Units are in field names. Times are ISO 8601 with offset; durations are in minutes.
+**v1.7 (additive, free decision layer):** `POST /voice/decide`, `POST /plan/parse_local`, `GET /voice/status`, `POST /voice/transcribe` (engine/decide_routes.py; no paid API, Gemini stays optional and off by default); `POST /guard` response gains `blocked_by` and `assist` (the embedding assist runs next to engine/guard.py; `ok` is false when either flags; `hits` stays guard.py's own); `/voice/answer` response gains `guard`. `validation/results.json["voice_decide"]` (synthetic: true). See `docs/VOICE.md`.
 **v1.6 (additive, polish):** `POST /live/start` optional `live_demo` (athlete → drill their HR is read against) and response `live_demo`; `LiveState.athletes[id].live_demo`; `WeatherHour.time_shifted_min` (a live session on the pinned forecast shifted to now, labelled "forecast snapshot (time-shifted)"); `GET /validation/hr_recording`; `/live/replay` defaults to the synthetic file; guard rule "suspected/possible <heat illness>" with one exception scoped to the Collapse 911 script.
 **v1.5 (additive, final-ui):** `GET /live/state` (the web polls the live HR session), `LiveReplay.source.{date, device, label}`.
 **v1.4 (additive, Oct 3 night):** `?source=node` (node demo scenario weather; never with ?demo=1), `OptimizeResult.fewest_changes` (minimum compliant edit), `GET /demo/comparison` (same plan, three weather inputs), `/voice/answer` optional `question`, `first_cross_min: number | null`. GET /weather is implemented (engine/weather_routes.py, display only).
@@ -204,6 +205,35 @@ type CollapseLog = {
 | POST | `/voice/intent` | v1.3 `{text? \| audio_b64 + mime_type, plan?, roster?}` → `VoiceIntent` (below). Gemini returns only `{transcript, intent, slots}` against a JSON schema; the engine validates it and resolves names against the plan. 503 when no GEMINI_API_KEY (the web then routes typed text locally) |
 | POST | `/voice/answer` | v1.3 `{intent, slots, plan?, roster?, settings?}` (`?demo=1`) → `VoiceAnswer` (below). The engine runs the tool and writes the sentence; `say` already passed engine/guard.py |
 | POST | `/voice/tts` | v1.3 `{text}` → `audio/mpeg`. Re-guards `text` (422 on a hit); 503 when no ELEVENLABS_API_KEY or the network is down (the web then uses speechSynthesis). The key stays on the engine |
+| POST | `/voice/decide` | v1.7 `{text, plan?, roster?, choices?}` → `DecideResult` (below). The FREE router (engine/decide.py): typed choices, never text. Names are resolved against the plan/roster SENT. When a decision abstains it asks one question (`asking`) with the two most probable options (`did_you_mean`); tapping one is sent back as `choices` |
+| POST | `/plan/parse_local` | v1.7 `{text, current_plan?, site?, date?, start?}` → `PlanDraft` (same shape as `/plan/parse`; `model: "local-rules + embedding intensity"`, `labels[0]` "parsed locally (no AI service) — coach must confirm"). No key, no network. Gear never said, a start time read as afternoon, a break length (the FHSAA minimum), a position (end of plan) and a low-confidence drill intensity (the harder of the two most probable) are each listed in `assumptions` |
+| GET | `/voice/status` | v1.7 → `{decide: {backend, fallback, reason, calibrated}, gemini: {configured}, stt: {whisper: {installed, cached, ready}}, nli, tts: {elevenlabs}, paid_api}`. `tts.elevenlabs` is true only with a key AND paid APIs enabled; the web checks it before ever calling `/voice/tts` |
+| POST | `/voice/transcribe` | v1.7 `{audio_b64 (16 kHz mono WAV), mime_type?}` → `{text, backend, language}`. Offline faster-whisper on a laptop; 503 when it is not installed/cached (never required on a server) |
+
+```ts
+// v1.7
+type Decision = {                         // engine/decide.py: a CHOICE from a closed set, never free text
+  decision: "intent" | "athlete" | "drill" | "intensity" | "guard_assist";
+  choice: string | null;                  // INTENTS / an athlete or drill id of the CURRENT roster / plan / rest..max / flag|pass; "none" = nobody/no drill meant
+  probabilities: Record<string, number>;  // temperature-scaled softmax over the options, descending
+  confidence: number;                     // probabilities[choice]
+  abstain: boolean;                       // below the calibrated threshold (or a tie): ask, do not act
+  top2: string[]; backend: string;        // "fastembed:BAAI/bge-small-en-v1.5" | "lexical-fallback"
+  calibrated: boolean; temperature: number | null; threshold: number | null; note?: string;
+};
+type DecideResult = {
+  transcript: string;                     // guard-redacted, for display
+  intent: "what_if" | "athlete_status" | "field_conditions" | "optimize" | "plan_summary" | "plan_entry" | "unknown";
+  slots: VoiceIntent["slots"]; unresolved: string[];
+  abstain: boolean; asking: "intent" | "athlete" | "drill" | null;
+  did_you_mean: { label: string; choices: { intent?: string; athlete_id?: string; drill_id?: string }; p: number }[];   // top 2
+  decisions: { intent: Decision; athlete: Decision | null; drill: Decision | null; intensity: Decision | null };
+  source: "local"; backend: string; labels: string[];
+};
+// POST /guard → { ok, redacted_text, hits[] /* guard.py's own */, blocked_by: ("guard.py" | "assist" | "nli")[],
+//                 assist: { backend, p_flag_max, hits[], calibrated, fallback }, nli: { enabled, … } }
+// POST /voice/answer → VoiceAnswer + guard: { ok, blocked_by[], assist }; a sentence the assist blocks is replaced by "[removed: semantic]"
+```
 
 ```ts
 // v1.3

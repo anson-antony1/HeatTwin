@@ -1,13 +1,15 @@
 # validation/
 
 Every number in `results.json` is computed by a script in this folder from real, cited inputs. Synthetic or replayed
-data never goes in `results.json`.
+data never goes in `results.json` — with one labelled exception: `voice_decide` is measured on developer-written synthetic
+text and says so (`synthetic: true`) in the file, in the block and in `docs/VOICE.md`.
 
 | Key | Script | What |
 |---|---|---|
 | `field_plausibility` | `field_plausibility.py` | Model p50/p95 peaks vs ingestible-pill core temperatures from 5 football-practice studies (NFL, college, high school), plus a sensitivity sweep naming the driver of the gap. |
 | `armstrong_2010` | `armstrong_2010.py` | WS7 item 1. Armstrong et al. 2010 (J Athl Train 45:117) reproduced in twonode-v1 (conservative, ISO-dynamic and Gagge-static clothing) and JOS-3, for control clothing and full uniform. |
 | `helio_recording` | `helio_recording.py` | The real Oct 3 Amazfit Helio Strap recording (rest, then burpees) as calibration evidence: readings, duration, HR min/mean/max, and how met_scale moves when the HR is read against the plan's conditioning drill (the live-demo mapping; rest-like windows skipped). Real data (`synthetic: false`), fed through calibration as a replay (`replay: true`) with roster athlete a07's synthetic profile (`calibration.profile_synthetic: true`). Not replayed on the demo plan's clock. |
+| `voice_decide` | `voice_decide.py` | The free voice decision layer (`engine/decide.py`): accuracy, ECE (10 bins), abstain rate and a reliability table for intent, athlete, drill, drill intensity and the guard assist, with the fitted softmax temperature and abstain threshold (also written to `engine/data/decide_calibration.json`). **Synthetic** (`synthetic: true`): the dataset is developer-written text in `engine/data/voice_decide_dataset.json`, not recorded speech. `python -m validation.voice_decide [--write-doc] [--check]`; protocol in the script's docstring and `docs/VOICE.md`. |
 | `wbgt_gap` | `wbgt_gap.py` | Our Liljegren WBGT vs NWS's own WBGT forecast layer for the Gainesville cell, broken down by input (NWS's documented choices swapped in one at a time, Shapley-attributed; nothing tuned). Write-up: `engine/physio/MODEL.md` §12d. |
 
 Run with `python -m validation.armstrong_2010`; `--calibrate` recomputes the conservative mode's gear surcharge.

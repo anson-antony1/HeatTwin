@@ -261,3 +261,36 @@ def test_transcribe_with_local_whisper_returns_text_only():
     r = c.post("/voice/transcribe", json={"audio_b64": base64.b64encode(_silent_wav(1.0)).decode()})
     assert r.status_code == 200 and set(r.json()) == {"text", "backend", "language"}
     assert r.json()["backend"].startswith("faster-whisper:") and isinstance(r.json()["text"], str)
+
+
+# ── robustness: nothing in the dataset (or junk) may crash the router or the parser ──
+
+JUNK = ["", " ", "???", "a" * 1999, "12345", "ten minutes", "add", "drop", "make it 99999 minutes", "at 25:99",
+        "for 7 for 8 for 9", "then then then", "and and", "in full pads in helmets in shorts", "water break water break water break"]
+
+
+def test_the_router_answers_every_dataset_utterance_and_junk_without_crashing():
+    ds = decide.load_dataset()
+    for key in ("intent", "athlete", "drill"):
+        for it in ds[key]:
+            r = c.post("/voice/decide", json={"text": it["text"]})
+            assert r.status_code == 200, (it["text"], r.text)
+            j = r.json()
+            assert j["intent"] in {"what_if", "athlete_status", "field_conditions", "optimize", "plan_summary", "plan_entry", "unknown"}
+            if j["abstain"]:
+                assert j["asking"] in {"intent", "athlete", "drill"} and len(j["did_you_mean"]) <= 2
+    for t in JUNK:
+        r = c.post("/voice/decide", json={"text": t})
+        assert r.status_code in (200, 422), (t, r.status_code)
+
+
+def test_the_local_plan_parser_never_crashes_and_always_returns_a_confirmable_draft():
+    ds = decide.load_dataset()
+    texts = [it["text"] for it in ds["intent"]] + [it["text"] for it in ds["intensity"]] + [j for j in JUNK if j.strip()]
+    for t in texts:
+        for cur in (None, PLAN):
+            r = c.post("/plan/parse_local", json={"text": t, "current_plan": cur})
+            assert r.status_code == 200, (t, r.text)
+            d = r.json()
+            assert d["needs_confirmation"] is True and isinstance(d["plan"]["drills"], list)
+            assert all(x["duration_min"] > 0 and x["intensity"] in decide.INTENSITIES for x in d["plan"]["drills"])

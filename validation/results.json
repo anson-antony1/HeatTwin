@@ -4129,7 +4129,7 @@
     "dataset": {
       "file": "engine/data/voice_decide_dataset.json",
       "synthetic": true,
-      "sha1": "89cdb7e81ae9944b43c36bafe3f7564cbb014bec",
+      "sha1": "0dd2ef46f4fad457774badae2848b4d536319f82",
       "n": {
         "intent": 232,
         "intensity": 119,
@@ -4184,19 +4184,19 @@
               "plan_entry": 10,
               "unclear": 12
             },
-            "temperature": 0.02762,
+            "temperature": 0.0276,
             "temperature_at_lower_bound": false,
-            "threshold": 0.69701,
+            "threshold": 0.69712,
             "threshold_rule": "lowest \u03b8 such that the answered held-out items (confidence \u2265 \u03b8) are \u2265 90% right; else best selective accuracy among \u03b8 answering \u2265 20%",
             "threshold_status": "target_met",
             "headline": "crossfit",
             "crossfit": {
               "n": 72,
               "accuracy": 0.8194,
-              "ece": 0.0907,
+              "ece": 0.0879,
               "ece_ci95": [
-                0.0779,
-                0.1973
+                0.0799,
+                0.1951
               ],
               "abstain_rate": 0.25,
               "n_answered": 54,
@@ -4205,50 +4205,50 @@
                 {
                   "bin": "0.2-0.3",
                   "n": 2,
-                  "mean_confidence": 0.2779,
+                  "mean_confidence": 0.2781,
                   "accuracy": 0.5
                 },
                 {
                   "bin": "0.3-0.4",
                   "n": 3,
-                  "mean_confidence": 0.3826,
+                  "mean_confidence": 0.3827,
                   "accuracy": 0.6667
                 },
                 {
                   "bin": "0.4-0.5",
                   "n": 5,
-                  "mean_confidence": 0.4478,
+                  "mean_confidence": 0.4479,
                   "accuracy": 0.4
                 },
                 {
                   "bin": "0.5-0.6",
                   "n": 7,
-                  "mean_confidence": 0.564,
+                  "mean_confidence": 0.5641,
                   "accuracy": 0.7143
                 },
                 {
                   "bin": "0.6-0.7",
                   "n": 6,
-                  "mean_confidence": 0.6821,
+                  "mean_confidence": 0.6824,
                   "accuracy": 0.6667
                 },
                 {
                   "bin": "0.7-0.8",
                   "n": 10,
-                  "mean_confidence": 0.7547,
+                  "mean_confidence": 0.7549,
                   "accuracy": 1.0
                 },
                 {
                   "bin": "0.8-0.9",
-                  "n": 11,
-                  "mean_confidence": 0.8402,
-                  "accuracy": 0.7273
+                  "n": 12,
+                  "mean_confidence": 0.8401,
+                  "accuracy": 0.75
                 },
                 {
                   "bin": "0.9-1.0",
-                  "n": 28,
+                  "n": 27,
                   "mean_confidence": 0.9587,
-                  "accuracy": 0.9643
+                  "accuracy": 0.963
                 }
               ]
             },
@@ -4256,10 +4256,10 @@
               "n": 72,
               "n_scored": 72,
               "accuracy": 0.8194,
-              "ece": 0.0488,
-              "nll_at_T1": 1.8472,
-              "nll_calibrated": 0.5019,
-              "mean_confidence": 0.7707,
+              "ece": 0.0504,
+              "nll_at_T1": 1.8476,
+              "nll_calibrated": 0.5039,
+              "mean_confidence": 0.7691,
               "abstain_rate": 0.2778,
               "n_answered": 52,
               "selective_accuracy": 0.9038,
@@ -4268,8 +4268,8 @@
                 0.9028
               ],
               "ece_ci95": [
-                0.0543,
-                0.1594
+                0.0542,
+                0.16
               ]
             },
             "accuracy_on_other_splits": {
@@ -4277,7 +4277,7 @@
                 1,
                 7
               ],
-              "mean": 0.8095,
+              "mean": 0.8056,
               "min": 0.7778,
               "max": 0.8472
             },
@@ -4831,19 +4831,19 @@
               "plan_entry": 10,
               "unclear": 12
             },
-            "temperature": 0.05399,
+            "temperature": 0.05326,
             "temperature_at_lower_bound": false,
-            "threshold": 0.90345,
+            "threshold": 0.9078,
             "threshold_rule": "lowest \u03b8 such that the answered held-out items (confidence \u2265 \u03b8) are \u2265 90% right; else best selective accuracy among \u03b8 answering \u2265 20%",
             "threshold_status": "target_met",
             "headline": "crossfit",
             "crossfit": {
               "n": 72,
-              "accuracy": 0.7222,
-              "ece": 0.1311,
+              "accuracy": 0.7361,
+              "ece": 0.1266,
               "ece_ci95": [
-                0.1092,
-                0.2572
+                0.1,
+                0.2544
               ],
               "abstain_rate": 0.6389,
               "n_answered": 26,
@@ -4852,55 +4852,55 @@
                 {
                   "bin": "0.1-0.2",
                   "n": 4,
-                  "mean_confidence": 0.183,
+                  "mean_confidence": 0.1837,
                   "accuracy": 0.75
                 },
                 {
                   "bin": "0.2-0.3",
                   "n": 4,
-                  "mean_confidence": 0.234,
+                  "mean_confidence": 0.2348,
                   "accuracy": 0.25
                 },
                 {
                   "bin": "0.3-0.4",
-                  "n": 5,
-                  "mean_confidence": 0.3586,
-                  "accuracy": 0.6
+                  "n": 4,
+                  "mean_confidence": 0.3559,
+                  "accuracy": 0.75
                 },
                 {
                   "bin": "0.4-0.5",
-                  "n": 8,
-                  "mean_confidence": 0.4459,
-                  "accuracy": 0.375
+                  "n": 7,
+                  "mean_confidence": 0.437,
+                  "accuracy": 0.4286
                 },
                 {
                   "bin": "0.5-0.6",
-                  "n": 11,
-                  "mean_confidence": 0.5372,
-                  "accuracy": 0.8182
+                  "n": 12,
+                  "mean_confidence": 0.5399,
+                  "accuracy": 0.75
                 },
                 {
                   "bin": "0.6-0.7",
-                  "n": 7,
-                  "mean_confidence": 0.6568,
-                  "accuracy": 0.7143
-                },
-                {
-                  "bin": "0.7-0.8",
                   "n": 5,
-                  "mean_confidence": 0.7615,
+                  "mean_confidence": 0.6462,
                   "accuracy": 0.8
                 },
                 {
+                  "bin": "0.7-0.8",
+                  "n": 6,
+                  "mean_confidence": 0.7454,
+                  "accuracy": 0.6667
+                },
+                {
                   "bin": "0.8-0.9",
-                  "n": 11,
-                  "mean_confidence": 0.8705,
-                  "accuracy": 0.8182
+                  "n": 13,
+                  "mean_confidence": 0.8664,
+                  "accuracy": 0.8462
                 },
                 {
                   "bin": "0.9-1.0",
                   "n": 17,
-                  "mean_confidence": 0.9453,
+                  "mean_confidence": 0.9486,
                   "accuracy": 0.8824
                 }
               ]
@@ -4908,21 +4908,21 @@
             "in_sample": {
               "n": 72,
               "n_scored": 72,
-              "accuracy": 0.7361,
-              "ece": 0.1228,
-              "nll_at_T1": 1.864,
-              "nll_calibrated": 0.9015,
-              "mean_confidence": 0.6503,
+              "accuracy": 0.75,
+              "ece": 0.1299,
+              "nll_at_T1": 1.8643,
+              "nll_calibrated": 0.8894,
+              "mean_confidence": 0.6605,
               "abstain_rate": 0.7639,
               "n_answered": 17,
               "selective_accuracy": 0.9412,
               "accuracy_ci95": [
-                0.625,
-                0.8333
+                0.6389,
+                0.8472
               ],
               "ece_ci95": [
-                0.0962,
-                0.2481
+                0.1027,
+                0.2537
               ]
             },
             "accuracy_on_other_splits": {
@@ -4930,15 +4930,15 @@
                 1,
                 7
               ],
-              "mean": 0.6548,
-              "min": 0.6389,
-              "max": 0.6806
+              "mean": 0.6587,
+              "min": 0.625,
+              "max": 0.7083
             },
             "per_class_recall_heldout": {
               "what_if": 0.9,
               "athlete_status": 0.8,
               "field_conditions": 0.9,
-              "optimize": 0.8,
+              "optimize": 0.9,
               "plan_summary": 0.7,
               "plan_entry": 0.7,
               "unclear": 0.4167
@@ -4977,11 +4977,6 @@
               {
                 "true": "field_conditions",
                 "predicted": "unclear",
-                "n": 1
-              },
-              {
-                "true": "optimize",
-                "predicted": "plan_summary",
                 "n": 1
               },
               {
@@ -5479,6 +5474,55 @@
           }
         }
       }
+    },
+    "nli_optional": {
+      "model": "MoritzLaurer/deberta-v3-base-zeroshot-v2.0",
+      "onnx": "onnx/model.onnx",
+      "hypotheses": [
+        "The text says that a person is safe, fine, okay, or cleared to continue.",
+        "The text says that a person has a heat illness or a medical diagnosis."
+      ],
+      "optional": true,
+      "laptop_only": true,
+      "n_heldout": 62,
+      "threshold_rule": "tau = 95th percentile of the NLI entailment score over the true passes in the held-out 30 % (at most ~5 % false blocks); a sentence is blocked when its score is above tau",
+      "threshold": 0.04092,
+      "auroc_flag_vs_pass": 0.9587,
+      "nli_alone": {
+        "recall_flags_blocked": 0.9259,
+        "false_block_rate_on_pass": 0.0571,
+        "n_flag": 27,
+        "n_pass": 35
+      },
+      "assist_or_nli": {
+        "recall_flags_blocked": 1.0,
+        "false_block_rate_on_pass": 0.0857,
+        "n_flag": 27,
+        "n_pass": 35
+      },
+      "guard_py_or_assist_or_nli": {
+        "recall_flags_blocked": 1.0,
+        "false_block_rate_on_pass": 0.1143,
+        "n_flag": 27,
+        "n_pass": 35
+      },
+      "flags_missed_by_guard_py_and_assist_caught_by_nli": 0,
+      "at_native_boundary_0.5": {
+        "nli_alone": {
+          "recall_flags_blocked": 0.7778,
+          "false_block_rate_on_pass": 0.0,
+          "n_flag": 27,
+          "n_pass": 35
+        },
+        "guard_py_or_assist_or_nli": {
+          "recall_flags_blocked": 1.0,
+          "false_block_rate_on_pass": 0.0571,
+          "n_flag": 27,
+          "n_pass": 35
+        },
+        "flags_missed_by_guard_py_and_assist_caught_by_nli": 0
+      },
+      "note": "tau is fitted on the same held-out items it is scored on (in-sample); n is small"
     }
   }
 }

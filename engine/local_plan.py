@@ -18,7 +18,7 @@ from typing import Any, Mapping, Optional
 from engine import decide, llm_plan, voice_local, voice_tools
 from engine.voice_local import gear_in, words_to_digits
 
-LOCAL_LABEL = "parsed locally from the coach's words (no AI service) — coach must confirm"
+LOCAL_LABEL = "parsed locally (no AI service) — coach must confirm"
 LOCAL_MODEL = "local-rules + embedding intensity"
 GEAR_SAY = {"none": "no pads", "helmet": "helmets only", "helmet_shoulder_pads": "shells", "full_pads": "full pads"}
 DEFAULT_GEAR = "full_pads"        # planning default when the coach never says: the most conservative (highest heat load)

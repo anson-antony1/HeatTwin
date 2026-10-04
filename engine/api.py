@@ -776,5 +776,12 @@ def _stop_node_bridge() -> None:
     node_autostart.stop()
 
 
+def _warm_decision_layer() -> None:
+    """Load the free voice decision layer's model in a background thread (never blocks startup; engine/decide.py)."""
+    from engine import decide
+    decide.warm_in_background()
+
+
 app.router.on_startup.append(_start_node_bridge)
+app.router.on_startup.append(_warm_decision_layer)
 app.router.on_shutdown.append(_stop_node_bridge)

@@ -18,7 +18,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
-from engine import decide, fixtures, llm_plan, local_plan, paid_api, stt_local, voice_local
+from engine import decide, fixtures, llm_plan, local_plan, nli_optional, paid_api, stt_local, voice_local
 
 router = APIRouter(tags=["free voice path (decision layer)"])
 
@@ -56,6 +56,7 @@ def voice_status() -> dict[str, Any]:
     return {"decide": decide.status(),
             "gemini": {"configured": gem["configured"], "paid_apis_disabled": gem["paid_apis_disabled"]},
             "stt": {"browser": "Web Speech API (in the browser; the engine cannot see it)", "whisper": stt_local.available()},
+            "nli": nli_optional.available(),
             "tts": {"elevenlabs": eleven, "fallback": "browser speechSynthesis"},
             "paid_api": paid_api.counts()}
 

@@ -49,6 +49,7 @@ from engine import decide, fixtures  # noqa: E402
 NEAR_DUP_COSINE = 0.95
 CLASSIFIERS = {"intent": decide.INTENTS, "intensity": decide.INTENSITIES, "guard_assist": decide.GUARD_CLASSES}
 ENTITIES = ("athlete", "drill")
+ARRAYS: dict[str, Any] = {}      # guard-assist verdicts on the held-out items, for the optional NLI comparison
 
 
 # ── metrics ─────────────────────────────────────────────────────────────────────
@@ -230,6 +231,7 @@ def eval_classifier(key: str, be: decide.Backend) -> tuple[dict[str, Any], dict[
         res["assist_alone_in_sample"] = _guard_rates(a_block, truth_flag)
         res["either_layer_in_sample"] = _guard_rates(a_block | ~g_ok, truth_flag)
         res["flags_missed_by_guard_py_caught_by_assist"] = int((truth_flag & g_ok & a_block).sum())
+        res["_arrays"] = {"texts": held, "truth_flag": truth_flag, "assist_blocks": a_block, "guard_blocks": ~g_ok}
     leak = _near_duplicates(be, [{**i, "text": prep(i["text"])} for i in train], [{**i, "text": prep(i["text"])} for i in held])
     res["leakage"] = {k: v for k, v in leak.items() if k != "_pairs"}
     cal = {"temperature": _r(T, 5), "threshold": _r(th, 5), "threshold_status": st, "n_calibration": len(held)}
@@ -299,6 +301,45 @@ def eval_entity(key: str, be: decide.Backend) -> tuple[dict[str, Any], dict[str,
     return res, cal
 
 
+# ── optional laptop-only zero-shot NLI (engine/nli_optional.py) ────────────────────
+
+def eval_nli() -> Optional[tuple[dict[str, Any], dict[str, Any]]]:
+    """The NLI vote on the held-out guard-assist items, next to guard.py and the assist. None when the model is not cached."""
+    from engine import nli_optional
+    arr = ARRAYS.get("guard")
+    if arr is None:
+        return None
+    try:
+        scores = np.array([nli_optional.score(str(i["text"])) for i in arr["texts"]])
+    except nli_optional.NLIUnavailable:
+        return None
+    flag = arr["truth_flag"]
+    # rule: τ = the 95th percentile of the NLI score over the true passes, so at most ~5 % of the harmless sentences are blocked
+    tau = float(np.percentile(scores[~flag], 95))
+    nli_block = scores > tau
+    auroc = float(np.mean([(p > q) + 0.5 * (p == q) for p in scores[flag] for q in scores[~flag]]))
+    both = arr["assist_blocks"] | nli_block
+    all3 = both | arr["guard_blocks"]
+    block = {
+        "model": nli_optional.model_name(), "onnx": nli_optional.onnx_file(), "hypotheses": list(nli_optional.HYPOTHESES),
+        "optional": True, "laptop_only": True, "n_heldout": int(len(scores)),
+        "threshold_rule": "tau = 95th percentile of the NLI entailment score over the true passes in the held-out 30 % (at most ~5 % "
+                          "false blocks); a sentence is blocked when its score is above tau",
+        "threshold": _r(tau, 5), "auroc_flag_vs_pass": _r(auroc),
+        "nli_alone": _guard_rates(nli_block, flag), "assist_or_nli": _guard_rates(both, flag),
+        "guard_py_or_assist_or_nli": _guard_rates(all3, flag),
+        "flags_missed_by_guard_py_and_assist_caught_by_nli": int((flag & ~arr["guard_blocks"] & ~arr["assist_blocks"] & nli_block).sum()),
+        "at_native_boundary_0.5": {            # for comparison: the model's own entailment boundary instead of the fitted tau
+            "nli_alone": _guard_rates(scores >= 0.5, flag),
+            "guard_py_or_assist_or_nli": _guard_rates(arr["guard_blocks"] | arr["assist_blocks"] | (scores >= 0.5), flag),
+            "flags_missed_by_guard_py_and_assist_caught_by_nli": int((flag & ~arr["guard_blocks"] & ~arr["assist_blocks"] & (scores >= 0.5)).sum()),
+        },
+        "note": "tau is fitted on the same held-out items it is scored on (in-sample); n is small",
+    }
+    cal = {"model": nli_optional.model_name(), "onnx": nli_optional.onnx_file(), "threshold": _r(tau, 5), "n_calibration": int(len(scores))}
+    return block, cal
+
+
 # ── backends ────────────────────────────────────────────────────────────────────
 
 def run_backend(be: decide.Backend, verbose: bool = True) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
@@ -308,6 +349,9 @@ def run_backend(be: decide.Backend, verbose: bool = True) -> tuple[dict[str, Any
     for key in CLASSIFIERS:
         decisions[key], cals[key] = eval_classifier(key, be)
         pairs[key] = decisions[key].pop("_pairs")
+        arrays = decisions[key].pop("_arrays", None)
+        if arrays is not None and be.semantic:
+            ARRAYS["guard"] = arrays
     for key in ENTITIES:
         decisions[key], cals[key] = eval_entity(key, be)
     info: dict[str, Any] = {"label": be.label, "semantic": be.semantic, "decisions": decisions}
@@ -329,7 +373,7 @@ def _pkg_version(name: str) -> Optional[str]:
         return None
 
 
-def compute(verbose: bool = True, lexical_only: bool = False) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+def compute(verbose: bool = True, lexical_only: bool = False, no_nli: bool = False) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     ds = decide.load_dataset()
     ds_sha = hashlib.sha1(decide.DATASET_PATH.read_bytes()).hexdigest()
     backends: dict[str, Any] = {}
@@ -345,6 +389,7 @@ def compute(verbose: bool = True, lexical_only: bool = False) -> tuple[dict[str,
     for be in todo:
         info, cals, pairs = run_backend(be)
         backends[be.key], cal_backends[be.key], all_pairs[be.key] = info, cals, pairs
+    nli = None if (lexical_only or no_nli) else eval_nli()
     block = {
         "synthetic": True,
         "note": "Computed by validation/voice_decide.py from engine/data/voice_decide_dataset.json — synthetic text written by the "
@@ -364,8 +409,12 @@ def compute(verbose: bool = True, lexical_only: bool = False) -> tuple[dict[str,
         "primary_backend": None if lexical_only else f"fastembed:{decide.model_name()}",
         "backends": backends,
     }
+    if nli:
+        block["nli_optional"] = nli[0]
     cal = {"synthetic": True, "generated_by": "python -m validation.voice_decide", "dataset": "engine/data/voice_decide_dataset.json",
            "dataset_sha1": ds_sha, "backends": cal_backends}
+    if nli:
+        cal["nli"] = nli[1]
     return block, cal, all_pairs
 
 
@@ -401,7 +450,9 @@ def reliability_md(block: dict[str, Any], backend: str, key: str) -> list[str]:
 
 def render_doc_block(block: dict[str, Any]) -> str:
     primary = block["primary_backend"] or "lexical-fallback"
-    out = [f"Backend: `{primary}`. Dataset: synthetic, {block['dataset']['n']}. Headline numbers: 5-fold cross-fitted (T and θ "
+    n = block["dataset"]["n"]
+    sizes = ", ".join(f"{n[k]} {k.replace('_', ' ')}" for k in ("intent", "athlete", "drill", "intensity", "guard_assist"))
+    out = [f"Backend: `{primary}`. Dataset (synthetic): {sizes} utterances. Headline numbers: 5-fold cross-fitted (T and θ "
            "refit on four fifths, scored on the rest) on the 30 % held-out (intent, intensity, guard assist) or on all items "
            "(athlete, drill: no training set).", ""]
     out += summary_rows(block, primary)
@@ -415,12 +466,41 @@ def render_doc_block(block: dict[str, Any]) -> str:
     return "\n".join(out)
 
 
+def render_guard_block(block: dict[str, Any]) -> str:
+    primary = block["primary_backend"] or "lexical-fallback"
+    g = block["backends"][primary]["decisions"]["guard_assist"]
+    pct = lambda x: f"{100 * x:.0f}%"  # noqa: E731
+    rows = ["| layer(s) | flags blocked (recall) | harmless sentences blocked |", "|---|---|---|"]
+    for name, k in (("engine/guard.py alone", "guard_py_alone"), ("embedding assist alone", "assist_alone_in_sample"),
+                    ("guard.py OR assist (what ships)", "either_layer_in_sample")):
+        r = g[k]
+        rows.append(f"| {name} | {pct(r['recall_flags_blocked'])} of {r['n_flag']} | {pct(r['false_block_rate_on_pass'])} of {r['n_pass']} |")
+    out = [f"Held-out 30 % of the guard-assist set (n = {g['n_heldout']}), backend `{primary}`. In-sample rows use the fitted temperature "
+           f"and threshold; the cross-fitted assist alone blocks {pct(g['crossfit']['recall_flags_blocked'])} of the flags and "
+           f"{pct(g['crossfit']['false_block_rate_on_pass'])} of the harmless sentences.", "", *rows, "",
+           f"Flags that guard.py's rules let through and the assist caught: {g['flags_missed_by_guard_py_caught_by_assist']} "
+           f"of {g['crossfit']['n_flag']}."]
+    n = block.get("nli_optional")
+    if n:
+        out += ["", f"**Optional laptop-only NLI** (`{n['model']}`, off by default, never on a server), same items, "
+                    f"tau = {n['threshold']}, AUROC {n['auroc_flag_vs_pass']}:", "",
+                "| layer(s) | flags blocked | harmless sentences blocked |", "|---|---|---|"]
+        for name, r in (("NLI alone", n["nli_alone"]), ("assist OR NLI", n["assist_or_nli"]),
+                        ("guard.py OR assist OR NLI", n["guard_py_or_assist_or_nli"])):
+            out.append(f"| {name} | {pct(r['recall_flags_blocked'])} | {pct(r['false_block_rate_on_pass'])} |")
+        out += ["", f"Flags missed by guard.py and the assist that the NLI caught: {n['flags_missed_by_guard_py_and_assist_caught_by_nli']}."]
+    return "\n".join(out)
+
+
+def _fill(text: str, tag: str, body: str) -> str:
+    return re.sub(rf"(<!-- {tag}:begin -->)\n?.*?\n?(<!-- {tag}:end -->)", lambda m: m.group(1) + "\n" + body + "\n" + m.group(2), text, flags=re.S)
+
+
 def write_doc(block: dict[str, Any]) -> bool:
     if not DOC.exists():
         return False
     text = DOC.read_text()
-    new = re.sub(r"(<!-- reliability:begin -->\n).*?(\n<!-- reliability:end -->)",
-                 lambda m: m.group(1) + render_doc_block(block) + m.group(2), text, flags=re.S)
+    new = _fill(_fill(text, "reliability", render_doc_block(block)), "guard", render_guard_block(block))
     if new != text:
         DOC.write_text(new)
     return "<!-- reliability:begin -->" in text
@@ -431,8 +511,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     ap.add_argument("--write-doc", action="store_true")
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--lexical-only", action="store_true", help="skip the embedding backend (does not touch its entries)")
+    ap.add_argument("--no-nli", action="store_true", help="skip the optional laptop-only NLI evaluation (keeps its old entry)")
     a = ap.parse_args(argv)
-    block, cal, pairs = compute(lexical_only=a.lexical_only)
+    block, cal, pairs = compute(lexical_only=a.lexical_only, no_nli=a.no_nli)
     cal_path = decide.CALIBRATION_PATH
     results = json.loads(RESULTS.read_text()) if RESULTS.exists() else {}
     old_cal = json.loads(cal_path.read_text()) if cal_path.exists() else {"backends": {}}
@@ -442,6 +523,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     block["backends"] = {**{k: v for k, v in (old_block.get("backends") or {}).items() if k not in block["backends"]}, **block["backends"]}
     if a.lexical_only and old_block.get("primary_backend"):
         block["primary_backend"] = old_block["primary_backend"]
+    if "nli_optional" not in block and old_block.get("nli_optional"):          # model not cached here: keep the last computed entry
+        block["nli_optional"] = old_block["nli_optional"]
+        merged_cal["nli"] = old_cal.get("nli", merged_cal.get("nli"))
     if a.check:
         same = json.loads(json.dumps(block)) == old_block and json.loads(json.dumps(merged_cal)) == old_cal
         print("voice_decide results and calibration reproduce" if same else "voice_decide results or calibration DIFFER")

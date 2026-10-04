@@ -338,3 +338,48 @@ def test_no_paid_api_is_touched_by_the_decision_layer():
     c.post("/guard", json={"text": "Estimate, planning only."})
     c.get("/voice/status")
     assert paid_api.counts()["attempted"] == before
+
+
+# ── optional laptop-only NLI third vote (engine/nli_optional.py) ────────────
+
+def test_nli_is_off_by_default_and_never_loads():
+    from engine import nli_optional
+    assert nli_optional.enabled() is False
+    r = decide.check_two_layer("Estimate, planning only.", log=False)
+    assert r["nli"] == {"enabled": False, "hits": []}
+
+
+def test_nli_refuses_to_run_on_render(monkeypatch):
+    from engine import nli_optional
+    monkeypatch.setenv("HEATTWIN_DECIDE_NLI", "1")
+    monkeypatch.setenv("RENDER", "true")
+    assert nli_optional.enabled() is False
+    monkeypatch.setattr(nli_optional, "_session", None)
+    with pytest.raises(nli_optional.NLIUnavailable, match="Render"):
+        nli_optional._load()
+
+
+def _nli_ready() -> bool:
+    from engine import nli_optional
+    return nli_optional.cached()
+
+
+@pytest.mark.skipif(not _nli_ready(), reason="optional DeBERTa-v3 zero-shot ONNX model not cached (python -m engine.nli_optional --fetch)")
+def test_nli_third_vote_blocks_and_is_recorded(monkeypatch):
+    from engine import nli_optional
+    monkeypatch.setenv("HEATTWIN_DECIDE_NLI", "1")
+    assert nli_optional.score("He is totally fine to keep going") > nli_optional.score("Add a five minute break after inside run")
+    r = decide.check_two_layer("He is totally fine to keep going.", log=False)
+    assert r["ok"] is False and "nli" in r["blocked_by"] and r["nli"]["active"] and r["nli"]["hits"]
+    ok = decide.check_two_layer("Isaiah: estimated peak 40.28 °C typical. Estimate, planning only.", log=False)
+    assert ok["ok"] and ok["nli"]["active"]
+
+
+def test_the_scripted_demo_questions_are_not_in_the_dataset():
+    """The 8 scripted voice questions (tests/test_e2e_demo.py) must stay a generalisation test, not training data."""
+    scripted = ["Who crosses the planning line first in this practice?", "What's the WBGT at 4 pm, and which FHSAA zone is that?",
+                "How hot does Isaiah get?", "What if we drop the gassers?", "What if team period is helmets only?", "Fix the plan.",
+                "Can you do it in six changes or fewer?", "Is Devin safe to keep practicing?"]
+    norm = lambda t: re.sub(r"[^a-z0-9 ]", "", t.lower()).strip()  # noqa: E731
+    in_data = {norm(i["text"]) for key in ("intent", "athlete", "drill", "intensity", "guard_assist") for i in decide.load_dataset()[key]}
+    assert not [q for q in scripted if norm(q) in in_data]

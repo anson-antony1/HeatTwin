@@ -99,7 +99,7 @@
   {"text": "is the zone changing during practice", "label": "field_conditions"},
   {"text": "what's the temperature on the field", "label": "field_conditions"},
   {"text": "check the weather", "label": "field_conditions"},
-  {"text": "fix the plan", "label": "optimize"},
+  {"text": "sort out the plan for me", "label": "optimize"},
   {"text": "optimize today's practice", "label": "optimize"},
   {"text": "rewrite the plan so nobody crosses the line", "label": "optimize"},
   {"text": "can you make this plan work with as few changes as possible", "label": "optimize"},

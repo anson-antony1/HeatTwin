@@ -2,8 +2,8 @@
   "backends": {
     "fastembed:BAAI/bge-small-en-v1.5": {
       "intent": {
-        "temperature": 0.02762,
-        "threshold": 0.69701,
+        "temperature": 0.0276,
+        "threshold": 0.69712,
         "threshold_status": "target_met",
         "n_calibration": 72
       },
@@ -34,8 +34,8 @@
     },
     "lexical-fallback": {
       "intent": {
-        "temperature": 0.05399,
-        "threshold": 0.90345,
+        "temperature": 0.05326,
+        "threshold": 0.9078,
         "threshold_status": "target_met",
         "n_calibration": 72
       },
@@ -68,5 +68,11 @@
   "synthetic": true,
   "generated_by": "python -m validation.voice_decide",
   "dataset": "engine/data/voice_decide_dataset.json",
-  "dataset_sha1": "89cdb7e81ae9944b43c36bafe3f7564cbb014bec"
+  "dataset_sha1": "0dd2ef46f4fad457774badae2848b4d536319f82",
+  "nli": {
+    "model": "MoritzLaurer/deberta-v3-base-zeroshot-v2.0",
+    "onnx": "onnx/model.onnx",
+    "threshold": 0.04092,
+    "n_calibration": 62
+  }
 }

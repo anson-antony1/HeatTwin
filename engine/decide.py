@@ -658,20 +658,30 @@ def split_sentences(text: str) -> list[tuple[int, int]]:
 
 
 def check_two_layer(text: str, *, source: str = "", log: bool = True, backend: Optional[Backend] = None) -> dict[str, Any]:
-    """engine/guard.py (rules) AND the assist (embedding classifier); blocks when either flags.
+    """engine/guard.py (rules) AND the assist (embedding classifier); blocks when either flags. With
+    HEATTWIN_DECIDE_NLI=1 on a laptop (engine/nli_optional.py), a zero-shot NLI model is a third vote.
 
-    → ``{ok, redacted_text, hits[], blocked_by: ["guard.py" | "assist", …], assist: {...}}`` — a superset of
-    guard.check's result. Assist hits have ``rule: "semantic"``, are redacted whole-sentence as ``[removed: semantic]``
-    and logged next to guard.py's. A fixed script's allowed phrase (constants.guard_exceptions: the Collapse 911 script)
-    is exempt from the assist exactly as it is from the rules."""
-    from engine import consts, guard
+    → ``{ok, redacted_text, hits[], blocked_by: ["guard.py" | "assist" | "nli", …], assist: {…, hits[]}, nli: {…}}`` — a
+    superset of guard.check's result (``hits`` stays guard.py's own). Assist / NLI hits (``rule: "semantic"``) are redacted
+    whole-sentence as ``[removed: semantic]`` unless guard.py already redacted words in that sentence, and are logged next to
+    guard.py's. A FIXED reviewed script (constants.guard_exceptions.scripts: the Collapse 911 script) is free text to neither
+    layer's exception: guard.py applies its scoped rule exception and the assist / NLI are not run on it."""
+    from engine import consts, guard, nli_optional
 
     g = guard.check(text, source=source, log=log)
     allowed = guard._script_exceptions(source) if source else set()
     be = backend or get_backend()
     flagged: list[dict[str, Any]] = []
+    nli_flagged: list[dict[str, Any]] = []
     p_max = 0.0
     fixed_script = bool(source) and source in (consts.get("guard_exceptions.scripts", {}) or {})   # reviewed text, not free text
+    nli: dict[str, Any] = {"enabled": False}
+    nli_th = None
+    if not fixed_script and nli_optional.enabled():
+        nli_th = nli_optional.available()["threshold"]
+        nli = {"enabled": True, "active": False, "model": nli_optional.model_name(),
+               "reason": None if nli_th is not None else "no calibrated threshold: run python -m validation.voice_decide"}
+    nli_p = 0.0
     for s0, s1 in ([] if fixed_script else split_sentences(text)):
         sent = text[s0:s1]
         if not re.search(r"[A-Za-z]{3}", sent):
@@ -683,9 +693,23 @@ def check_two_layer(text: str, *, source: str = "", log: bool = True, backend: O
         if d.blocks:
             flagged.append({"rule": "semantic", "match": sent, "start": s0, "end": s1, "p_flag": round(d.p_flag, 4),
                             "abstained": d.abstain and d.choice == "pass"})
-    blocked_by = (["guard.py"] if g["hits"] else []) + (["assist"] if flagged else [])
-    # a sentence guard.py already redacted keeps guard.py's own (word-level) redaction; assist-only ones are replaced whole
-    replace = [h for h in flagged if not any(h["start"] <= gh["start"] < h["end"] for gh in g["hits"])]
+        if nli.get("enabled") and nli_th is not None and not nli.get("reason"):
+            try:
+                sc = nli_optional.score(sent)
+                nli.update(active=True)
+                nli_p = max(nli_p, sc)
+                if sc >= nli_th:
+                    nli_flagged.append({"rule": "semantic", "match": sent, "start": s0, "end": s1, "p_entail": round(sc, 4)})
+            except nli_optional.NLIUnavailable as e:
+                nli.update(active=False, reason=str(e))
+    if nli.get("active"):
+        nli.update(threshold=nli_th, p_entail_max=round(nli_p, 4))
+    nli["hits"] = nli_flagged
+    blocked_by = (["guard.py"] if g["hits"] else []) + (["assist"] if flagged else []) + (["nli"] if nli_flagged else [])
+    # a sentence guard.py already redacted keeps guard.py's own (word-level) redaction; assist/NLI-only ones are replaced whole
+    spans = {(h["start"], h["end"]): h for h in [*flagged, *nli_flagged]}
+    replace = sorted((h for h in spans.values() if not any(h["start"] <= gh["start"] < h["end"] for gh in g["hits"])),
+                     key=lambda h: h["start"])
     if not replace:
         out = dict(g)
     else:
@@ -697,13 +721,34 @@ def check_two_layer(text: str, *, source: str = "", log: bool = True, backend: O
             pos = h["end"]
         redacted.append(guard.check(text[pos:], source=source, log=False)["redacted_text"] if text[pos:] else "")
         out = {"ok": False, "redacted_text": "".join(redacted), "hits": g["hits"]}   # hits: guard.py's, unchanged
-    if flagged and log:
-        guard._log(flagged, source)
+    if (flagged or nli_flagged) and log:
+        guard._log([*flagged, *nli_flagged], source)
     out["ok"] = not blocked_by
     out["blocked_by"] = blocked_by
     out["assist"] = {"backend": be.key, "p_flag_max": round(p_max, 4), "hits": flagged,
                      "calibrated": calibration_for(be.key, "guard_assist") is not None, "fallback": not be.semantic}
+    out["nli"] = nli
     return out
+
+
+def warm() -> dict[str, Any]:
+    """Load the model and embed every exemplar once, so the first question is as fast as the next. Never raises."""
+    try:
+        be = get_backend()
+        for key in ("intent", "intensity", "guard_assist"):
+            be.embed([t for _, t in _train_exemplars(key)])
+        froster, fplan = _fixture_context()
+        decide_athlete("warm up", froster, backend=be)
+        decide_drill("warm up", fplan, backend=be)
+        return {"backend": be.key, "warm": True}
+    except Exception as e:      # a broken cache must not stop the engine
+        return {"warm": False, "error": type(e).__name__}
+
+
+def warm_in_background() -> threading.Thread:
+    t = threading.Thread(target=warm, name="decide-warm", daemon=True)
+    t.start()
+    return t
 
 
 # ══ CLI: python -m engine.decide --fetch | --status | "what if we cut the gassers" ═════════════════════════════
