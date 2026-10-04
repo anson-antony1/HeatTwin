@@ -17,6 +17,7 @@ const int PIN_THERM = A0, PIN_GREEN = 11, PIN_YELLOW = 10, PIN_RED = 9;
 const float R_FIXED = 10000.0, R0 = 10000.0, T0_C = 25.0, BETA = 3950.0;
 const unsigned long PERIOD_MS = 1000, ENGINE_TIMEOUT_MS = 5000, BLINK_MS = 250;
 const int BASELINE_SAMPLES = 5;
+const float SUN_GAIN = 3.0;         // = constants.demo_node.sun_gain: a fingertip's rise counts 3x (demo sensitivity)
 
 const float RISE_STEP_C = 2.0;
 const float RISE_TO_WBGT_F[] = {80.0, 81.3, 82.6, 83.9, 85.2, 86.5, 87.7, 89.0,
@@ -116,7 +117,7 @@ void loop() {
     Serial.println(",0.0,nan,nan");                    // A1 not wired
     if (!isnan(c)) {
       if (baselineN < BASELINE_SAMPLES) { baselineSum += c; baselineN++; }
-      else localZone = zoneOfWbgt(wbgtFromRise(max(0.0f, c - baselineSum / baselineN)));
+      else localZone = zoneOfWbgt(wbgtFromRise(SUN_GAIN * max(0.0f, c - baselineSum / baselineN)));
     }
   }
 

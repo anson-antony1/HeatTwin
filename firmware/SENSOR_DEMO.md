@@ -11,17 +11,17 @@ reading. Everything is labelled "DEMO scenario … (synthetic) — not field dat
 - 5V ── thermistor ── A0 ── 10 kΩ ── GND
 - D11 → 220 Ω → green LED → GND · D10 → yellow · D9 → red (long LED leg toward the pin)
 
-## Run (three terminals, repo root)
+## Run (one command, repo root)
 ```bash
-# 0. once: flash the sketch (close the IDE's Serial Monitor first)
-~/.local/bin/arduino-cli upload --fqbn arduino:avr:uno -p /dev/ttyACM0 firmware/node_leds
-# 1. engine
-env -u PYTHONPATH .venv/bin/python -m uvicorn engine.api:app --port 8010
-# 2. web (needs Node ≥ 20; Node 22 is in ~/.local/node22)
-cd web && PATH=$HOME/.local/node22/bin:$PATH npm run dev        # open http://localhost:5173
-# 3. bridge (keep the ball at room temperature for the first 5 s while it zeroes)
-env -u PYTHONPATH .venv/bin/python -m engine.node_bridge --port /dev/ttyACM0 --demo --post http://localhost:8010/node
+make sensor-demo          # or ./scripts/demo_sensor.sh — engine + built-in Arduino bridge + web, opens the browser
 ```
+Plug the Uno in before or after; the engine finds it (Arduino USB id) and zeroes on the room — hands off the thermistor
+for ~5 s. Unplug it and the app returns to the forecast within ~2 s. Ctrl+C stops everything.
+`curl localhost:8010/node/status` → waiting / connected / port_unavailable (e.g. the Arduino IDE's Serial Monitor has
+the port — close it). `HEATTWIN_NODE=off` disables the built-in bridge.
+
+Defaults (constants.demo_node): fixed hot-day scenario (80 °F with no sun) and `sun_gain: 3.0`, so a fingertip spans
+the zones: pinch → red (zone 4) in ~2 s, a long firm pinch → zone 5. Labelled "demo sensitivity: … 3×".
 
 ## LEDs
 green = zone 1 · yellow = zones 2–3 · red = zone 4 · red blinking = zone 5. With the bridge running they show the

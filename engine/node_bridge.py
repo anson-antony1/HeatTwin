@@ -110,12 +110,13 @@ class DemoScenario:
     no sun). Falls back to "scenario" when the station can't be reached. Labelled synthetic/DEMO either way.
     """
 
-    def __init__(self, air: Optional[AirSource] = None, air_mode: Optional[str] = None):
+    def __init__(self, air: Optional[AirSource] = None, air_mode: Optional[str] = None, gain: Optional[float] = None):
         from engine import consts
 
         self.cfg = consts.get("demo_node")
         self.air_src = air
         self.air_mode = air_mode or self.cfg.get("air_mode_default", "scenario")
+        self.gain = float(self.cfg.get("sun_gain", 1.0)) if gain is None else float(gain)
         self.baseline: list[float] = []
         self._set_scenario()
         if self.air_mode == "station":
@@ -180,7 +181,8 @@ class DemoScenario:
             return None
         self.refresh_air()
         base = sum(self.baseline) / len(self.baseline)
-        rise = max(0.0, raw["globe_c"] - base)
+        measured_rise = max(0.0, raw["globe_c"] - base)
+        rise = measured_rise * self.gain
         globe = self.air_c + rise
         n = wbgt.node_components(self.air_c, self.rh, globe, self.wind_2m)
         b = self.baseline_wbgt_f()
@@ -192,7 +194,8 @@ class DemoScenario:
                 "fhsaa_zone": fhsaa.zone(n["wbgt_f"]), "solar_inferred_w_m2": round(n["solar_inferred_w_m2"]),
                 "globe_calibrated": False, "mode": "demo",
                 "_demo": {"globe_measured_c": raw["globe_c"], "globe_baseline_c": round(base, 2),
-                          "globe_rise_c": round(rise, 2), "wind_10m_m_s": round(self.wind_10m, 2)}}
+                          "globe_rise_c": round(measured_rise, 2), "sun_gain": self.gain,
+                          "wind_10m_m_s": round(self.wind_10m, 2)}}
 
 
 # ── one reading → one row ────────────────────────────────────────────────────
@@ -252,12 +255,14 @@ def serial_lines(port: str, baud: int = 115200) -> Iterator[str]:
 
 def run(lines: Iterable[str], mode: str, post_url: Optional[str] = None, out_dir: Path = DATA_DIR,
         offline: bool = False, clock=None, use_a1: bool = False, demo: bool = False,
-        air_mode: Optional[str] = None, send_zone=None) -> Path:
+        air_mode: Optional[str] = None, send_zone=None, post_fn=None, stop=None, gain: Optional[float] = None) -> Path:
+    """post_fn(payload) -> response dict: post in-process (engine/node_autostart.py) instead of HTTP to post_url.
+    stop: a threading.Event that ends the loop."""
     out_dir.mkdir(parents=True, exist_ok=True)
     now = (clock or (lambda: datetime.now().astimezone()))
     forecast = weather.get_forecast(SITE["lat"], SITE["lon"], offline=offline)
     air = AirSource(forecast, offline=offline, use_a1=use_a1)
-    scenario = DemoScenario(air, air_mode) if demo else None
+    scenario = DemoScenario(air, air_mode, gain) if demo else None
     if scenario:
         print(f"DEMO: air {scenario.air_c:.1f}°C, RH {scenario.rh:.0f}% ({scenario.air_source}); no-sun WBGT "
               f"{scenario.baseline_wbgt_f():.1f}°F. Heat the globe to add 'sun'.", flush=True)
@@ -271,6 +276,8 @@ def run(lines: Iterable[str], mode: str, post_url: Optional[str] = None, out_dir
         if new:
             w.writeheader()
         for line in lines:
+            if stop is not None and stop.is_set():
+                break
             if mode == "live":
                 raw_f.write(line if line.endswith("\n") else line + "\n")   # keep the untouched serial stream
                 raw_f.flush()
@@ -287,7 +294,15 @@ def run(lines: Iterable[str], mode: str, post_url: Optional[str] = None, out_dir
                   f"vs {'baseline' if scenario else 'forecast'} {row['forecast_wbgt_f']:5.1f}°F  [{row['field_minus_forecast_f']:+.1f}]  "
                   f"{'DEMO scenario' if scenario else 'uncalibrated'}", flush=True)
             zone = row["fhsaa_zone"]
-            if post_url:
+            if post_fn is not None:
+                try:
+                    body = post_fn(node_payload(row))
+                    zone = (body.get("field") or body.get("hour") or {}).get("fhsaa_zone", zone)
+                except Exception as e:  # noqa: BLE001
+                    if not warned:
+                        print(f"  (posting to the engine failed: {e})", file=sys.stderr)
+                        warned = True
+            elif post_url:
                 try:
                     import requests
 

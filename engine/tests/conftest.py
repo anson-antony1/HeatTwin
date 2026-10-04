@@ -1,5 +1,9 @@
 """Engine tests run on fixtures with no network (CLAUDE.md rule 6)."""
+import os
+
 import pytest
+
+os.environ["HEATTWIN_NODE"] = "off"   # never let the engine's built-in bridge grab a real Arduino during tests
 
 
 def pytest_configure(config):

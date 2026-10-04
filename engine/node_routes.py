@@ -62,6 +62,9 @@ def _labels(reading: dict[str, Any]) -> list[str]:
     out = ["field WBGT from a 40 mm black-globe node — not a certified WBGT meter"]
     if reading.get("demo"):
         out.insert(0, DEMO_LABEL)
+        g = reading.get("sun_gain")
+        if g and float(g) != 1.0:
+            out.insert(1, f"demo sensitivity: the globe's rise counts {float(g):g}× (fingertip stands in for full sun)")
     if reading.get("globe_calibrated") is False:
         out.append("globe thermistor uncalibrated")
     src = reading.get("air_source")
@@ -117,6 +120,20 @@ def _post_demo(reading: dict[str, Any]) -> dict[str, Any]:
             if ref is not None:
                 out["reforecast"] = ref
     return out
+
+
+def end_demo() -> None:
+    """The node went away (unplugged): stop using its scenario weather now instead of after stale_after_s."""
+    if _demo["reading"] is not None:
+        _demo["received"] = 0.0
+
+
+@router.get("/node/status")
+def node_status() -> dict[str, Any]:
+    """What the engine's built-in bridge is doing (engine/node_autostart.py): waiting / connected / port_unavailable."""
+    from engine import node_autostart
+
+    return {**node_autostart.status(), "demo_active": demo_active()}
 
 
 def demo_active() -> bool:

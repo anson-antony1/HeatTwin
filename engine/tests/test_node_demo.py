@@ -18,12 +18,13 @@ def _clean():
 
 
 def feed(sc, globe_c):
+    """Synthetic readings on the physical scale (sun_gain 1) unless a test builds its own scenario."""
     row = sc.row({"globe_c": globe_c, "globe_ohm": 9000.0}, datetime.now().astimezone())
     return c.post("/node", json=node_bridge.node_payload(row)).json() if row else None
 
 
 def warmed():
-    sc = node_bridge.DemoScenario()
+    sc = node_bridge.DemoScenario(air_mode="scenario", gain=1.0)
     for _ in range(consts.get("demo_node.baseline_samples")):
         assert feed(sc, 25.9) is None                       # zeroing on the room
     return sc
@@ -129,3 +130,30 @@ def test_bridge_sends_engine_zone_to_leds(tmp_path, monkeypatch):
     node_bridge.run(lines, "replay", post_url="http://x/node", out_dir=tmp_path, offline=True, demo=True,
                     air_mode="scenario", send_zone=sent.append)
     assert sent and set(sent) == {4}                        # LEDs follow the engine's zone, not the local one
+
+
+def test_sun_gain_makes_a_fingertip_reach_red():
+    sc = node_bridge.DemoScenario(air_mode="scenario")      # default gain (constants.demo_node.sun_gain)
+    assert sc.gain == consts.get("demo_node.sun_gain") > 1
+    for _ in range(consts.get("demo_node.baseline_samples")):
+        feed(sc, 24.0)
+    r = feed(sc, 24.0 + 6.0)                                # ~fingertip
+    assert r["field"]["fhsaa_zone"] >= 4
+    assert any("demo sensitivity" in x for x in r["labels"])
+
+
+def test_end_demo_and_status():
+    sc = warmed()
+    feed(sc, 40.0)
+    assert node_routes.demo_active()
+    node_routes.end_demo()
+    assert not node_routes.demo_active()
+    st = c.get("/node/status").json()
+    assert st["demo_active"] is False and "state" in st
+
+
+def test_autostart_respects_off(monkeypatch):
+    from engine import node_autostart
+    monkeypatch.setenv("HEATTWIN_NODE", "off")
+    node_autostart.start()
+    assert node_autostart.status()["state"] == "off"
