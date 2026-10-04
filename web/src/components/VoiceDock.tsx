@@ -7,6 +7,7 @@ import { planStore, usePlanState, type PlanState } from '../data/planStore'
 import type { PlanDraft } from '../data/llmPlan'
 import { useRoster } from '../data/roster'
 import { hasDigits, kelvin, useKelvinReply } from '../data/voiceReply'
+import { dockSheet } from '../lib/dockSheet'
 import { fmtCore, fmtLimit } from '../lib/format'
 import { mmss } from '../lib/heat'
 import { ease, spring } from '../lib/motion'
@@ -30,7 +31,6 @@ import './VoiceDock.css'
 // number-checked before it is shown (data/voiceReply.ts).
 
 type Bar = 'idle' | 'recording' | 'busy' | 'done'
-type SheetView = 'review' | 'confirm' | 'result' | 'error' | 'typing'
 
 const BARS = 22
 const DONE_HOLD_MS = 1700
@@ -81,12 +81,7 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
   const bar: Bar = recording ? 'recording' : busy && !opened ? 'busy' : flash ? 'done' : 'idle'
   const errorMsg = v.state === 'error' ? v.error : p.phase === 'error' ? p.error : null
 
-  let sheet: SheetView | null = null
-  if (errorMsg) sheet = 'error'
-  else if (v.draft && v.draft.plan.drills.length === 0) sheet = 'review'
-  else if (v.draft && appliedDraft !== v.draft) sheet = 'confirm'
-  else if (opened === 'typing') sheet = 'typing'
-  else if (opened === 'result' && p.sim) sheet = 'result'
+  const sheet = dockSheet({ errorMsg, draft: v.draft, appliedDraft, opened, hasSim: !!p.sim })
 
   // Kelvin's sentence for the result on screen: engine-written, then /guard + number check (else held: nothing new).
   const replyKey = sheet === 'result' ? p.sim : null
