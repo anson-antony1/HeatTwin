@@ -12,6 +12,7 @@ import { TempChart } from '../components/TempChart'
 import { IconArrow, IconDrop, IconHeart, IconResponse } from '../components/Icons'
 import { clockLabel, gearLabel } from '../lib/heat'
 import { ease, spring } from '../lib/motion'
+import { useReplayScrub } from '../lib/useReplayScrub'
 import './CoachDashboard.css'
 
 const RANK = { alert: 0, watch: 1, steady: 2 } as const
@@ -123,6 +124,7 @@ function SessionHeader({
   const planState = usePlanState()
   const { drill } = drillAt(plan, s.minute)
   const progress = s.minute / s.totalMinutes
+  const scrub = useReplayScrub(s.totalMinutes, s.minute)
   const starts = plan.map((_, i) => plan.slice(0, i).reduce((sum, d) => sum + d.minutes, 0))
 
   return (
@@ -188,7 +190,7 @@ function SessionHeader({
         )}
       </motion.div>
 
-      <div className="session__timeline" aria-hidden="true">
+      <div className="session__timeline" {...scrub} aria-label="Practice time" aria-valuetext={clockLabel(s.startHour, s.minute)}>
         {plan.map((d, i) => {
           const left = (starts[i] / s.totalMinutes) * 100
           return (

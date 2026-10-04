@@ -35,6 +35,7 @@ interface Props {
   startHour?: number
   scrub?: number | null
   onScrub?: (minute: number | null) => void
+  onSeek?: (minute: number) => void
 }
 
 export function TempChart({
@@ -53,6 +54,7 @@ export function TempChart({
   startHour,
   scrub = null,
   onScrub,
+  onSeek,
 }: Props) {
   const [ref, { width, height }] = useSize<HTMLDivElement>()
   const reduce = useReducedMotion()
@@ -67,7 +69,14 @@ export function TempChart({
   const x = (m: number) => pad.l + ((m - v0) / span) * w
   const minuteAt = (px: number) => Math.max(0, Math.min(total, Math.round(v0 + ((px - pad.l) / (w || 1)) * span)))
   const pressed = useRef(false)
-  const y = (c: number) => pad.t + (1 - (c - domain[0]) / (domain[1] - domain[0])) * h
+  const dataTop = Math.max(domain[1], THRESHOLDS.alertC, live,
+    ...history.filter(Number.isFinite), ...forecast.map((value, i) => value + (band[i] ?? 0)).filter(Number.isFinite),
+    ...(ghost ?? []).filter(Number.isFinite))
+  const dataBottom = Math.min(domain[0], live, ...history.filter(Number.isFinite),
+    ...forecast.map((value, i) => value - (band[i] ?? 0)).filter(Number.isFinite))
+  const floor = Math.min(domain[0], Math.floor((dataBottom - 0.15) * 2) / 2)
+  const ceiling = Math.max(domain[1], Math.ceil((dataTop + 0.15) * 2) / 2)
+  const y = (c: number) => pad.t + (1 - (c - floor) / (ceiling - floor)) * h
 
   const paths = useMemo(() => {
     if (!w || !h) return null
@@ -102,11 +111,11 @@ export function TempChart({
     }
     // x/y are pure functions of the inputs listed here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [history, forecast, band, now, live, w, h, total, compact, ghost, v0, v1])
+  }, [history, forecast, band, now, live, w, h, total, compact, ghost, v0, v1, floor, ceiling])
 
   const gradTop = y(HEAT_STOPS[HEAT_STOPS.length - 1][0])
   const gradBottom = y(HEAT_STOPS[0][0])
-  const ticks = compact ? [] : [37, 37.5, 38, 38.5, 39, 39.5].filter((t) => t > domain[0] && t < domain[1])
+  const ticks = compact ? [] : Array.from({ length: Math.ceil((ceiling - floor) * 2) + 1 }, (_, i) => floor + i * 0.5).filter((t) => t > floor && t < ceiling)
   const tickStep = span <= 32 ? 5 : span <= 64 ? 10 : 15
   const timeTicks = compact
     ? []
@@ -130,10 +139,14 @@ export function TempChart({
     if (!onScrub) return
     const step = e.shiftKey ? 5 : 1
     const from = scrub ?? Math.round(now)
-    if (e.key === 'ArrowRight') onScrub(Math.min(total, from + step))
-    else if (e.key === 'ArrowLeft') onScrub(Math.max(0, from - step))
-    else if (e.key === 'Escape') onScrub(null)
-    else return
+    if (e.key === 'Escape') onScrub(null)
+    else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      const target = Math.max(0, Math.min(total, from + (e.key === 'ArrowRight' ? step : -step)))
+      if (onSeek) {
+        onSeek(target)
+        onScrub(null)
+      } else onScrub(target)
+    } else return
     e.preventDefault()
   }
 
@@ -168,7 +181,7 @@ export function TempChart({
           <path d={paths.area} fill={`url(#wash-${uid})`} />
         </mask>
         <clipPath id={`plot-${uid}`}>
-          <rect x={pad.l - 12} y={0} width={w + 24} height={height} />
+          <rect x={pad.l} y={pad.t} width={w} height={h} />
         </clipPath>
       </defs>
 
@@ -187,7 +200,6 @@ export function TempChart({
         </text>
       ))}
 
-      <g clipPath={view ? `url(#plot-${uid})` : undefined}>
       {/* Drill underlay */}
       {drills && (
         <g>
@@ -215,6 +227,8 @@ export function TempChart({
         </g>
       )}
 
+      <g clipPath={`url(#plot-${uid})`}>
+
       {/* Alert line */}
       <line
         className="chart__threshold"
@@ -223,11 +237,6 @@ export function TempChart({
         y1={y(THRESHOLDS.alertC)}
         y2={y(THRESHOLDS.alertC)}
       />
-      {!compact && (
-        <text className="chart__threshold-label" x={pad.l + w} y={y(THRESHOLDS.alertC) - 7} textAnchor="end">
-          {THRESHOLDS.alertC.toFixed(1)}° alert line
-        </text>
-      )}
 
       {paths.ghost && <path className="chart__ghost" d={paths.ghost} />}
       {paths.band && <path className="chart__band" d={paths.band} />}
@@ -244,6 +253,11 @@ export function TempChart({
       <path className="chart__history" d={paths.hist} stroke={`url(#heat-${uid})`} />
 
       </g>
+      {!compact && (
+        <text className="chart__threshold-label" x={pad.l + w} y={y(THRESHOLDS.alertC) - 7} textAnchor="end">
+          {THRESHOLDS.alertC.toFixed(1)}° alert line
+        </text>
+      )}
 
       {/* Now marker + live head */}
       {now > 0 && now < total && now >= v0 && now <= v1 && (
@@ -282,10 +296,18 @@ export function TempChart({
             e.currentTarget.setPointerCapture(e.pointerId)
             const r = e.currentTarget.ownerSVGElement!.getBoundingClientRect()
             onScrub(minuteAt(e.clientX - r.left))
+            onSeek?.(minuteAt(e.clientX - r.left))
           }}
-          onPointerMove={handleMove}
+          onPointerMove={(e) => {
+            handleMove(e)
+            if (pressed.current) {
+              const r = e.currentTarget.ownerSVGElement!.getBoundingClientRect()
+              onSeek?.(minuteAt(e.clientX - r.left))
+            }
+          }}
           onPointerUp={() => {
             pressed.current = false
+            onScrub(null)
           }}
           onPointerCancel={() => {
             pressed.current = false

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'motion/react'
 import type { ContractDrill } from '../data/llmPlan'
-import { FORECAST, PRACTICE_START_HOUR, ROSTER, contractToUi } from '../data/fixtures'
+import { PRACTICE_START_HOUR, ROSTER, contractToUi } from '../data/fixtures'
 import { THRESHOLDS, zoneFor, ZONE_COLOR } from '../data/constants'
 import { peakOf, wbgtAt } from '../data/model'
 import { checkRules, forecastRoster } from '../data/optimizer'
@@ -12,6 +12,8 @@ import { NumberTicker } from '../components/NumberTicker'
 import { IconCheck, IconClose, IconSpark } from '../components/Icons'
 import { clockLabel, heatColor } from '../lib/heat'
 import { AI_NAME } from '../lib/brand'
+import { useWeather } from '../data/weather'
+import type { WeatherHour } from '../data/types'
 import { ease, spring } from '../lib/motion'
 import './PlanView.css'
 
@@ -44,6 +46,8 @@ function fromSim(sim: SimulationResult, minutes: number): Forecasts {
 
 export function PlanView() {
   const p = usePlanState()
+  const weather = useWeather()
+  const forecast = weather.forecast
   const reduce = useReducedMotion()
   const [editing, setEditing] = useState(false)
   const [editFrom, setEditFrom] = useState<string | null>(null)
@@ -55,14 +59,14 @@ export function PlanView() {
   const uiPlan = useMemo(() => contractToUi(p.plan), [p.plan])
 
   const now: Forecasts = useMemo(() => {
-    if (p.sim) return fromSim(p.sim, minutes)
+    if (p.sim && !weather.location) return fromSim(p.sim, minutes)
     return {
-      series: forecastRoster(ROSTER, uiPlan, FORECAST, PRACTICE_START_HOUR),
+      series: forecastRoster(ROSTER, uiPlan, forecast, PRACTICE_START_HOUR),
       limit: THRESHOLDS.alertC,
-      violations: checkRules(uiPlan, FORECAST, PRACTICE_START_HOUR).map((v) => ({ drill_id: 'plan', text: v.text })),
+      violations: checkRules(uiPlan, forecast, PRACTICE_START_HOUR).map((v) => ({ drill_id: 'plan', text: v.text })),
       fromEngine: false,
     }
-  }, [p.sim, minutes, uiPlan])
+  }, [p.sim, minutes, uiPlan, forecast, weather.location])
 
   const before = p.opt ? fromSim(p.opt.original, Math.max(1, p.opt.original.times.length - 1)) : null
 
@@ -190,7 +194,7 @@ export function PlanView() {
                       exit={{ opacity: 0, transform: 'scale(0.95)' }}
                       transition={{ duration: 0.2, ease: ease.out }}
                     >
-                      <IconCheck width={14} height={14} /> Meets FHSAA {zoneFor(peakWbgt(startHour, minutes)).id} zone rules
+                      <IconCheck width={14} height={14} /> Meets FHSAA {zoneFor(peakWbgt(forecast, startHour, minutes)).id} zone rules
                     </motion.span>
                   ) : (
                     now.violations.slice(0, 4).map((v, i) => (
@@ -248,7 +252,7 @@ export function PlanView() {
                 <div className="plan__label">WBGT</div>
                 <div className="wbgt">
                   {Array.from({ length: cols }, (_, c) => {
-                    const z = zoneFor(wbgtAt(FORECAST, startHour + (c * CELL_MIN) / 60))
+                    const z = zoneFor(wbgtAt(forecast, startHour + (c * CELL_MIN) / 60))
                     return <span key={c} style={{ background: ZONE_COLOR[z.id] }} />
                   })}
                 </div>
@@ -349,9 +353,9 @@ function hourOf(iso: string) {
   return m ? Number(m[1]) + Number(m[2]) / 60 : PRACTICE_START_HOUR
 }
 
-function peakWbgt(startHour: number, minutes: number) {
+function peakWbgt(forecast: WeatherHour[], startHour: number, minutes: number) {
   let p = 0
-  for (let m = 0; m <= minutes; m += 5) p = Math.max(p, wbgtAt(FORECAST, startHour + m / 60))
+  for (let m = 0; m <= minutes; m += 5) p = Math.max(p, wbgtAt(forecast, startHour + m / 60))
   return p
 }
 

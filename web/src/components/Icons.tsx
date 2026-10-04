@@ -37,6 +37,12 @@ export const IconResponse = (p: SVGProps<SVGSVGElement>) => (
     <path d="M4 20h16" />
   </svg>
 )
+export const IconSettings = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <circle cx="12" cy="12" r="3" />
+    <path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4m10.6 10.6 1.4 1.4M18.7 5.3l-1.4 1.4M6.7 17.3l-1.4 1.4" />
+  </svg>
+)
 export const IconSources = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}>
     <path d="M5 4h9l5 5v11H5z" />

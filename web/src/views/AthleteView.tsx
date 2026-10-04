@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { animate, AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { usePlan, useSession } from '../data/engine'
+import { engine, usePlan, useSession } from '../data/engine'
 import { ROSTER } from '../data/fixtures'
 import { SAFETY_LINE, THRESHOLDS } from '../data/constants'
 import { bodySurfaceArea, drillAt } from '../data/model'
@@ -246,6 +246,7 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
             startHour={s.startHour}
             scrub={scrub}
             onScrub={setScrub}
+            onSeek={(minute) => { engine.pause(); engine.seek(minute) }}
           />
         </div>
         <AnimatePresence initial={false}>

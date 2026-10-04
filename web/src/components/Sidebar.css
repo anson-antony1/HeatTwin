@@ -37,7 +37,11 @@
   justify-content: space-between;
   padding: 14px;
   min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
 }
+
+.sidebar__nav::-webkit-scrollbar { display: none; }
 
 .sidebar__list {
   position: relative;
@@ -129,6 +133,10 @@
 
 .sidebar__coach-name {
   font-size: 14px;
+}
+
+@media (max-height: 820px) {
+  .sidebar__foot { display: none; }
 }
 
 @media (max-width: 1100px) {

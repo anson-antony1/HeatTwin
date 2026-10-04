@@ -7,7 +7,7 @@
 
 .chart svg {
   display: block;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .chart__grid {

@@ -3,6 +3,7 @@ import type { ContractGear, PlanDraft, PracticePlan } from './llmPlan'
 import { optimizePlan, simulatePlan, type OptimizeResult, type SimulationResult } from './engineApi'
 import { contractToUi, DEFAULT_CONTRACT_PLAN } from './fixtures'
 import { engine } from './engine'
+import { weatherStore } from './weather'
 
 // Today's plan, as confirmed by the coach, plus what the engine said about it.
 // Voice → Gemini (/plan/parse_audio) → coach confirms → /simulate → this store
@@ -69,6 +70,7 @@ function persist() {
 function apply(plan: PracticePlan, sim: SimulationResult | null) {
   const wasRunning = engine.getSnapshot().running
   engine.setPlan(contractToUi(plan), sim)
+  if (weatherStore.get().location) engine.setWeather(weatherStore.get().forecast)
   if (wasRunning) engine.play()
 }
 

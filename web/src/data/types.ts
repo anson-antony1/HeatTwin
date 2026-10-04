@@ -40,7 +40,7 @@ export interface WeatherHour {
   rh: number
   windMph: number
   wbgtF: number
-  source: 'forecast' | 'field-node'
+  source: 'forecast' | 'nws_forecast' | 'field-node'
 }
 
 export type ZoneId = 'green' | 'yellow' | 'orange' | 'red' | 'black'

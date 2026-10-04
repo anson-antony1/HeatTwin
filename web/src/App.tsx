@@ -12,6 +12,8 @@ import { AthleteView } from './views/AthleteView'
 import { PlanView } from './views/PlanView'
 import { ResponseView } from './views/ResponseView'
 import { CollapseMode } from './views/CollapseMode'
+import { SettingsView } from './views/SettingsView'
+import { weatherStore } from './data/weather'
 import { ease } from './lib/motion'
 import './App.css'
 
@@ -26,6 +28,7 @@ export default function App() {
 
   useEffect(() => {
     planStore.restore()
+    weatherStore.restore()
     engine.play()
     return () => engine.pause()
   }, [])
@@ -74,6 +77,7 @@ export default function App() {
             {view === 'plan' && <PlanView />}
             {view === 'athlete' && <AthleteView athleteId={athleteId} onSelect={setAthleteId} onCollapse={setCollapseFor} />}
             {view === 'response' && <ResponseView onStart={() => setCollapseFor(unacked[0] ?? alertIds[0] ?? hottest)} />}
+            {view === 'settings' && <SettingsView />}
           </motion.main>
         </AnimatePresence>
       </div>

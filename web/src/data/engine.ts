@@ -58,6 +58,7 @@ class Engine {
   private snapshot!: SessionState
   private session = 0
   private ext: Record<string, EngineSeries> | null = null
+  private weather = FORECAST
 
   constructor() {
     this.reset()
@@ -127,12 +128,23 @@ class Engine {
     this.publish()
   }
 
-  /** Jump forward (demo control). */
+  /** Seek in either direction. Rebuild the deterministic replay when rewinding. */
   seek(toMinute: number) {
-    const target = Math.min(toMinute, totalMinutes(this.plan))
+    const target = Math.max(0, Math.min(toMinute, totalMinutes(this.plan)))
+    if (target < this.minute) this.reset()
     for (let m = Math.floor(this.minute); m < Math.floor(target); m++) this.advanceMinute(m)
     this.minute = target
+    this.last = performance.now()
     this.publish()
+  }
+
+  setWeather(weather: typeof FORECAST) {
+    const minute = this.minute
+    this.weather = weather
+    // An earlier engine result used the previous site's conditions.
+    this.ext = null
+    this.reset()
+    this.seek(minute)
   }
 
   private frame = (now: number) => {
@@ -161,13 +173,13 @@ class Engine {
     const e = this.ext?.[t.athlete.id]
     if (e) return t.est + (at(e.p50, m + 1) - at(e.p50, m)) * t.factor
     const { drill } = drillAt(this.plan, m)
-    return stepCore(t.est, t.athlete, drill, wbgtAt(FORECAST, PRACTICE_START_HOUR + m / 60), t.factor)
+    return stepCore(t.est, t.athlete, drill, wbgtAt(this.weather, PRACTICE_START_HOUR + m / 60), t.factor)
   }
 
   /** Close out practice minute `m` (0-based) for every athlete. */
   private advanceMinute(m: number) {
     const { drill } = drillAt(this.plan, m)
-    const wbgt = wbgtAt(FORECAST, PRACTICE_START_HOUR + m / 60)
+    const wbgt = wbgtAt(this.weather, PRACTICE_START_HOUR + m / 60)
     for (const t of this.tracks) {
       const e = this.ext?.[t.athlete.id]
       if (e) {
@@ -203,7 +215,7 @@ class Engine {
     const k = Math.floor(this.minute)
     const frac = this.minute - k
     const { index, minuteLeft } = drillAt(this.plan, this.minute)
-    const wbgtF = wbgtAt(FORECAST, PRACTICE_START_HOUR + this.minute / 60)
+    const wbgtF = wbgtAt(this.weather, PRACTICE_START_HOUR + this.minute / 60)
 
     const athletes: Record<string, AthleteLive> = {}
     for (const t of this.tracks) {
@@ -220,7 +232,7 @@ class Engine {
           ...e.p95.slice(k).map((v, i) => (i === 0 ? 0 : (v - e.p50[k + i]) * (calibrated ? 0.6 : 1))),
         ]
       } else {
-        rest = simulate(t.athlete, this.plan, FORECAST, PRACTICE_START_HOUR, t.factor, k, t.est)
+        rest = simulate(t.athlete, this.plan, this.weather, PRACTICE_START_HOUR, t.factor, k, t.est)
         band = Array.from({ length: k + rest.length }, (_, i) => (i <= k ? 0 : bandFor(i - k, calibrated)))
       }
       const forecast = [...t.history.slice(0, k), ...rest]

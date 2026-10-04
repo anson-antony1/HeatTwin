@@ -126,7 +126,12 @@
   position: relative;
   height: 10px;
   container-type: inline-size;
+  cursor: ew-resize;
+  touch-action: none;
 }
+
+.session__timeline:focus-visible { outline: 2px solid var(--ink); outline-offset: 6px; }
+.session__seg, .session__playhead { pointer-events: none; }
 
 .session__seg {
   position: absolute;

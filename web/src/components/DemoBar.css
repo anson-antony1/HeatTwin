@@ -48,7 +48,11 @@
   border-radius: 2px;
   background: var(--ink-4);
   overflow: hidden;
+  cursor: ew-resize;
+  touch-action: none;
 }
+
+.demobar__track:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
 
 .demobar__fill {
   height: 100%;
