@@ -83,12 +83,15 @@ async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promi
 }
 
 /** Roster and weather fall back to the engine's labelled fixtures, which this app also reads. */
-export function simulatePlan(plan: PracticePlan, signal?: AbortSignal) {
-  return post<SimulationResult>('/simulate?demo=1', { plan }, signal)
+/** Hourly weather in the engine's WeatherHour shape; omitted → the engine uses its own forecast/fixture. */
+export type EngineWeather = Record<string, unknown>[] | null | undefined
+
+export function simulatePlan(plan: PracticePlan, signal?: AbortSignal, weather?: EngineWeather) {
+  return post<SimulationResult>('/simulate?demo=1', weather ? { plan, weather } : { plan }, signal)
 }
 
-export function optimizePlan(plan: PracticePlan, signal?: AbortSignal) {
-  return post<OptimizeResult>('/optimize?demo=1', { plan }, signal)
+export function optimizePlan(plan: PracticePlan, signal?: AbortSignal, weather?: EngineWeather) {
+  return post<OptimizeResult>('/optimize?demo=1', weather ? { plan, weather } : { plan }, signal)
 }
 
 /** Resample a result series to one value per practice minute. */

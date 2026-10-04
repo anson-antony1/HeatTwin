@@ -63,10 +63,16 @@ export function stepCore(
 ): number {
   const bsa = bodySurfaceArea(athlete)
   const produced = drill.met * W_PER_MET * bsa * heatFactor
-  const acclim = 0.72 + 0.28 * Math.min(athlete.acclimDay, 14) / 14
-  const environment = Math.max(0.12, Math.min(1.3, (97 - wbgtF) / 17))
+  // Unacclimatized athletes sweat later and less (FHSAA's 14-day acclimatization period).
+  const acclim = 0.6 + 0.4 * Math.min(athlete.acclimDay, 14) / 14
+  // Hotter, more humid air (higher WBGT) leaves less room to shed heat.
+  const environment = Math.max(0.12, Math.min(1.3, (100 - wbgtF) / 22))
   const rest = drill.kind === 'break' ? 1.35 : 1
-  const lossCoeff = 520 // W/m² per °C above baseline, tuned
+  // Tuned (2026-10-03) so effort and heat both move core temp visibly: an hour at
+  // max vs light effort differs by ~2 °C, and a real 82 °F-WBGT October day pushes
+  // full-pads team periods past 38.5. Stand-in only — the engine's two-node model
+  // is the real one.
+  const lossCoeff = 280 // W/m² per °C above baseline
   const lost =
     bsa * (W_PER_MET * 1.15 + lossCoeff * Math.max(0, coreC - 36.8)) *
     GEAR_EVAP[drill.gear] * environment * acclim * rest

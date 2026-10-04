@@ -70,8 +70,21 @@ function persist() {
 function apply(plan: PracticePlan, sim: SimulationResult | null) {
   const wasRunning = engine.getSnapshot().running
   engine.setPlan(contractToUi(plan), sim)
-  if (weatherStore.get().location) engine.setWeather(weatherStore.get().forecast)
   if (wasRunning) engine.play()
+}
+
+/** The live forecast for the practice day (Settings → location), in the engine's shape — or none. */
+function liveWeather() {
+  const w = weatherStore.get()
+  return w.location && w.engineHours ? (w.engineHours as unknown as Record<string, unknown>[]) : undefined
+}
+
+/** Put the plan on the live forecast's day (same local start time and the site's UTC offset). */
+function onForecastDay(plan: PracticePlan): PracticePlan {
+  const w = weatherStore.get()
+  if (!w.location || !w.forecastDate || !w.engineHours?.length) return plan
+  const start = `${w.forecastDate}${plan.start.slice(10, 19)}${w.engineHours[0].time.slice(19)}`
+  return start === plan.start ? plan : { ...plan, start }
 }
 
 let inflight: AbortController | null = null
@@ -89,10 +102,11 @@ export const planStore = {
     inflight = new AbortController()
     const previous = snapshot()
     set({ phase: 'simulating', error: null })
+    const plan = onForecastDay(draft.plan)
     try {
-      const sim = await simulatePlan(draft.plan, inflight.signal)
-      set({ phase: 'ready', draft, plan: draft.plan, source: 'voice', opt: null, sim, original: sim, confirmedAt: Date.now(), previous })
-      apply(draft.plan, sim)
+      const sim = await simulatePlan(plan, inflight.signal, liveWeather())
+      set({ phase: 'ready', draft, plan, source: 'voice', opt: null, sim, original: sim, confirmedAt: Date.now(), previous })
+      apply(plan, sim)
       persist()
     } catch (e) {
       if ((e as Error).name === 'AbortError') return
@@ -101,13 +115,14 @@ export const planStore = {
   },
 
   /** A plan the coach built by hand in the Practice plan editor. */
-  async applyPlan(plan: PracticePlan) {
+  async applyPlan(edited: PracticePlan) {
     inflight?.abort()
     inflight = new AbortController()
     const previous = snapshot()
     set({ phase: 'simulating', error: null })
+    const plan = onForecastDay(edited)
     try {
-      const sim = await simulatePlan(plan, inflight.signal)
+      const sim = await simulatePlan(plan, inflight.signal, liveWeather())
       set({ phase: 'ready', plan, source: 'edited', draft: null, opt: null, sim, original: sim, confirmedAt: Date.now(), previous })
       apply(plan, sim)
       persist()
@@ -124,7 +139,7 @@ export const planStore = {
     const previous = snapshot()
     set({ phase: 'optimizing', error: null })
     try {
-      const opt = await optimizePlan(state.plan, inflight.signal)
+      const opt = await optimizePlan(onForecastDay(state.plan), inflight.signal, liveWeather())
       set({ phase: 'ready', opt, plan: opt.plan, sim: opt.optimized, original: opt.original, source: 'optimized', previous })
       apply(opt.plan, opt.optimized)
       persist()
@@ -149,6 +164,27 @@ export const planStore = {
     } else persist()
   },
 
+  /**
+   * Re-run the engine on the plan in use — at startup (so the engine's physics,
+   * not the browser stand-in, drives the dashboard) and whenever the live
+   * forecast changes. Keeps the plan's source; quiet on failure (the replay
+   * keeps whatever it had).
+   */
+  async remodel() {
+    if (state.phase === 'simulating' || state.phase === 'optimizing') return
+    inflight?.abort()
+    inflight = new AbortController()
+    const plan = onForecastDay(state.plan)
+    try {
+      const sim = await simulatePlan(plan, inflight.signal, liveWeather())
+      set({ plan, sim, original: state.source === 'optimized' ? state.original : sim, phase: 'ready' })
+      apply(plan, sim)
+      if (state.source !== 'fixture') persist()
+    } catch {
+      /* engine unreachable — stay on the stand-in model */
+    }
+  },
+
   dismissError() {
     set({ phase: state.sim ? 'ready' : 'idle', error: null })
   },
@@ -163,6 +199,7 @@ export const planStore = {
     }
     set({ phase: 'idle', plan: DEFAULT_CONTRACT_PLAN, source: 'fixture', draft: null, sim: null, opt: null, original: null, confirmedAt: null, error: null, previous: null })
     apply(DEFAULT_CONTRACT_PLAN, null)
+    void planStore.remodel()
   },
 
   /** Restore the last confirmed plan after a reload. */
@@ -179,6 +216,16 @@ export const planStore = {
     }
   },
 }
+
+// Live forecast arrived or the location changed: model the plan on it.
+let lastHours: unknown = null
+weatherStore.subscribe(() => {
+  const hours = weatherStore.get().engineHours
+  if (hours && hours !== lastHours) {
+    lastHours = hours
+    void planStore.remodel()
+  }
+})
 
 export function usePlanState(): PlanState {
   return useSyncExternalStore(planStore.subscribe, planStore.get)

@@ -59,14 +59,15 @@ export function PlanView() {
   const uiPlan = useMemo(() => contractToUi(p.plan), [p.plan])
 
   const now: Forecasts = useMemo(() => {
-    if (p.sim && !weather.location) return fromSim(p.sim, minutes)
+    // The engine result already uses the live forecast when a location is set.
+    if (p.sim) return fromSim(p.sim, minutes)
     return {
       series: forecastRoster(ROSTER, uiPlan, forecast, PRACTICE_START_HOUR),
       limit: THRESHOLDS.alertC,
       violations: checkRules(uiPlan, forecast, PRACTICE_START_HOUR).map((v) => ({ drill_id: 'plan', text: v.text })),
       fromEngine: false,
     }
-  }, [p.sim, minutes, uiPlan, forecast, weather.location])
+  }, [p.sim, minutes, uiPlan, forecast])
 
   const before = p.opt ? fromSim(p.opt.original, Math.max(1, p.opt.original.times.length - 1)) : null
 

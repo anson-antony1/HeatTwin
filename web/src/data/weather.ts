@@ -9,9 +9,23 @@ export interface WeatherLocation {
   longitude: number
 }
 
+/** One hour in the engine's contract shape (CONTRACTS.md WeatherHour) — sent with /simulate and /optimize. */
+export interface EngineWeatherHour {
+  time: string
+  air_temp_c: number
+  rh_pct: number
+  wind_m_s: number
+  cloud_cover_pct: number
+  wbgt_f: number
+  fhsaa_zone: 1 | 2 | 3 | 4 | 5
+  source: 'nws_forecast'
+}
+
 interface WeatherState {
   location: WeatherLocation | null
   forecast: WeatherHour[]
+  /** The practice day's hours for the engine, so its physics runs on the live forecast. */
+  engineHours: EngineWeatherHour[] | null
   forecastDate: string | null
   phase: 'demo' | 'loading' | 'ready' | 'error'
   error: string | null
@@ -23,7 +37,7 @@ interface GridSeries {
 }
 
 const STORAGE_KEY = 'heattwin.weather.v1'
-let state: WeatherState = { location: null, forecast: FORECAST, forecastDate: null, phase: 'demo', error: null }
+let state: WeatherState = { location: null, forecast: FORECAST, engineHours: null, forecastDate: null, phase: 'demo', error: null }
 const listeners = new Set<() => void>()
 let request: AbortController | null = null
 
@@ -74,6 +88,24 @@ function nearest(values: Map<string, number>, date: string, hour: number): numbe
   return null
 }
 
+/** "-04:00" for a time zone on a given day. */
+function utcOffset(date: string, timeZone: string) {
+  const name = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'longOffset' })
+    .formatToParts(new Date(`${date}T12:00:00Z`))
+    .find((p) => p.type === 'timeZoneName')?.value ?? 'GMT-04:00'
+  const m = /GMT([+-]\d{2}):?(\d{2})?/.exec(name)
+  return m ? `${m[1]}:${m[2] ?? '00'}` : '+00:00'
+}
+
+// FHSAA heat-stress zone by WBGT °F (Policy 41 thresholds, as engine/fhsaa.py uses).
+function fhsaaZone(wbgtF: number): 1 | 2 | 3 | 4 | 5 {
+  return wbgtF < 80 ? 1 : wbgtF < 85 ? 2 : wbgtF < 87.1 ? 3 : wbgtF < 90.1 ? 4 : 5
+}
+
+function celsius(value: number, uom?: string) {
+  return uom?.includes('degF') ? ((value - 32) * 5) / 9 : value
+}
+
 function fahrenheit(value: number, uom?: string) {
   return uom?.includes('degF') ? value : value * 9 / 5 + 32
 }
@@ -109,6 +141,7 @@ async function fetchForecast(location: WeatherLocation, signal: AbortSignal) {
   const temp = hourly(tempSeries, timeZone)
   const humidity = hourly(get('relativeHumidity'), timeZone)
   const wind = hourly(windSeries, timeZone)
+  const sky = hourly(get('skyCover'), timeZone)
   const forecast: WeatherHour[] = Array.from({ length: 24 }, (_, hour) => {
     const wbgtC = nearest(wbgt, date, hour)
     if (wbgtC == null) throw new Error('The NWS WBGT forecast has gaps for this practice day.')
@@ -123,7 +156,21 @@ async function fetchForecast(location: WeatherLocation, signal: AbortSignal) {
       source: 'nws_forecast',
     }
   })
-  return { forecast, date }
+  const offset = utcOffset(date, timeZone)
+  const engineHours: EngineWeatherHour[] = forecast.map((h) => {
+    const tempC = nearest(temp, date, h.hour)
+    return {
+      time: `${date}T${String(h.hour).padStart(2, '0')}:00:00${offset}`,
+      air_temp_c: tempC == null ? ((h.tempF - 32) * 5) / 9 : celsius(tempC, tempSeries?.uom),
+      rh_pct: h.rh,
+      wind_m_s: h.windMph / 2.236936,
+      cloud_cover_pct: nearest(sky, date, h.hour) ?? 50,
+      wbgt_f: Math.round(h.wbgtF * 10) / 10,
+      fhsaa_zone: fhsaaZone(h.wbgtF),
+      source: 'nws_forecast',
+    }
+  })
+  return { forecast, engineHours, date }
 }
 
 export async function searchWeatherLocations(query: string, signal?: AbortSignal): Promise<WeatherLocation[]> {
@@ -152,8 +199,9 @@ export const weatherStore = {
     request = new AbortController()
     set({ phase: 'loading', error: null })
     try {
-      const { forecast, date } = await fetchForecast(location, request.signal)
-      set({ location, forecast, forecastDate: date, phase: 'ready', error: null })
+      const { forecast, engineHours, date } = await fetchForecast(location, request.signal)
+      set({ location, forecast, engineHours, forecastDate: date, phase: 'ready', error: null })
+      // The replay's WBGT/zones follow the live day; planStore re-runs the engine on it (subscribed).
       engine.setWeather(forecast)
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(location)) } catch { /* private storage */ }
     } catch (error) {

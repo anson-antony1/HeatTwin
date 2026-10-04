@@ -138,11 +138,15 @@ class Engine {
     this.publish()
   }
 
+  /**
+   * New day forecast for the replay's WBGT and zones. Engine curves are kept —
+   * planStore re-runs /simulate on the same weather and swaps them in — so the
+   * engine's physics stays in charge instead of falling back to the stand-in.
+   */
   setWeather(weather: typeof FORECAST) {
+    if (JSON.stringify(weather) === JSON.stringify(this.weather)) return
     const minute = this.minute
     this.weather = weather
-    // An earlier engine result used the previous site's conditions.
-    this.ext = null
     this.reset()
     this.seek(minute)
   }

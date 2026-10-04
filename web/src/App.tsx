@@ -29,6 +29,9 @@ export default function App() {
   useEffect(() => {
     planStore.restore()
     weatherStore.restore()
+    // Model the plan on the engine from the start, so the twin's physics drives
+    // the dashboard rather than the browser stand-in.
+    if (!planStore.get().sim) void planStore.remodel()
     engine.play()
     return () => engine.pause()
   }, [])
