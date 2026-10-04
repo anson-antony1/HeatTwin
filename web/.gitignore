@@ -23,3 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 .vitest/
+
+# Clash Display (ITF Free Font License): self-hosted, but not redistributed through this public repo.
+# Fetched by scripts/fetch-fonts.mjs (npm predev / prebuild). See src/styles/fonts.css.
+public/fonts/clash-display-*.woff2

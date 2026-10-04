@@ -4,11 +4,14 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/fetch-fonts.mjs",
     "dev": "vite",
+    "prebuild": "node scripts/fetch-fonts.mjs",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "fonts": "node scripts/fetch-fonts.mjs"
   },
   "dependencies": {
     "motion": "^14.0.0",
