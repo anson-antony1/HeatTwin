@@ -231,5 +231,5 @@ def route(text: str, plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]
 
     p = voice.Parsed.model_validate({k: v for k, v in parsed.items() if v is not None})
     out["slots"], unresolved = voice.resolve(p, plan, roster)
-    out["unresolved"] = [*unresolved, *out["unresolved"]]
+    out["unresolved"] = list(dict.fromkeys([*unresolved, *out["unresolved"]]))
     return out

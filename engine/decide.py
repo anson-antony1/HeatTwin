@@ -25,7 +25,9 @@ WRITTEN BY ``python -m validation.voice_decide`` from the committed synthetic da
 (``engine/data/voice_decide_dataset.json``) — nothing here is hand-set. A backend with no calibration is not used for
 decisions (the layer falls back to the calibrated lexical backend and says so).
 
-No network and no paid API anywhere in this module (it does not touch engine/paid_api.py's metered services).
+No paid API anywhere in this module (it never touches engine/paid_api.py's metered services). The network is used only to
+download the free model, by ``python -m engine.decide --fetch`` or when HEATTWIN_DECIDE_DOWNLOAD=1; at run time and in tests
+the model loads from the local cache or not at all.
 """
 from __future__ import annotations
 
@@ -38,7 +40,7 @@ import threading
 import zlib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Optional, Sequence
+from typing import Any, Mapping, Optional, Sequence
 
 import numpy as np
 
@@ -754,7 +756,6 @@ def warm_in_background() -> threading.Thread:
 # ══ CLI: python -m engine.decide --fetch | --status | "what if we cut the gassers" ═════════════════════════════
 
 def _main(argv: Sequence[str]) -> int:
-    import sys
     if "--fetch" in argv:
         be, why = _make_fastembed(allow_download=True)
         print("fetched and loaded " + be.label if be else f"could not fetch: {why}")

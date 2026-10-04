@@ -25,16 +25,20 @@ function recognizer(): RecognitionCtor | null {
 
 export const liveCaptionsSupported = typeof window !== 'undefined' && recognizer() !== null
 
-/** `latest` (optional) always holds the most recent caption text, including the words that arrive just after `active` turns false. */
-export function useLiveCaptions(active: boolean, latest?: { current: string }) {
+/**
+ * `text` is the live caption; `latest` is a hook-owned ref that always holds the most recent caption text, including the
+ * words that arrive just after `active` turns false (read it at the moment the recording ends).
+ */
+export function useLiveCaptions(active: boolean) {
   const [text, setText] = useState('')
   const finalRef = useRef('')
+  const latest = useRef('')
 
   useEffect(() => {
     const Ctor = recognizer()
     if (!active || !Ctor) return
     finalRef.current = ''
-    if (latest) latest.current = ''
+    latest.current = ''
     const rec = new Ctor()
     rec.continuous = true
     rec.interimResults = true
@@ -48,7 +52,7 @@ export function useLiveCaptions(active: boolean, latest?: { current: string }) {
       }
       const t = (finalRef.current + interim).trim()
       setText(t)
-      if (latest) latest.current = t
+      latest.current = t
     }
     rec.onerror = () => {}
     try {
@@ -64,12 +68,12 @@ export function useLiveCaptions(active: boolean, latest?: { current: string }) {
         rec.abort()
       }
     }
-  }, [active, latest])
+  }, [active])
 
   // Clear when a new recording starts.
   useEffect(() => {
     if (active) setText('') // eslint-disable-line react-hooks/set-state-in-effect
   }, [active])
 
-  return text
+  return { text, latest }
 }

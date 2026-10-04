@@ -15,7 +15,7 @@ from __future__ import annotations
 import re
 from typing import Any, Mapping, Optional
 
-from engine import decide, llm_plan, voice_local, voice_tools
+from engine import decide, llm_plan, voice_tools
 from engine.voice_local import gear_in, words_to_digits
 
 LOCAL_LABEL = "parsed locally (no AI service) — coach must confirm"

@@ -66,7 +66,9 @@ export function useVoicePlan(ctx: PlanContext = {}, opts: VoicePlanOptions = {})
   const ctxRef = useRef(ctx)
   ctxRef.current = ctx
   const optsRef = useRef(opts)
-  optsRef.current = opts
+  useEffect(() => {
+    optsRef.current = opts
+  })
   const lastText = useRef('')
 
   const cleanupTimer = () => {

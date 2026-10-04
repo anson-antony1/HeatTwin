@@ -54,15 +54,18 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
   const p = usePlanState()
   // Memory: every request carries the plan in use, so "add 20 minutes of jumping
   // jacks at the end" edits it instead of starting over.
-  const captionsRef = useRef('')
-  const v = useVoicePlan({ current_plan: p.plan }, { getTranscript: () => captionsRef.current })
+  const transcriptRef = useRef<() => string>(() => '')
+  const v = useVoicePlan({ current_plan: p.plan }, { getTranscript: () => transcriptRef.current() })
   const reduce = useReducedMotion()
   const roster = useRoster()
   const [opened, setOpened] = useState<'result' | 'typing' | null>(null)
   const [flash, setFlash] = useState(false)
   const [text, setText] = useState('')
   const recording = v.state === 'recording'
-  const captions = useLiveCaptions(recording, captionsRef)
+  const { text: captions, latest: latestCaptions } = useLiveCaptions(recording)
+  useEffect(() => {
+    transcriptRef.current = () => latestCaptions.current
+  }, [latestCaptions])
   const { containerRef } = useMicLevels(recording, BARS)
   const [appliedDraft, setAppliedDraft] = useState<PlanDraft | null>(null)
   const flashTimer = useRef<number | null>(null)
