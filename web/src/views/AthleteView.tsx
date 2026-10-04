@@ -624,7 +624,7 @@ function SuggestionBlock({ athleteId, sug }: { athleteId: string; sug: NonNullab
   const apply = async () => {
     setState('busy')
     try {
-      await applyLiveSuggestion(athleteId)
+      await applyLiveSuggestion(athleteId, sug)
     } catch {
       setState('error')
     }

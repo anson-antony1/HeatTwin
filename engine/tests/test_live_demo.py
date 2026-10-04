@@ -99,3 +99,13 @@ def test_suggestion_respects_cap_budget_and_only_changes_that_athlete():
                 assert g == (base.get("gear_by_athlete") or {}).get(aid, base["gear"])
     from engine import guard
     assert guard.check(res["text"], log=False)["ok"]
+
+
+def test_hr_replay_offers_the_suggestion_at_the_first_flag():
+    """Render has no strap: the synthetic HR replay offers the same athlete-only suggestion (with its plan)."""
+    r = client.post("/live/replay?demo=1", json={"file": "hr_a07_synthetic.csv"}).json()
+    sg = r["suggestions"]["a07"]
+    first_flag = next(f["minute"] for f in r["frames"] if f["athlete_id"] == "a07" and f["gates"].get("flag"))
+    assert sg["at_minute"] == first_flag and sg["plan"]["id"] == r["plan_forecast"]["plan_id"]
+    assert sg["guard_ok"] and 1 <= len(sg["changes"]) <= 2 and "replay" in sg["labels"]
+    assert sg["after"]["peak_core_c_p95"] < sg["before"]["peak_core_c_p95"]

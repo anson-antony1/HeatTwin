@@ -165,6 +165,8 @@ export interface LiveReplay {
   frames: ReplayFrame[]
   /** athlete_id → [minute, bpm]. */
   hr_series: Record<string, [number, number][]>
+  /** v1.7: the athlete-only re-plan offered from each athlete's first flagged frame (with its plan). */
+  suggestions?: Record<string, LiveSuggestion>
   labels: string[]
 }
 
@@ -198,6 +200,8 @@ export interface LiveSuggestion {
   after: { peak_core_c_p95: number; first_cross_min: number | null; under_line: boolean }
   at_minute: number
   labels: string[]
+  /** Replay only: the changed plan (a live session sends it with POST /live/apply instead). */
+  plan?: PracticePlan
 }
 
 export interface LiveState {
