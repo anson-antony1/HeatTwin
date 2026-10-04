@@ -190,10 +190,14 @@ export const planStore = {
    * training load; `fewest_changes` makes the smallest edit that meets every rule (v1.4 `fewest_changes`).
    */
   async optimize(preset: OptimizePreset = 'max_load') {
-    const previous = snapshot()
+    // Both presets start from the plan the coach entered: after one optimization, switching preset re-optimizes the
+    // original (not the optimized plan), and Undo still returns to the original.
+    const again = state.source === 'optimized' && state.previous != null
+    const previous = again ? state.previous! : snapshot()
+    const base = again ? state.previous!.plan : state.plan
     const signal = begin('optimizing')
     try {
-      const opt = await optimizePlan(state.plan, signal, preset)
+      const opt = await optimizePlan(base, signal, preset)
       landed({ opt, preset, plan: opt.plan, sim: opt.optimized, original: opt.original, source: 'optimized', previous })
       apply(opt.plan, opt.optimized)
       persist()

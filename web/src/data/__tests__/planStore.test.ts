@@ -185,6 +185,34 @@ describe('Fewest changes (decision 4)', () => {
     planStore.undo()
     expect(planStore.get().preset).toBeNull()
   })
+
+  it('switching preset after an optimization re-optimizes the original plan, and Undo returns to it', async () => {
+    const bodies: { url: string; plan: { drills: { id: string }[] } }[] = []
+    vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
+      if (url.includes('/optimize')) bodies.push({ url, plan: JSON.parse(String(init?.body)).plan })
+      const body = url.includes('/demo/inputs')
+        ? { plan, roster, weather: [], labels: [], synthetic: { plan: true, roster: true, weather: false } }
+        : url.includes('/optimize')
+          ? { original: engineSim(plan.id), optimized: engineSim(plan.id), plan: { ...plan, drills: [...plan.drills].reverse() },
+              changes: [], load_kept_pct: 80, feasible: true }
+          : url.includes('/simulate')
+            ? engineSim(plan.id)
+            : url.includes('/live/replay')
+              ? { source: { file: 'f', synthetic: true, athletes: [], n_readings: 0, first_ts: '', last_ts: '', aligned_to_plan_start: false }, plan_forecast: engineSim(plan.id), frames: [], hr_series: {}, labels: [] }
+              : {}
+      return new Response(JSON.stringify(body), { status: 200 })
+    })
+    const { planStore } = await freshStores()
+    await planStore.boot()
+    await planStore.optimize('max_load')
+    await planStore.optimize('fewest_changes')
+    const ids = (b: (typeof bodies)[number]) => b.plan.drills.map((d) => d.id)
+    expect(bodies).toHaveLength(2)
+    expect(ids(bodies[1])).toEqual(plan.drills.map((d: { id: string }) => d.id))   // the original, not the optimized plan
+    planStore.undo()
+    expect(planStore.get().source).not.toBe('optimized')
+    expect(planStore.get().plan.drills.map((d) => d.id)).toEqual(plan.drills.map((d: { id: string }) => d.id))
+  })
 })
 
 describe('offline stand-in', () => {
