@@ -734,3 +734,59 @@ demo_node:
   baseline_samples: 5
   stale_after_s: 300          # scenario weather is used only while demo readings keep arriving
   reforecast_min_change_w_m2: 25.0   # re-run the live session when inferred sunlight moves at least this much
+
+# ─────────────────────────────────────────────────────────────────────────────
+# WBGT gap analysis (validation/wbgt_gap.py). ABLATION ONLY: these blocks describe what NWS documents for its NDFD
+# wetBulbGlobeTemperature layer, so the gap between our Liljegren WBGT and NWS's can be measured one input at a time.
+# engine/wbgt.py and engine/weather.py never read them. Nothing here is a model change.
+# ─────────────────────────────────────────────────────────────────────────────
+
+ndfd_wbgt:
+  status: VERIFIED
+  use: "ablation only (validation/wbgt_gap.py)"
+  source: "Boyer TR, Meteorological Development Laboratory, NWS/NOAA. 'NDFD Wet Bulb Globe Temperature Algorithm and Software Design' (8 pp., undated; read in full)"
+  url: "https://vlab.noaa.gov/documents/6609493/7858379/NDFD%2BWBGT%2BDescription%2BDocument.pdf"
+  quote_or_location: "p.1 'WBGT = 0.7NWB + 0.2BGT + 0.1DB' (globe by Dimiceli and Piltz); p.3 'the NDFD application estimates hourly solar flux from the daily maximum value (assumed to occur at solar noon) and a curve' … 'a Gaussian curve with the peak intensity at solar noon (Guo, 2017)'; p.3-4 inputs T, Td, Sky, WSpd; 'NDFD forecasts … at hourly resolution from 1-36 hours'; p.4 'the NDFD application applies the Log Law to the 10 m wind speeds', z0 from MODIS land cover (Appendix A); albedo from NOAA17 AVHRR3; cos(Z) from NREL SOLPOS at 'the date/time of the forecast hour'; p.5 'cap the direct beam proportion at 0.75' (diffuse = sky cover); 'during daylight hours, the value [H] is set to 0.228, while at night, the value is set to zero'; 'R = R0 (1 – 0.75n^3.4)'; p.6 'Tnwb= Tw+ 0.001651S – 0.09555u + 0.13235Twd + 0.20249'"
+  direct_beam_cap: 0.75
+  h_convective_day: 0.228
+  h_convective_night: 0.0
+  nwb_regression: {s: 0.001651, u: -0.09555, twd: 0.13235, c: 0.20249}   # Tnwb = Tw + s·S + u·u + twd·(Ta − Tw) + c
+  roughness_appendix_a_m: [0.0002, 0.0005, 0.0024, 0.03, 0.055, 0.1, 0.2, 0.4, 0.8, 1.6]
+  hourly_resolution_h: 36
+  assumptions:
+    status: DESIGN
+    note: "Not stated by Boyer, chosen for the ablation: regression units °C, W/m², m/s (the units of the Hunter & Minyard 1999 regression it replaces, WSRC-MS-99-00757 Eq. 3, read); its S is the cloud-adjusted flux and u the log-law 2 m wind; Tw is Liljegren's psychrometric wet bulb (engine.wbgt.wet_bulb_k, radiative=False); after the 0.75 cap the diffuse share is 1 − direct (moot when sky cover ≥ 25 %, i.e. every daytime demo hour). Boyer's 'H = 0 at night' is not applied: in Dimiceli Eq. 10 it gives T_g = (ε_a·T_a⁴ + 7,680,000)/256,000 ≈ 31 °C at 24 °C air, which NWS's night values (within 1 °F of ours) do not show, so the night branch of NDFD is not what that sentence implies; the globe swap is applied only while the sun is up."
+
+dimiceli_piltz_globe:
+  status: VERIFIED
+  use: "ablation only (validation/wbgt_gap.py) — the globe model NDFD's WBGT is built on"
+  source: "Dimiceli VE, Piltz SF. 'Estimation of Black Globe Temperature for Calculation of the WBGT Index' (Oral Roberts University / NWS Tulsa; read in full)"
+  url: "https://www.weather.gov/media/tsa/pdf/WBGTpaper2.pdf"
+  quote_or_location: "'An Algorithm': 'B = S(fdb/(4σcos(z)) + (1.2/σ)fdif) + (εa)Ta^4, where σ=5.67x10^-8'; 'C = hu^0.58/(5.3865x10^-8), where h=0.315'; 'Tg = (B + CTa + 7680000)/(C + 256000)'; 'wind speed (u in meters per hour), ambient temperature (Ta in degrees Celsius), dew point temperature (Td in degrees Celsius)'; Eq.5 'εa = 0.575ea^(1/7)'; Eq.6 'ea = exp(17.67(Td−Ta)/(Td+243.5)) × (1.0007 + 0.00000346P) × 6.112exp(17.502Ta/(240.97+Ta))'; 'Albedo for grassy surfaces: αes = 0.2' (the 1.2 is 1 + αes); globe ε = 0.95, albedo 0.05 (5.3865e-8 = 0.95 × 5.67e-8)"
+  note: "Temperatures enter B, C and the tangent line in °C, as published (256000 = 4·40³ is the tangent of t⁴ at t = 40 °C). Because C ≫ 256000 the result is ≈ T_a + B/C: the globe's longwave exchange almost vanishes. Reproduced as published; NDFD replaces h = 0.315 with ndfd_wbgt.h_convective_day."
+  sigma: 5.67e-8
+  eps_sigma: 5.3865e-8
+  wind_exp: 0.58
+  tangent_slope: 256000.0
+  tangent_intercept: 7680000.0
+  albedo_grass: 0.2
+  emis_atm: {a: 0.575, b: 0.142857142857143}    # εa = 0.575·ea^(1/7), ea in mb
+  vapour: {a: 17.67, b_c: 243.5, f0: 1.0007, f1_per_mb: 3.46e-6, e0_mb: 6.112, c: 17.502, d_c: 240.97}
+
+wbgt_gap_ablation:
+  status: DESIGN
+  use: "ablation only (validation/wbgt_gap.py): how the gap is measured, not how WBGT is computed"
+  note: "z0_log_law_m: the main wind swap uses Boyer's log law with open-country z0 (= wind_profile.z0_open_grass_m, VERIFIED, and Boyer Appendix A class 1); the z0 of NWS's MODIS grid at JAX/43,32 is unknown, so Appendix A's land classes are a sensitivity. albedo_swap: the TSA/Dimiceli grass albedo; NDFD uses an AVHRR albedo at this cell that we could not read, so solarcal_ground (0.11 turf, 0.23 grass) is a sensitivity. sun_shift_min: the sun is evaluated ±30 min from the top of the hour as a timing sensitivity (NWS documents the forecast hour, the same as ours). nws_rounding_f: the NWS layer is whole °F (the script checks every value), so it carries ±0.5 °F. implied_s_*: bracket and minimum sun signal for the implied-irradiance diagnostic (the scale k on our irradiance at which a model reproduces NWS's value); hours whose whole sun effect is under 2 × nws_rounding_f are not inverted. demo window: the plan starts 15:30, hours 15:00-18:00 inclusive."
+  z0_log_law_m: 0.03
+  z0_sensitivity_m: [0.0024, 1.6]   # Boyer Appendix A land classes 0.5 (mowed grass) to 4 (very large cities); water excluded
+  albedo_swap: 0.2
+  sun_shift_min: 30.0
+  lag_hours: [-1, 0, 1]
+  nws_rounding_f: 0.5
+  implied_s_scale_max: 3.0
+  implied_s_min_sun_effect_f: 1.0
+  bisection_iter: 60
+  demo_window_local: ["2026-10-04T15:00:00-04:00", "2026-10-04T18:00:00-04:00"]
+  context_day_local: "2026-10-04"
+  raw_pinned: "nws_raw/JAX_43_32_update_2026-10-03T1207Z.json"
+  raw_context: "weather_cache/nws_raw_2026-10-03.json"
