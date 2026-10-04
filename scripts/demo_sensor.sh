@@ -1,13 +1,20 @@
 #!/usr/bin/env bash
 # One command for the sensor demo: engine (with the built-in Arduino bridge) + web app, opens the browser.
 # Ctrl+C stops both. The Arduino can be plugged in before or after; the engine finds it (GET /node/status).
+# Runs in the terminal's own job (no setsid: a separate session would not receive Ctrl+C from the terminal).
 set -euo pipefail
-# Own process group (Linux setsid), so Ctrl+C / kill stops exactly what this script started. macOS has no setsid;
-# there the cleanup below falls back to killing the children it started.
-if [ "${HEATTWIN_PGRP:-}" != "1" ] && command -v setsid >/dev/null; then HEATTWIN_PGRP=1 exec setsid --wait "$0" "$@"; fi
 cd "$(dirname "$0")/.."
 PORT="${HEATTWIN_PORT:-8010}"
 export HEATTWIN_PORT="$PORT"
+
+# Refuse to start on top of a leftover run (a stray engine on the port gives "address already in use").
+for p in "$PORT" 5173; do
+  if (exec 3<>"/dev/tcp/127.0.0.1/$p") 2>/dev/null; then
+    echo "Port $p is already in use — a previous HeatTwin run is probably still going."
+    echo "Stop it with:  pkill -f 'uvicorn engine.api'; pkill -f vite      then run this again."
+    exit 1
+  fi
+done
 # The engine's built-in bridge defaults to FIELD mode (thermistor = air temperature, NWS for the rest). This script is the
 # indoor globe-as-sun demo, so it asks for DEMO mode; set HEATTWIN_NODE_MODE=field to run field mode through it instead.
 export HEATTWIN_NODE_MODE="${HEATTWIN_NODE_MODE:-demo}"
@@ -19,13 +26,20 @@ if ! node -e 'process.exit(+process.versions.node.split(".")[0] >= 20 ? 0 : 1)' 
 fi
 [ -d web/node_modules ] || (cd web && npm install)
 
-# Stop everything this script started (engine, npm, vite) — the whole process group.
+# Stop everything this script started (engine, npm, vite and their children), on Ctrl+C, kill or any exit.
+killtree() {
+  local pid=$1 child
+  for child in $(pgrep -P "$pid" 2>/dev/null); do killtree "$child"; done
+  kill "$pid" 2>/dev/null || true
+}
 cleanup() {
   trap - EXIT INT TERM
-  if [ "${HEATTWIN_PGRP:-}" = "1" ]; then kill -- -$$ 2>/dev/null || true; return; fi
-  for pid in ${WEB_PID:-} ${ENGINE_PID:-}; do pkill -P "$pid" 2>/dev/null || true; kill "$pid" 2>/dev/null || true; done
+  for pid in ${WEB_PID:-} ${ENGINE_PID:-}; do killtree "$pid"; done
+  wait 2>/dev/null || true
+  echo "HeatTwin stopped."
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT TERM
 
 # ROS-style PYTHONPATH entries break the venv; the engine needs only the repo.
 env -u PYTHONPATH .venv/bin/python -m uvicorn engine.api:app --port "$PORT" --log-level warning &
