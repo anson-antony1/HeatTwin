@@ -833,7 +833,7 @@
   },
   "demo": {
     "computed_by": "validation/demo_numbers.py via the engine API with ?demo=1",
-    "computed_at": "2026-10-04T04:45:49+00:00",
+    "computed_at": "2026-10-04T07:18:32+00:00",
     "synthetic": true,
     "inputs": {
       "plan_id": "plan-demo-1",
@@ -1081,7 +1081,15 @@
       "file": null,
       "labels": [
         "no field recording yet"
-      ]
+      ],
+      "source": {
+        "mode": "field",
+        "stale_after_s": 10.0,
+        "id": "none",
+        "label": null,
+        "sensor_fresh": false,
+        "reading_age_s": null
+      }
     }
   },
   "wbgt_gap": {
@@ -3841,7 +3849,7 @@
   },
   "helio_recording": {
     "computed_by": "validation/helio_recording.py",
-    "computed_at": "2026-10-04T06:39:44+00:00",
+    "computed_at": "2026-10-04T07:29:13+00:00",
     "synthetic": false,
     "replay": true,
     "file": "fixtures/hr_2026-10-03.csv",
