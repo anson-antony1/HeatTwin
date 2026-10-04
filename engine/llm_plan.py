@@ -20,6 +20,7 @@ import re
 from pathlib import Path
 from typing import Any, Literal, Optional
 
+from engine import consts
 from pydantic import BaseModel, Field, ValidationError
 
 API = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
@@ -186,7 +187,7 @@ def _call_gemini(parts: list[dict[str, Any]], editing: bool = False) -> str:
                              "temperature": 0.1, "maxOutputTokens": MAX_OUTPUT_TOKENS},
     }
     try:
-        r = requests.post(API.format(model=model_name()), json=body, timeout=TIMEOUT_S,
+        r = requests.post(API.format(model=model_name()), json=body, timeout=(float(consts.get("voice.connect_timeout_s")), TIMEOUT_S),
                           headers={"x-goog-api-key": _key(), "Content-Type": "application/json"})
     except requests.RequestException as e:
         raise LLMError(f"Gemini unreachable: {type(e).__name__}") from e

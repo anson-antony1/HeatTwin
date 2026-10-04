@@ -1,834 +1,3839 @@
 {
- "armstrong_2010": {
-  "study": "Armstrong et al. 2010, J Athl Train 45:117 (PMC2838463)",
-  "comparison_basis": "summary values only (Table 3 whole-protocol rise and rate, Table 4 treadmill rate); Figure 2's time course is not tabulated and was not digitized, so no time-point RMSE is reported",
-  "summary_at_reference_air_speed": {
-   "conservative": {
-    "treadmill_rate_rmse_unfitted_c_per_min": 0.0064,
-    "whole_protocol_rate_rmse_c_per_min": 0.0003,
-    "whole_protocol_rate_max_abs_error_c_per_min": 0.0003,
-    "rise_rmse_c": 0.03,
-    "rise_rmse_unfitted_c": 0.04,
-    "rise_max_abs_error_c": 0.04,
-    "n_comparisons": 2
-   },
-   "iso7933_dynamic": {
-    "treadmill_rate_rmse_unfitted_c_per_min": 0.0243,
-    "whole_protocol_rate_rmse_c_per_min": 0.0131,
-    "whole_protocol_rate_max_abs_error_c_per_min": 0.0155,
-    "rise_rmse_c": 0.79,
-    "rise_rmse_unfitted_c": 0.79,
-    "rise_max_abs_error_c": 0.89,
-    "n_comparisons": 2
-   },
-   "gagge_static": {
-    "treadmill_rate_rmse_unfitted_c_per_min": 0.0108,
-    "whole_protocol_rate_rmse_c_per_min": 0.0028,
-    "whole_protocol_rate_max_abs_error_c_per_min": 0.003,
-    "rise_rmse_c": 0.16,
-    "rise_rmse_unfitted_c": 0.16,
-    "rise_max_abs_error_c": 0.16,
-    "n_comparisons": 2
-   },
-   "jos3": {
-    "treadmill_rate_rmse_unfitted_c_per_min": 0.0223,
-    "whole_protocol_rate_rmse_c_per_min": 0.0096,
-    "whole_protocol_rate_max_abs_error_c_per_min": 0.0136,
-    "rise_rmse_c": 0.57,
-    "rise_rmse_unfitted_c": 0.57,
-    "rise_max_abs_error_c": 0.81,
-    "n_comparisons": 2
-   }
+  "armstrong_2010": {
+    "study": "Armstrong et al. 2010, J Athl Train 45:117 (PMC2838463)",
+    "comparison_basis": "summary values only (Table 3 whole-protocol rise and rate, Table 4 treadmill rate); Figure 2's time course is not tabulated and was not digitized, so no time-point RMSE is reported",
+    "summary_at_reference_air_speed": {
+      "conservative": {
+        "treadmill_rate_rmse_unfitted_c_per_min": 0.0064,
+        "whole_protocol_rate_rmse_c_per_min": 0.0003,
+        "whole_protocol_rate_max_abs_error_c_per_min": 0.0003,
+        "rise_rmse_c": 0.03,
+        "rise_rmse_unfitted_c": 0.04,
+        "rise_max_abs_error_c": 0.04,
+        "n_comparisons": 2
+      },
+      "iso7933_dynamic": {
+        "treadmill_rate_rmse_unfitted_c_per_min": 0.0243,
+        "whole_protocol_rate_rmse_c_per_min": 0.0131,
+        "whole_protocol_rate_max_abs_error_c_per_min": 0.0155,
+        "rise_rmse_c": 0.79,
+        "rise_rmse_unfitted_c": 0.79,
+        "rise_max_abs_error_c": 0.89,
+        "n_comparisons": 2
+      },
+      "gagge_static": {
+        "treadmill_rate_rmse_unfitted_c_per_min": 0.0108,
+        "whole_protocol_rate_rmse_c_per_min": 0.0028,
+        "whole_protocol_rate_max_abs_error_c_per_min": 0.003,
+        "rise_rmse_c": 0.16,
+        "rise_rmse_unfitted_c": 0.16,
+        "rise_max_abs_error_c": 0.16,
+        "n_comparisons": 2
+      },
+      "jos3": {
+        "treadmill_rate_rmse_unfitted_c_per_min": 0.0223,
+        "whole_protocol_rate_rmse_c_per_min": 0.0096,
+        "whole_protocol_rate_max_abs_error_c_per_min": 0.0136,
+        "rise_rmse_c": 0.57,
+        "rise_rmse_unfitted_c": 0.57,
+        "rise_max_abs_error_c": 0.81,
+        "n_comparisons": 2
+      }
+    },
+    "walk_credit_check": {
+      "acsm_arithmetic": "speed 5.6 km/h = 93.333 m/min; VO2 = 0.1\u00d793.333 + 1.8\u00d793.333\u00d70.05 + 3.5 = 9.333 + 8.400 + 3.5 = 21.233 mL/kg/min = 6.067 MET",
+      "treadmill_met_acsm": 6.067,
+      "treadmill_met_compendium_17034": 5.3,
+      "measured_CON_treadmill_rate": [
+        0.037,
+        0.015
+      ],
+      "measured_CON_rise": [
+        1.81,
+        0.4
+      ],
+      "options": [
+        {
+          "walk_credit": 1.0,
+          "treadmill_met": "acsm",
+          "CON_treadmill_rate_c_per_min": 0.0224,
+          "error_in_sd": -0.98,
+          "CON_rise_c": 1.14,
+          "rise_error_in_sd": -1.67
+        },
+        {
+          "walk_credit": 1.0,
+          "treadmill_met": "compendium",
+          "CON_treadmill_rate_c_per_min": 0.0166,
+          "error_in_sd": -1.36,
+          "CON_rise_c": 0.84,
+          "rise_error_in_sd": -2.43
+        },
+        {
+          "walk_credit": 0.0,
+          "treadmill_met": "acsm",
+          "CON_treadmill_rate_c_per_min": 0.0358,
+          "error_in_sd": -0.08,
+          "CON_rise_c": 1.85,
+          "rise_error_in_sd": 0.1
+        },
+        {
+          "walk_credit": 0.0,
+          "treadmill_met": "compendium",
+          "CON_treadmill_rate_c_per_min": 0.0241,
+          "error_in_sd": -0.86,
+          "CON_rise_c": 1.24,
+          "rise_error_in_sd": -1.42
+        }
+      ],
+      "decision_rule": "with the ACSM MET, choose the walk_credit whose CON treadmill rate is closer to the measured mean",
+      "chosen_walk_credit": 0.0,
+      "in_constants": 0.0
+    },
+    "calibration_fits": [
+      {
+        "target": "whole_rise",
+        "target_value": 2.37,
+        "gear_met_surcharge_full_pads": 0.0486,
+        "CON_treadmill_rate_c_per_min": 0.0358,
+        "CON_rise_c": 1.85,
+        "FULL_treadmill_rate_c_per_min": 0.0621,
+        "FULL_rise_c": 2.37
+      },
+      {
+        "target": "treadmill_rate",
+        "target_value": 0.071,
+        "gear_met_surcharge_full_pads": 0.1348,
+        "CON_treadmill_rate_c_per_min": 0.0358,
+        "CON_rise_c": 1.85,
+        "FULL_treadmill_rate_c_per_min": 0.071,
+        "FULL_rise_c": 2.76
+      }
+    ],
+    "calibration_in_use": "whole_rise",
+    "computed_by": "validation/armstrong_2010.py",
+    "computed_at": "2026-10-03T19:24:47+00:00",
+    "model": "twonode-v1",
+    "conservative_gear_met_surcharge_full_pads": 0.0486,
+    "synthetic": false,
+    "notes": [
+      "Deterministic run for the mean participant; measured values are group means \u00b1 SD of 10 men.",
+      "Conservative mode is calibrated on FULL at the reference air speed (row with fitted=true, on fitted_metric) \u2014 that metric is a fit, not a validation. Both calibration fits are listed under calibration_fits.",
+      "Air speed and metabolic rate were not reported; METs from the 2024 Compendium (task mapping is a judgement call).",
+      "CON maps to gear 'none', which includes a T-shirt that Armstrong's CON did not wear; PART has no matching gear level.",
+      "JOS-3 uses static intrinsic clo of the mapped gear (it takes no evaporative resistance input) and starts from its own neutral state; rates and rises are compared, not absolute temperatures.",
+      "estimate \u2014 planning only"
+    ],
+    "rows": [
+      {
+        "clothing_mode": "conservative",
+        "condition": "CON",
+        "gear": "none",
+        "air_speed_m_s": 0.1,
+        "model_treadmill_rate_c_per_min": 0.0358,
+        "measured_treadmill_rate_c_per_min": 0.037,
+        "measured_sd": 0.015,
+        "treadmill_error_c_per_min": -0.0012,
+        "treadmill_error_in_sd": -0.08,
+        "model_whole_protocol_rate_c_per_min": 0.0257,
+        "measured_whole_protocol_rate_c_per_min": 0.026,
+        "measured_whole_sd": 0.008,
+        "model_rise_c": 1.85,
+        "measured_rise_c": 1.81,
+        "measured_rise_sd": 0.4,
+        "model_end_core_c": 39.05,
+        "fitted": false,
+        "fitted_metric": null
+      },
+      {
+        "clothing_mode": "conservative",
+        "condition": "CON",
+        "gear": "none",
+        "air_speed_m_s": 0.5,
+        "model_treadmill_rate_c_per_min": 0.0242,
+        "measured_treadmill_rate_c_per_min": 0.037,
+        "measured_sd": 0.015,
+        "treadmill_error_c_per_min": -0.0128,
+        "treadmill_error_in_sd": -0.86,
+        "model_whole_protocol_rate_c_per_min": 0.017,
+        "measured_whole_protocol_rate_c_per_min": 0.026,
+        "measured_whole_sd": 0.008,
+        "model_rise_c": 1.22,
+        "measured_rise_c": 1.81,
+        "measured_rise_sd": 0.4,
+        "model_end_core_c": 38.42,
+        "fitted": false,
+        "fitted_metric": null
+      },
+      {
+        "clothing_mode": "conservative",
+        "condition": "CON",
+        "gear": "none",
+        "air_speed_m_s": 1.0,
+        "model_treadmill_rate_c_per_min": 0.0224,
+        "measured_treadmill_rate_c_per_min": 0.037,
+        "measured_sd": 0.015,
+        "treadmill_error_c_per_min": -0.0146,
+        "treadmill_error_in_sd": -0.97,
+        "model_whole_protocol_rate_c_per_min": 0.0153,
+        "measured_whole_protocol_rate_c_per_min": 0.026,
+        "measured_whole_sd": 0.008,
+        "model_rise_c": 1.1,
+        "measured_rise_c": 1.81,
+        "measured_rise_sd": 0.4,
+        "model_end_core_c": 38.3,
+        "fitted": false,
+        "fitted_metric": null
+      },
+      {
+        "clothing_mode": "conservative",
+        "condition": "FULL",
+        "gear": "full_pads",
+        "air_speed_m_s": 0.1,
+        "model_treadmill_rate_c_per_min": 0.0621,
+        "measured_treadmill_rate_c_per_min": 0.071,
+        "measured_sd": 0.032,
+        "treadmill_error_c_per_min": -0.0089,
+        "treadmill_error_in_sd": -0.28,
+        "model_whole_protocol_rate_c_per_min": 0.0423,
+        "measured_whole_protocol_rate_c_per_min": 0.042,
+        "measured_whole_sd": 0.01,
+        "model_rise_c": 2.37,
+        "measured_rise_c": 2.37,
+        "measured_rise_sd": 0.45,
+        "model_end_core_c": 39.57,
+        "fitted": true,
+        "fitted_metric": "whole_rise"
+      },
+      {
+        "clothing_mode": "conservative",
+        "condition": "FULL",
+        "gear": "full_pads",
+        "air_speed_m_s": 0.5,
+        "model_treadmill_rate_c_per_min": 0.0515,
+        "measured_treadmill_rate_c_per_min": 0.071,
+        "measured_sd": 0.032,
+        "treadmill_error_c_per_min": -0.0195,
+        "treadmill_error_in_sd": -0.61,
+        "model_whole_protocol_rate_c_per_min": 0.0336,
+        "measured_whole_protocol_rate_c_per_min": 0.042,
+        "measured_whole_sd": 0.01,
+        "model_rise_c": 1.88,
+        "measured_rise_c": 2.37,
+        "measured_rise_sd": 0.45,
+        "model_end_core_c": 39.08,
+        "fitted": false,
+        "fitted_metric": null
+      },
+      {
+        "clothing_mode": "conservative",
+        "condition": "FULL",
+        "gear": "full_pads",
+        "air_speed_m_s": 1.0,
+        "model_treadmill_rate_c_per_min": 0.0393,
+        "measured_treadmill_rate_c_per_min": 0.071,
+        "measured_sd": 0.032,
+        "treadmill_error_c_per_min": -0.0317,
+        "treadmill_error_in_sd": -0.99,
+        "model_whole_protocol_rate_c_per_min": 0.0254,
+        "measured_whole_protocol_rate_c_per_min": 0.042,
+        "measured_whole_sd": 0.01,
+        "model_rise_c": 1.42,
+        "measured_rise_c": 2.37,
+        "measured_rise_sd": 0.45,
+        "model_end_core_c": 38.62,
+        "fitted": false,
+        "fitted_metric": null
+      },
+      {
+        "clothing_mode": "iso7933_dynamic",
+        "condition": "CON",
+        "gear": "none",
+        "air_speed_m_s": 0.1,
+        "model_treadmill_rate_c_per_min": 0.0224,
+        "measured_treadmill_rate_c_per_min": 0.037,
+        "measured_sd": 0.015,
+        "treadmill_error_c_per_min": -0.0146,
+        "treadmill_error_in_sd": -0.98,
+        "model_whole_protocol_rate_c_per_min": 0.0158,
+        "measured_whole_protocol_rate_c_per_min": 0.026,
+        "measured_whole_sd": 0.008,
+        "model_rise_c": 1.14,
+        "measured_rise_c": 1.81,
+        "measured_rise_sd": 0.4,
+        "model_end_core_c": 38.34,
+        "fitted": false,
+        "fitted_metric": null
+      },
+      {
+        "clothing_mode": "iso7933_dynamic",
+        "condition": "CON",
+        "gear": "none",
+        "air_speed_m_s": 0.5,
+        "model_treadmill_rate_c_per_min": 0.0219,
+        "measured_treadmill_rate_c_per_min": 0.037,
+        "measured_sd": 0.015,
+        "treadmill_error_c_per_min": -0.0151,
+        "treadmill_error_in_sd": -1.01,
+        "model_whole_protocol_rate_c_per_min": 0.0151,
+        "measured_whole_protocol_rate_c_per_min": 0.026,
+        "measured_whole_sd": 0.008,
+        "model_rise_c": 1.09,
+        "measured_rise_c": 1.81,
+        "measured_rise_sd": 0.4,
+        "model_end_core_c": 38.29,
+        "fitted": false,
+        "fitted_metric": null
+      },
+      {
+        "clothing_mode": "iso7933_dynamic",
+        "condition": "CON",
+        "gear": "none",
+        "air_speed_m_s": 1.0,
+        "model_treadmill_rate_c_per_min": 0.0211,
+        "measured_treadmill_rate_c_per_min": 0.037,
+        "measured_sd": 0.015,
+        "treadmill_error_c_per_min": -0.0159,
+        "treadmill_error_in_sd": -1.06,
+        "model_whole_protocol_rate_c_per_min": 0.0141,
+        "measured_whole_protocol_rate_c_per_min": 0.026,
+        "measured_whole_sd": 0.008,
+        "model_rise_c": 1.02,
+        "measured_rise_c": 1.81,
+        "measured_rise_sd": 0.4,
+        "model_end_core_c": 38.22,
+        "fitted": false,
+        "fitted_metric": null
+      },
+      {
+        "clothing_mode": "iso7933_dynamic",
+        "condition": "FULL",
+        "gear": "full_pads",
+        "air_speed_m_s": 0.1,
+        "model_treadmill_rate_c_per_min": 0.0399,
+        "measured_treadmill_rate_c_per_min": 0.071,
+        "measured_sd": 0.032,
+        "treadmill_error_c_per_min": -0.0311,
+        "treadmill_error_in_sd": -0.97,
+        "model_whole_protocol_rate_c_per_min": 0.0265,
+        "measured_whole_protocol_rate_c_per_min": 0.042,
+        "measured_whole_sd": 0.01,
+        "model_rise_c": 1.48,
+        "measured_rise_c": 2.37,
+        "measured_rise_sd": 0.45,
+        "model_end_core_c": 38.68,
+        "fitted": false,
+        "fitted_metric": null
+      },
+      {
+        "clothing_mode": "iso7933_dynamic",
+        "condition": "FULL",
+        "gear": "full_pads",
+        "air_speed_m_s": 0.5,
+        "model_treadmill_rate_c_per_min": 0.0307,
+        "measured_treadmill_rate_c_per_min": 0.071,
+        "measured_sd": 0.032,
+        "treadmill_error_c_per_min": -0.0403,
+        "treadmill_error_in_sd": -1.26,
+        "model_whole_protocol_rate_c_per_min": 0.0196,
+        "measured_whole_protocol_rate_c_per_min": 0.042,
+        "measured_whole_sd": 0.01,
+        "model_rise_c": 1.1,
+        "measured_rise_c": 2.37,
+        "measured_rise_sd": 0.45,
+        "model_end_core_c": 38.3,
+        "fitted": false,
+        "fitted_metric": null
+      },
+      {
+        "clothing_mode": "iso7933_dynamic",
+        "condition": "FULL",
+        "gear": "full_pads",
+        "air_speed_m_s": 1.0,
+        "model_treadmill_rate_c_per_min": 0.0292,
+        "measured_treadmill_rate_c_per_min": 0.071,
+        "measured_sd": 0.032,
+        "treadmill_error_c_per_min": -0.0418,
+        "treadmill_error_in_sd": -1.31,
+        "model_whole_protocol_rate_c_per_min": 0.0183,
+        "measured_whole_protocol_rate_c_per_min": 0.042,
+        "measured_whole_sd": 0.01,
+        "model_rise_c": 1.03,
+        "measured_rise_c": 2.37,
+        "measured_rise_sd": 0.45,
+        "model_end_core_c": 38.23,
+        "fitted": false,
+        "fitted_metric": null
+      },
+      {
+        "clothing_mode": "gagge_static",
+        "condition": "CON",
+        "gear": "none",
+        "air_speed_m_s": 0.1,
+        "model_treadmill_rate_c_per_min": 0.0314,
+        "measured_treadmill_rate_c_per_min": 0.037,
+        "measured_sd": 0.015,
+        "treadmill_error_c_per_min": -0.0056,
+        "treadmill_error_in_sd": -0.37,
+        "model_whole_protocol_rate_c_per_min": 0.023,
+        "measured_whole_protocol_rate_c_per_min": 0.026,
+        "measured_whole_sd": 0.008,
+        "model_rise_c": 1.66,
+        "measured_rise_c": 1.81,
+        "measured_rise_sd": 0.4,
+        "model_end_core_c": 38.86,
+        "fitted": false,
+        "fitted_metric": null
+      },
+      {
+        "clothing_mode": "gagge_static",
+        "condition": "CON",
+        "gear": "none",
+        "air_speed_m_s": 0.5,
+        "model_treadmill_rate_c_per_min": 0.0362,
+        "measured_treadmill_rate_c_per_min": 0.037,
+        "measured_sd": 0.015,
+        "treadmill_error_c_per_min": -0.0008,
+        "treadmill_error_in_sd": -0.06,
+        "model_whole_protocol_rate_c_per_min": 0.0258,
+        "measured_whole_protocol_rate_c_per_min": 0.026,
+        "measured_whole_sd": 0.008,
+        "model_rise_c": 1.86,
+        "measured_rise_c": 1.81,
+        "measured_rise_sd": 0.4,
+        "model_end_core_c": 39.06,
+        "fitted": false,
+        "fitted_metric": null
+      },
+      {
+        "clothing_mode": "gagge_static",
+        "condition": "CON",
+        "gear": "none",
+        "air_speed_m_s": 1.0,
+        "model_treadmill_rate_c_per_min": 0.0381,
+        "measured_treadmill_rate_c_per_min": 0.037,
+        "measured_sd": 0.015,
+        "treadmill_error_c_per_min": 0.0011,
+        "treadmill_error_in_sd": 0.07,
+        "model_whole_protocol_rate_c_per_min": 0.0271,
+        "measured_whole_protocol_rate_c_per_min": 0.026,
+        "measured_whole_sd": 0.008,
+        "model_rise_c": 1.95,
+        "measured_rise_c": 1.81,
+        "measured_rise_sd": 0.4,
+        "model_end_core_c": 39.15,
+        "fitted": false,
+        "fitted_metric": null
+      },
+      {
+        "clothing_mode": "gagge_static",
+        "condition": "FULL",
+        "gear": "full_pads",
+        "air_speed_m_s": 0.1,
+        "model_treadmill_rate_c_per_min": 0.0568,
+        "measured_treadmill_rate_c_per_min": 0.071,
+        "measured_sd": 0.032,
+        "treadmill_error_c_per_min": -0.0142,
+        "treadmill_error_in_sd": -0.44,
+        "model_whole_protocol_rate_c_per_min": 0.0395,
+        "measured_whole_protocol_rate_c_per_min": 0.042,
+        "measured_whole_sd": 0.01,
+        "model_rise_c": 2.21,
+        "measured_rise_c": 2.37,
+        "measured_rise_sd": 0.45,
+        "model_end_core_c": 39.41,
+        "fitted": false,
+        "fitted_metric": null
+      },
+      {
+        "clothing_mode": "gagge_static",
+        "condition": "FULL",
+        "gear": "full_pads",
+        "air_speed_m_s": 0.5,
+        "model_treadmill_rate_c_per_min": 0.0602,
+        "measured_treadmill_rate_c_per_min": 0.071,
+        "measured_sd": 0.032,
+        "treadmill_error_c_per_min": -0.0108,
+        "treadmill_error_in_sd": -0.34,
+        "model_whole_protocol_rate_c_per_min": 0.0417,
+        "measured_whole_protocol_rate_c_per_min": 0.042,
+        "measured_whole_sd": 0.01,
+        "model_rise_c": 2.34,
+        "measured_rise_c": 2.37,
+        "measured_rise_sd": 0.45,
+        "model_end_core_c": 39.54,
+        "fitted": false,
+        "fitted_metric": null
+      },
+      {
+        "clothing_mode": "gagge_static",
+        "condition": "FULL",
+        "gear": "full_pads",
+        "air_speed_m_s": 1.0,
+        "model_treadmill_rate_c_per_min": 0.0615,
+        "measured_treadmill_rate_c_per_min": 0.071,
+        "measured_sd": 0.032,
+        "treadmill_error_c_per_min": -0.0095,
+        "treadmill_error_in_sd": -0.3,
+        "model_whole_protocol_rate_c_per_min": 0.0426,
+        "measured_whole_protocol_rate_c_per_min": 0.042,
+        "measured_whole_sd": 0.01,
+        "model_rise_c": 2.38,
+        "measured_rise_c": 2.37,
+        "measured_rise_sd": 0.45,
+        "model_end_core_c": 39.58,
+        "fitted": false,
+        "fitted_metric": null
+      },
+      {
+        "clothing_mode": "jos3",
+        "condition": "CON",
+        "gear": "none",
+        "air_speed_m_s": 0.1,
+        "model_treadmill_rate_c_per_min": 0.0336,
+        "measured_treadmill_rate_c_per_min": 0.037,
+        "measured_sd": 0.015,
+        "treadmill_error_c_per_min": -0.0034,
+        "treadmill_error_in_sd": -0.22,
+        "model_whole_protocol_rate_c_per_min": 0.0265,
+        "measured_whole_protocol_rate_c_per_min": 0.026,
+        "measured_whole_sd": 0.008,
+        "model_rise_c": 1.88,
+        "measured_rise_c": 1.81,
+        "measured_rise_sd": 0.4,
+        "model_end_core_c": 39.63,
+        "fitted": false,
+        "fitted_metric": null
+      },
+      {
+        "clothing_mode": "jos3",
+        "condition": "CON",
+        "gear": "none",
+        "air_speed_m_s": 0.5,
+        "model_treadmill_rate_c_per_min": 0.0234,
+        "measured_treadmill_rate_c_per_min": 0.037,
+        "measured_sd": 0.015,
+        "treadmill_error_c_per_min": -0.0136,
+        "treadmill_error_in_sd": -0.91,
+        "model_whole_protocol_rate_c_per_min": 0.0188,
+        "measured_whole_protocol_rate_c_per_min": 0.026,
+        "measured_whole_sd": 0.008,
+        "model_rise_c": 1.34,
+        "measured_rise_c": 1.81,
+        "measured_rise_sd": 0.4,
+        "model_end_core_c": 39.08,
+        "fitted": false,
+        "fitted_metric": null
+      },
+      {
+        "clothing_mode": "jos3",
+        "condition": "CON",
+        "gear": "none",
+        "air_speed_m_s": 1.0,
+        "model_treadmill_rate_c_per_min": 0.0211,
+        "measured_treadmill_rate_c_per_min": 0.037,
+        "measured_sd": 0.015,
+        "treadmill_error_c_per_min": -0.0159,
+        "treadmill_error_in_sd": -1.06,
+        "model_whole_protocol_rate_c_per_min": 0.0171,
+        "measured_whole_protocol_rate_c_per_min": 0.026,
+        "measured_whole_sd": 0.008,
+        "model_rise_c": 1.21,
+        "measured_rise_c": 1.81,
+        "measured_rise_sd": 0.4,
+        "model_end_core_c": 38.96,
+        "fitted": false,
+        "fitted_metric": null
+      },
+      {
+        "clothing_mode": "jos3",
+        "condition": "FULL",
+        "gear": "full_pads",
+        "air_speed_m_s": 0.1,
+        "model_treadmill_rate_c_per_min": 0.0396,
+        "measured_treadmill_rate_c_per_min": 0.071,
+        "measured_sd": 0.032,
+        "treadmill_error_c_per_min": -0.0314,
+        "treadmill_error_in_sd": -0.98,
+        "model_whole_protocol_rate_c_per_min": 0.0284,
+        "measured_whole_protocol_rate_c_per_min": 0.042,
+        "measured_whole_sd": 0.01,
+        "model_rise_c": 1.56,
+        "measured_rise_c": 2.37,
+        "measured_rise_sd": 0.45,
+        "model_end_core_c": 39.31,
+        "fitted": false,
+        "fitted_metric": null
+      },
+      {
+        "clothing_mode": "jos3",
+        "condition": "FULL",
+        "gear": "full_pads",
+        "air_speed_m_s": 0.5,
+        "model_treadmill_rate_c_per_min": 0.0332,
+        "measured_treadmill_rate_c_per_min": 0.071,
+        "measured_sd": 0.032,
+        "treadmill_error_c_per_min": -0.0378,
+        "treadmill_error_in_sd": -1.18,
+        "model_whole_protocol_rate_c_per_min": 0.0241,
+        "measured_whole_protocol_rate_c_per_min": 0.042,
+        "measured_whole_sd": 0.01,
+        "model_rise_c": 1.33,
+        "measured_rise_c": 2.37,
+        "measured_rise_sd": 0.45,
+        "model_end_core_c": 39.07,
+        "fitted": false,
+        "fitted_metric": null
+      },
+      {
+        "clothing_mode": "jos3",
+        "condition": "FULL",
+        "gear": "full_pads",
+        "air_speed_m_s": 1.0,
+        "model_treadmill_rate_c_per_min": 0.0308,
+        "measured_treadmill_rate_c_per_min": 0.071,
+        "measured_sd": 0.032,
+        "treadmill_error_c_per_min": -0.0402,
+        "treadmill_error_in_sd": -1.26,
+        "model_whole_protocol_rate_c_per_min": 0.0225,
+        "measured_whole_protocol_rate_c_per_min": 0.042,
+        "measured_whole_sd": 0.01,
+        "model_rise_c": 1.24,
+        "measured_rise_c": 2.37,
+        "measured_rise_sd": 0.45,
+        "model_end_core_c": 38.99,
+        "fitted": false,
+        "fitted_metric": null
+      }
+    ]
   },
-  "walk_credit_check": {
-   "acsm_arithmetic": "speed 5.6 km/h = 93.333 m/min; VO2 = 0.1\u00d793.333 + 1.8\u00d793.333\u00d70.05 + 3.5 = 9.333 + 8.400 + 3.5 = 21.233 mL/kg/min = 6.067 MET",
-   "treadmill_met_acsm": 6.067,
-   "treadmill_met_compendium_17034": 5.3,
-   "measured_CON_treadmill_rate": [
-    0.037,
-    0.015
-   ],
-   "measured_CON_rise": [
-    1.81,
-    0.4
-   ],
-   "options": [
-    {
-     "walk_credit": 1.0,
-     "treadmill_met": "acsm",
-     "CON_treadmill_rate_c_per_min": 0.0224,
-     "error_in_sd": -0.98,
-     "CON_rise_c": 1.14,
-     "rise_error_in_sd": -1.67
+  "field_plausibility": {
+    "computed_by": "validation/field_plausibility.py",
+    "computed_at": "2026-10-03T19:24:47+00:00",
+    "model": "twonode-v1",
+    "synthetic": false,
+    "field_summary": "group-mean practice peaks 38.2\u201338.8 \u00b0C; individual maxima 39.1\u201339.3 \u00b0C; no reading \u2265 40 \u00b0C reported",
+    "scenarios": [
+      {
+        "study": "Godek 2006 (NFL, AM full equipment)",
+        "group": "linemen",
+        "measured_peak_mean_c": 38.65,
+        "measured_peak_sd_c": 0.48,
+        "measured_p95_c": 39.44,
+        "measured_max_individual_c": 39.29,
+        "model_p50_peak_c": {
+          "overcast": 39.5,
+          "clear": 40.64
+        },
+        "model_p95_peak_c": {
+          "overcast": 39.98,
+          "clear": 41.16
+        },
+        "p50_minus_measured_mean_c": {
+          "overcast": 0.85,
+          "clear": 1.99
+        },
+        "inputs": {
+          "air_temp_c": 25.0,
+          "rh_pct": 83.4,
+          "wbgt_c": null
+        },
+        "note": "RH 83.4 % from dry/wet bulb 25.0/22.8 \u00b0C (highest pair reported); age 26 assumed"
+      },
+      {
+        "study": "Godek 2006 (NFL, AM full equipment)",
+        "group": "backs",
+        "measured_peak_mean_c": 38.44,
+        "measured_peak_sd_c": 0.32,
+        "measured_p95_c": 38.97,
+        "measured_max_individual_c": 39.08,
+        "model_p50_peak_c": {
+          "overcast": 39.34,
+          "clear": 40.6
+        },
+        "model_p95_peak_c": {
+          "overcast": 40.51,
+          "clear": 41.78
+        },
+        "p50_minus_measured_mean_c": {
+          "overcast": 0.9,
+          "clear": 2.16
+        },
+        "inputs": {
+          "air_temp_c": 25.0,
+          "rh_pct": 83.4,
+          "wbgt_c": null
+        },
+        "note": "RH 83.4 % from dry/wet bulb 25.0/22.8 \u00b0C (highest pair reported); age 26 assumed"
+      },
+      {
+        "study": "Fowkes Godek 2004 (Div II, PM full pads)",
+        "group": "all",
+        "measured_peak_mean_c": 38.6,
+        "measured_peak_sd_c": null,
+        "measured_p95_c": null,
+        "measured_max_individual_c": 39.11,
+        "model_p50_peak_c": {
+          "overcast": 39.82,
+          "clear": 40.91
+        },
+        "model_p95_peak_c": {
+          "overcast": 40.19,
+          "clear": 41.45
+        },
+        "p50_minus_measured_mean_c": {
+          "overcast": 1.22,
+          "clear": 2.31
+        },
+        "inputs": {
+          "air_temp_c": 34.0,
+          "rh_pct": 41.0,
+          "wbgt_c": null
+        },
+        "note": "group value read from a figure (SECONDARY), SD not available; age 20 assumed"
+      },
+      {
+        "study": "McClelland 2018 (Div III, WBGT 29.1\u201331.4 \u00b0C)",
+        "group": "demo roster vs study cohort",
+        "measured_peak_mean_c": 38.56,
+        "measured_peak_sd_c": 0.32,
+        "measured_p95_c": 39.09,
+        "measured_max_individual_c": null,
+        "model_p50_peak_c": {
+          "demo_forecast": 40.23,
+          "demo_range": [
+            39.72,
+            40.95
+          ]
+        },
+        "model_p95_peak_c": {
+          "demo_forecast": 41.1,
+          "demo_range": [
+            40.51,
+            41.65
+          ]
+        },
+        "p50_minus_measured_mean_c": {
+          "demo_forecast": 1.67
+        },
+        "inputs": {
+          "wbgt_c": "demo forecast 28.3\u201330.0"
+        },
+        "note": "matched on WBGT band only: different roster (high school, NATA-phased gear) and practice plan"
+      },
+      {
+        "study": "DeMartini-Nolan 2018 (Div I, WBGT \u2248 28.75 \u00b0C)",
+        "group": "demo roster vs study cohort",
+        "measured_peak_mean_c": 38.83,
+        "measured_peak_sd_c": 0.42,
+        "measured_p95_c": 39.52,
+        "measured_max_individual_c": null,
+        "model_p50_peak_c": {
+          "demo_forecast": 40.23,
+          "demo_range": [
+            39.72,
+            40.95
+          ]
+        },
+        "model_p95_peak_c": {
+          "demo_forecast": 41.1,
+          "demo_range": [
+            40.51,
+            41.65
+          ]
+        },
+        "p50_minus_measured_mean_c": {
+          "demo_forecast": 1.4
+        },
+        "inputs": {
+          "wbgt_c": "demo forecast 28.3\u201330.0"
+        },
+        "note": "matched on WBGT band only: different roster (high school, NATA-phased gear) and practice plan"
+      },
+      {
+        "study": "Yeargin 2010 (high school, heat-acclimatized)",
+        "group": "all",
+        "measured_peak_mean_c": 38.7,
+        "measured_peak_sd_c": 0.3,
+        "measured_p95_c": 39.19,
+        "measured_max_individual_c": null,
+        "model_p50_peak_c": {
+          "forecast_evening": 40.44
+        },
+        "model_p95_peak_c": {
+          "forecast_evening": 41.95
+        },
+        "p50_minus_measured_mean_c": {
+          "forecast_evening": 1.73
+        },
+        "inputs": {
+          "wbgt_c": "fixture forecast 17:00\u201319:48, 27.8 \u2192 25.6 \u00b0C (study warm days 25 \u00b1 1)"
+        },
+        "note": "matched on WBGT band only (Ta/RH not in the paper): Gainesville fixture evening hours; full pads after the 3-day phase-in; fully acclimatized (day 14); slightly warmer than the study"
+      }
+    ],
+    "sensitivity_demo": [
+      {
+        "case": "baseline (conservative mode, as planned)",
+        "p50": 40.23,
+        "p95": 41.1
+      },
+      {
+        "case": "hard/max drills at the 'moderate' MET (activity level)",
+        "p50": 37.91,
+        "p95": 38.82,
+        "delta_p50": -2.32,
+        "delta_p95": -2.27
+      },
+      {
+        "case": "all drills in shade (no solar load)",
+        "p50": 39.42,
+        "p95": 40.21,
+        "delta_p50": -0.81,
+        "delta_p95": -0.88
+      },
+      {
+        "case": "ISO-dynamic clothing (no gear surcharge)",
+        "p50": 39.2,
+        "p95": 39.91,
+        "delta_p50": -1.03,
+        "delta_p95": -1.19
+      },
+      {
+        "case": "every athlete fully acclimatized (day 14)",
+        "p50": 39.9,
+        "p95": 40.73,
+        "delta_p50": -0.33,
+        "delta_p95": -0.37
+      },
+      {
+        "case": "no ensemble spread (met/thermo SD = 0)",
+        "p50": 40.25,
+        "p95": 40.25,
+        "delta_p50": 0.02,
+        "delta_p95": -0.85
+      },
+      {
+        "case": "walking-ventilation credit on (owner rule turned it off)",
+        "p50": 39.29,
+        "p95": 39.93,
+        "delta_p50": -0.94,
+        "delta_p95": -1.16
+      }
+    ],
+    "notes": [
+      "Practice structure in the studies is not reported; the fixture plan's drill mix (40 min at 'hard' = 8 MET, 12 min at 'max' = 11 MET) is used, scaled to each study's duration (gassers run in the study's gear).",
+      "NFL/college acclimatization is set to the camp day (no heat exposure before camp assumed) \u2014 pushes the model up ~0.2 \u00b0C.",
+      "WBGT-only rows run the demo roster and plan, not the study cohorts: McClelland is hotter than the demo (gap understated), Yeargin's matched evening is warmer than the study days (gap overstated).",
+      "The sweep shows sensitivities one at a time; the largest is not proven to be the cause of the gap.",
+      "Sun is bracketed (overcast vs clear) because cloud cover is not reported.",
+      "Study peaks are group means of individual maxima; the model's p50 is the median peak for the mean participant.",
+      "estimate \u2014 planning only"
+    ]
+  },
+  "demo": {
+    "computed_by": "validation/demo_numbers.py via the engine API with ?demo=1",
+    "computed_at": "2026-10-04T01:05:27+00:00",
+    "synthetic": true,
+    "inputs": {
+      "plan_id": "plan-demo-1",
+      "athletes": 16,
+      "synthetic": {
+        "plan": true,
+        "roster": true,
+        "weather": false
+      },
+      "labels": [
+        "estimate \u2014 planning only",
+        "synthetic plan (fixture)",
+        "synthetic roster",
+        "demo mode: forecast pinned to the cached NWS fixture",
+        "forecast is fixture"
+      ]
     },
-    {
-     "walk_credit": 1.0,
-     "treadmill_met": "compendium",
-     "CON_treadmill_rate_c_per_min": 0.0166,
-     "error_in_sd": -1.36,
-     "CON_rise_c": 0.84,
-     "rise_error_in_sd": -2.43
+    "simulate": {
+      "athletes": 16,
+      "over_limit": 16,
+      "near_limit": 0,
+      "max_p95_c": 41.65,
+      "team_mean_p95_c": 41.09,
+      "first_cross_min": 46.0,
+      "limit_c": 39.0,
+      "fhsaa_violations": 2,
+      "practice_min": 113.0,
+      "athletes_detail": {
+        "a01": {
+          "peak_p95_c": 40.51,
+          "peak_p50_c": 40.15,
+          "status": "over_limit",
+          "first_cross_min": 52.0
+        },
+        "a02": {
+          "peak_p95_c": 40.93,
+          "peak_p50_c": 40.57,
+          "status": "over_limit",
+          "first_cross_min": 49.0
+        },
+        "a03": {
+          "peak_p95_c": 40.72,
+          "peak_p50_c": 40.3,
+          "status": "over_limit",
+          "first_cross_min": 50.0
+        },
+        "a04": {
+          "peak_p95_c": 40.77,
+          "peak_p50_c": 40.0,
+          "status": "over_limit",
+          "first_cross_min": 49.0
+        },
+        "a05": {
+          "peak_p95_c": 40.89,
+          "peak_p50_c": 40.24,
+          "status": "over_limit",
+          "first_cross_min": 49.0
+        },
+        "a06": {
+          "peak_p95_c": 41.65,
+          "peak_p50_c": 40.95,
+          "status": "over_limit",
+          "first_cross_min": 46.0
+        },
+        "a07": {
+          "peak_p95_c": 41.53,
+          "peak_p50_c": 40.28,
+          "status": "over_limit",
+          "first_cross_min": 46.0
+        },
+        "a08": {
+          "peak_p95_c": 41.07,
+          "peak_p50_c": 40.43,
+          "status": "over_limit",
+          "first_cross_min": 48.0
+        },
+        "a09": {
+          "peak_p95_c": 41.25,
+          "peak_p50_c": 40.18,
+          "status": "over_limit",
+          "first_cross_min": 48.0
+        },
+        "a10": {
+          "peak_p95_c": 40.92,
+          "peak_p50_c": 40.05,
+          "status": "over_limit",
+          "first_cross_min": 47.0
+        },
+        "a11": {
+          "peak_p95_c": 41.12,
+          "peak_p50_c": 40.07,
+          "status": "over_limit",
+          "first_cross_min": 48.0
+        },
+        "a12": {
+          "peak_p95_c": 40.8,
+          "peak_p50_c": 39.85,
+          "status": "over_limit",
+          "first_cross_min": 49.0
+        },
+        "a13": {
+          "peak_p95_c": 41.19,
+          "peak_p50_c": 39.97,
+          "status": "over_limit",
+          "first_cross_min": 47.0
+        },
+        "a14": {
+          "peak_p95_c": 41.63,
+          "peak_p50_c": 40.33,
+          "status": "over_limit",
+          "first_cross_min": 47.0
+        },
+        "a15": {
+          "peak_p95_c": 41.27,
+          "peak_p50_c": 39.72,
+          "status": "over_limit",
+          "first_cross_min": 48.0
+        },
+        "a16": {
+          "peak_p95_c": 41.24,
+          "peak_p50_c": 40.62,
+          "status": "over_limit",
+          "first_cross_min": 47.0
+        }
+      }
     },
-    {
-     "walk_credit": 0.0,
-     "treadmill_met": "acsm",
-     "CON_treadmill_rate_c_per_min": 0.0358,
-     "error_in_sd": -0.08,
-     "CON_rise_c": 1.85,
-     "rise_error_in_sd": 0.1
+    "optimize": {
+      "max_load": {
+        "feasible": true,
+        "load_kept_pct": 72.9,
+        "changes": 12,
+        "after": {
+          "athletes": 16,
+          "over_limit": 0,
+          "near_limit": 8,
+          "max_p95_c": 38.98,
+          "team_mean_p95_c": 38.72,
+          "first_cross_min": null,
+          "limit_c": 39.0,
+          "fhsaa_violations": 0,
+          "practice_min": 133.0
+        },
+        "top_changes_text": "Biggest heat reductions: 1) Ran 'Team period' in 2 platoons (8 athletes \u00d7 12 min, 8 athletes \u00d7 13 min); the resting platoon waits in the shaded cooling area (team peak estimate 0.7 \u00b0C lower); 2) Moved 'Team period (platoon A)' to 15:44 (was 16:19) (team peak estimate 0.4 \u00b0C lower); 3) Ran 'Inside run' with rotating groups (part 1: 4 athletes \u00d7 7 min, part 2: 8 athletes \u00d7 8 min); athletes not in a part rest in the shaded cooling area; sitting out the whole drill: Tyler (fictional), Caleb (fictional), Logan (fictional), Kai (fictional) (team peak estimate 0.4 \u00b0C lower). Estimate \u2014 planning only.",
+        "notes": []
+      },
+      "fewest_changes": {
+        "feasible": true,
+        "load_kept_pct": 72.9,
+        "changes": 12,
+        "after": {
+          "athletes": 16,
+          "over_limit": 0,
+          "near_limit": 8,
+          "max_p95_c": 38.98,
+          "team_mean_p95_c": 38.72,
+          "first_cross_min": null,
+          "limit_c": 39.0,
+          "fhsaa_violations": 0,
+          "practice_min": 133.0
+        },
+        "top_changes_text": "Biggest heat reductions: 1) Ran 'Team period' in 2 platoons (8 athletes \u00d7 12 min, 8 athletes \u00d7 13 min); the resting platoon waits in the shaded cooling area (team peak estimate 0.7 \u00b0C lower); 2) Moved 'Team period (platoon A)' to 15:44 (was 16:19) (team peak estimate 0.4 \u00b0C lower); 3) Ran 'Inside run' with rotating groups (part 1: 4 athletes \u00d7 7 min, part 2: 8 athletes \u00d7 8 min); athletes not in a part rest in the shaded cooling area; sitting out the whole drill: Tyler (fictional), Caleb (fictional), Logan (fictional), Kai (fictional) (team peak estimate 0.4 \u00b0C lower). Estimate \u2014 planning only.",
+        "notes": [
+          "fewest_changes: needs at least 12 changes \u2014 no plan within 11 changes met every rule with every athlete under the line (caps 6\u201312 searched one at a time)"
+        ],
+        "fewest_changes": {
+          "cap": 6,
+          "min_compliant_changes": 12,
+          "searched_caps": [
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12
+          ],
+          "fell_back": false
+        }
+      }
     },
-    {
-     "walk_credit": 0.0,
-     "treadmill_met": "compendium",
-     "CON_treadmill_rate_c_per_min": 0.0241,
-     "error_in_sd": -0.86,
-     "CON_rise_c": 1.24,
-     "rise_error_in_sd": -1.42
+    "replay": {
+      "file": "fixtures/hr_a07_synthetic.csv",
+      "synthetic": true,
+      "athletes": [
+        "a07"
+      ],
+      "n_readings": 3600,
+      "first_ts": "2026-10-04T15:30:00-04:00",
+      "last_ts": "2026-10-04T16:29:59-04:00",
+      "aligned_to_plan_start": false,
+      "frames": 59,
+      "labels": [
+        "replay",
+        "synthetic HR (not a real athlete)",
+        "synthetic plan (fixture)",
+        "synthetic roster",
+        "demo mode: forecast pinned to the cached NWS fixture"
+      ],
+      "last_frame": {
+        "minute": 59.0,
+        "athlete_id": "a07",
+        "met_scale": 1.2392,
+        "peak_p95_c": 41.65,
+        "status": "over_limit",
+        "gate_message": "re-forecast shows crossing"
+      }
+    },
+    "field_conditions": {
+      "hours": [
+        {
+          "time": "15:00",
+          "wbgt_f": 86.0,
+          "fhsaa_zone": 2,
+          "air_temp_c": 31.11,
+          "rh_pct": 72.0,
+          "source": "fixture"
+        },
+        {
+          "time": "16:00",
+          "wbgt_f": 83.0,
+          "fhsaa_zone": 2,
+          "air_temp_c": 30,
+          "rh_pct": 75.0,
+          "source": "fixture"
+        },
+        {
+          "time": "17:00",
+          "wbgt_f": 82.0,
+          "fhsaa_zone": 1,
+          "air_temp_c": 29.44,
+          "rh_pct": 77.0,
+          "source": "fixture"
+        }
+      ],
+      "sources": [
+        "fixture"
+      ]
+    },
+    "node_latest": {
+      "reading": null,
+      "series": [],
+      "file": null,
+      "labels": [
+        "no field recording yet"
+      ]
     }
-   ],
-   "decision_rule": "with the ACSM MET, choose the walk_credit whose CON treadmill rate is closer to the measured mean",
-   "chosen_walk_credit": 0.0,
-   "in_constants": 0.0
   },
-  "calibration_fits": [
-   {
-    "target": "whole_rise",
-    "target_value": 2.37,
-    "gear_met_surcharge_full_pads": 0.0486,
-    "CON_treadmill_rate_c_per_min": 0.0358,
-    "CON_rise_c": 1.85,
-    "FULL_treadmill_rate_c_per_min": 0.0621,
-    "FULL_rise_c": 2.37
-   },
-   {
-    "target": "treadmill_rate",
-    "target_value": 0.071,
-    "gear_met_surcharge_full_pads": 0.1348,
-    "CON_treadmill_rate_c_per_min": 0.0358,
-    "CON_rise_c": 1.85,
-    "FULL_treadmill_rate_c_per_min": 0.071,
-    "FULL_rise_c": 2.76
-   }
-  ],
-  "calibration_in_use": "whole_rise",
-  "computed_by": "validation/armstrong_2010.py",
-  "computed_at": "2026-10-03T19:24:47+00:00",
-  "model": "twonode-v1",
-  "conservative_gear_met_surcharge_full_pads": 0.0486,
-  "synthetic": false,
-  "notes": [
-   "Deterministic run for the mean participant; measured values are group means \u00b1 SD of 10 men.",
-   "Conservative mode is calibrated on FULL at the reference air speed (row with fitted=true, on fitted_metric) \u2014 that metric is a fit, not a validation. Both calibration fits are listed under calibration_fits.",
-   "Air speed and metabolic rate were not reported; METs from the 2024 Compendium (task mapping is a judgement call).",
-   "CON maps to gear 'none', which includes a T-shirt that Armstrong's CON did not wear; PART has no matching gear level.",
-   "JOS-3 uses static intrinsic clo of the mapped gear (it takes no evaporative resistance input) and starts from its own neutral state; rates and rises are compared, not absolute temperatures.",
-   "estimate \u2014 planning only"
-  ],
-  "rows": [
-   {
-    "clothing_mode": "conservative",
-    "condition": "CON",
-    "gear": "none",
-    "air_speed_m_s": 0.1,
-    "model_treadmill_rate_c_per_min": 0.0358,
-    "measured_treadmill_rate_c_per_min": 0.037,
-    "measured_sd": 0.015,
-    "treadmill_error_c_per_min": -0.0012,
-    "treadmill_error_in_sd": -0.08,
-    "model_whole_protocol_rate_c_per_min": 0.0257,
-    "measured_whole_protocol_rate_c_per_min": 0.026,
-    "measured_whole_sd": 0.008,
-    "model_rise_c": 1.85,
-    "measured_rise_c": 1.81,
-    "measured_rise_sd": 0.4,
-    "model_end_core_c": 39.05,
-    "fitted": false,
-    "fitted_metric": null
-   },
-   {
-    "clothing_mode": "conservative",
-    "condition": "CON",
-    "gear": "none",
-    "air_speed_m_s": 0.5,
-    "model_treadmill_rate_c_per_min": 0.0242,
-    "measured_treadmill_rate_c_per_min": 0.037,
-    "measured_sd": 0.015,
-    "treadmill_error_c_per_min": -0.0128,
-    "treadmill_error_in_sd": -0.86,
-    "model_whole_protocol_rate_c_per_min": 0.017,
-    "measured_whole_protocol_rate_c_per_min": 0.026,
-    "measured_whole_sd": 0.008,
-    "model_rise_c": 1.22,
-    "measured_rise_c": 1.81,
-    "measured_rise_sd": 0.4,
-    "model_end_core_c": 38.42,
-    "fitted": false,
-    "fitted_metric": null
-   },
-   {
-    "clothing_mode": "conservative",
-    "condition": "CON",
-    "gear": "none",
-    "air_speed_m_s": 1.0,
-    "model_treadmill_rate_c_per_min": 0.0224,
-    "measured_treadmill_rate_c_per_min": 0.037,
-    "measured_sd": 0.015,
-    "treadmill_error_c_per_min": -0.0146,
-    "treadmill_error_in_sd": -0.97,
-    "model_whole_protocol_rate_c_per_min": 0.0153,
-    "measured_whole_protocol_rate_c_per_min": 0.026,
-    "measured_whole_sd": 0.008,
-    "model_rise_c": 1.1,
-    "measured_rise_c": 1.81,
-    "measured_rise_sd": 0.4,
-    "model_end_core_c": 38.3,
-    "fitted": false,
-    "fitted_metric": null
-   },
-   {
-    "clothing_mode": "conservative",
-    "condition": "FULL",
-    "gear": "full_pads",
-    "air_speed_m_s": 0.1,
-    "model_treadmill_rate_c_per_min": 0.0621,
-    "measured_treadmill_rate_c_per_min": 0.071,
-    "measured_sd": 0.032,
-    "treadmill_error_c_per_min": -0.0089,
-    "treadmill_error_in_sd": -0.28,
-    "model_whole_protocol_rate_c_per_min": 0.0423,
-    "measured_whole_protocol_rate_c_per_min": 0.042,
-    "measured_whole_sd": 0.01,
-    "model_rise_c": 2.37,
-    "measured_rise_c": 2.37,
-    "measured_rise_sd": 0.45,
-    "model_end_core_c": 39.57,
-    "fitted": true,
-    "fitted_metric": "whole_rise"
-   },
-   {
-    "clothing_mode": "conservative",
-    "condition": "FULL",
-    "gear": "full_pads",
-    "air_speed_m_s": 0.5,
-    "model_treadmill_rate_c_per_min": 0.0515,
-    "measured_treadmill_rate_c_per_min": 0.071,
-    "measured_sd": 0.032,
-    "treadmill_error_c_per_min": -0.0195,
-    "treadmill_error_in_sd": -0.61,
-    "model_whole_protocol_rate_c_per_min": 0.0336,
-    "measured_whole_protocol_rate_c_per_min": 0.042,
-    "measured_whole_sd": 0.01,
-    "model_rise_c": 1.88,
-    "measured_rise_c": 2.37,
-    "measured_rise_sd": 0.45,
-    "model_end_core_c": 39.08,
-    "fitted": false,
-    "fitted_metric": null
-   },
-   {
-    "clothing_mode": "conservative",
-    "condition": "FULL",
-    "gear": "full_pads",
-    "air_speed_m_s": 1.0,
-    "model_treadmill_rate_c_per_min": 0.0393,
-    "measured_treadmill_rate_c_per_min": 0.071,
-    "measured_sd": 0.032,
-    "treadmill_error_c_per_min": -0.0317,
-    "treadmill_error_in_sd": -0.99,
-    "model_whole_protocol_rate_c_per_min": 0.0254,
-    "measured_whole_protocol_rate_c_per_min": 0.042,
-    "measured_whole_sd": 0.01,
-    "model_rise_c": 1.42,
-    "measured_rise_c": 2.37,
-    "measured_rise_sd": 0.45,
-    "model_end_core_c": 38.62,
-    "fitted": false,
-    "fitted_metric": null
-   },
-   {
-    "clothing_mode": "iso7933_dynamic",
-    "condition": "CON",
-    "gear": "none",
-    "air_speed_m_s": 0.1,
-    "model_treadmill_rate_c_per_min": 0.0224,
-    "measured_treadmill_rate_c_per_min": 0.037,
-    "measured_sd": 0.015,
-    "treadmill_error_c_per_min": -0.0146,
-    "treadmill_error_in_sd": -0.98,
-    "model_whole_protocol_rate_c_per_min": 0.0158,
-    "measured_whole_protocol_rate_c_per_min": 0.026,
-    "measured_whole_sd": 0.008,
-    "model_rise_c": 1.14,
-    "measured_rise_c": 1.81,
-    "measured_rise_sd": 0.4,
-    "model_end_core_c": 38.34,
-    "fitted": false,
-    "fitted_metric": null
-   },
-   {
-    "clothing_mode": "iso7933_dynamic",
-    "condition": "CON",
-    "gear": "none",
-    "air_speed_m_s": 0.5,
-    "model_treadmill_rate_c_per_min": 0.0219,
-    "measured_treadmill_rate_c_per_min": 0.037,
-    "measured_sd": 0.015,
-    "treadmill_error_c_per_min": -0.0151,
-    "treadmill_error_in_sd": -1.01,
-    "model_whole_protocol_rate_c_per_min": 0.0151,
-    "measured_whole_protocol_rate_c_per_min": 0.026,
-    "measured_whole_sd": 0.008,
-    "model_rise_c": 1.09,
-    "measured_rise_c": 1.81,
-    "measured_rise_sd": 0.4,
-    "model_end_core_c": 38.29,
-    "fitted": false,
-    "fitted_metric": null
-   },
-   {
-    "clothing_mode": "iso7933_dynamic",
-    "condition": "CON",
-    "gear": "none",
-    "air_speed_m_s": 1.0,
-    "model_treadmill_rate_c_per_min": 0.0211,
-    "measured_treadmill_rate_c_per_min": 0.037,
-    "measured_sd": 0.015,
-    "treadmill_error_c_per_min": -0.0159,
-    "treadmill_error_in_sd": -1.06,
-    "model_whole_protocol_rate_c_per_min": 0.0141,
-    "measured_whole_protocol_rate_c_per_min": 0.026,
-    "measured_whole_sd": 0.008,
-    "model_rise_c": 1.02,
-    "measured_rise_c": 1.81,
-    "measured_rise_sd": 0.4,
-    "model_end_core_c": 38.22,
-    "fitted": false,
-    "fitted_metric": null
-   },
-   {
-    "clothing_mode": "iso7933_dynamic",
-    "condition": "FULL",
-    "gear": "full_pads",
-    "air_speed_m_s": 0.1,
-    "model_treadmill_rate_c_per_min": 0.0399,
-    "measured_treadmill_rate_c_per_min": 0.071,
-    "measured_sd": 0.032,
-    "treadmill_error_c_per_min": -0.0311,
-    "treadmill_error_in_sd": -0.97,
-    "model_whole_protocol_rate_c_per_min": 0.0265,
-    "measured_whole_protocol_rate_c_per_min": 0.042,
-    "measured_whole_sd": 0.01,
-    "model_rise_c": 1.48,
-    "measured_rise_c": 2.37,
-    "measured_rise_sd": 0.45,
-    "model_end_core_c": 38.68,
-    "fitted": false,
-    "fitted_metric": null
-   },
-   {
-    "clothing_mode": "iso7933_dynamic",
-    "condition": "FULL",
-    "gear": "full_pads",
-    "air_speed_m_s": 0.5,
-    "model_treadmill_rate_c_per_min": 0.0307,
-    "measured_treadmill_rate_c_per_min": 0.071,
-    "measured_sd": 0.032,
-    "treadmill_error_c_per_min": -0.0403,
-    "treadmill_error_in_sd": -1.26,
-    "model_whole_protocol_rate_c_per_min": 0.0196,
-    "measured_whole_protocol_rate_c_per_min": 0.042,
-    "measured_whole_sd": 0.01,
-    "model_rise_c": 1.1,
-    "measured_rise_c": 2.37,
-    "measured_rise_sd": 0.45,
-    "model_end_core_c": 38.3,
-    "fitted": false,
-    "fitted_metric": null
-   },
-   {
-    "clothing_mode": "iso7933_dynamic",
-    "condition": "FULL",
-    "gear": "full_pads",
-    "air_speed_m_s": 1.0,
-    "model_treadmill_rate_c_per_min": 0.0292,
-    "measured_treadmill_rate_c_per_min": 0.071,
-    "measured_sd": 0.032,
-    "treadmill_error_c_per_min": -0.0418,
-    "treadmill_error_in_sd": -1.31,
-    "model_whole_protocol_rate_c_per_min": 0.0183,
-    "measured_whole_protocol_rate_c_per_min": 0.042,
-    "measured_whole_sd": 0.01,
-    "model_rise_c": 1.03,
-    "measured_rise_c": 2.37,
-    "measured_rise_sd": 0.45,
-    "model_end_core_c": 38.23,
-    "fitted": false,
-    "fitted_metric": null
-   },
-   {
-    "clothing_mode": "gagge_static",
-    "condition": "CON",
-    "gear": "none",
-    "air_speed_m_s": 0.1,
-    "model_treadmill_rate_c_per_min": 0.0314,
-    "measured_treadmill_rate_c_per_min": 0.037,
-    "measured_sd": 0.015,
-    "treadmill_error_c_per_min": -0.0056,
-    "treadmill_error_in_sd": -0.37,
-    "model_whole_protocol_rate_c_per_min": 0.023,
-    "measured_whole_protocol_rate_c_per_min": 0.026,
-    "measured_whole_sd": 0.008,
-    "model_rise_c": 1.66,
-    "measured_rise_c": 1.81,
-    "measured_rise_sd": 0.4,
-    "model_end_core_c": 38.86,
-    "fitted": false,
-    "fitted_metric": null
-   },
-   {
-    "clothing_mode": "gagge_static",
-    "condition": "CON",
-    "gear": "none",
-    "air_speed_m_s": 0.5,
-    "model_treadmill_rate_c_per_min": 0.0362,
-    "measured_treadmill_rate_c_per_min": 0.037,
-    "measured_sd": 0.015,
-    "treadmill_error_c_per_min": -0.0008,
-    "treadmill_error_in_sd": -0.06,
-    "model_whole_protocol_rate_c_per_min": 0.0258,
-    "measured_whole_protocol_rate_c_per_min": 0.026,
-    "measured_whole_sd": 0.008,
-    "model_rise_c": 1.86,
-    "measured_rise_c": 1.81,
-    "measured_rise_sd": 0.4,
-    "model_end_core_c": 39.06,
-    "fitted": false,
-    "fitted_metric": null
-   },
-   {
-    "clothing_mode": "gagge_static",
-    "condition": "CON",
-    "gear": "none",
-    "air_speed_m_s": 1.0,
-    "model_treadmill_rate_c_per_min": 0.0381,
-    "measured_treadmill_rate_c_per_min": 0.037,
-    "measured_sd": 0.015,
-    "treadmill_error_c_per_min": 0.0011,
-    "treadmill_error_in_sd": 0.07,
-    "model_whole_protocol_rate_c_per_min": 0.0271,
-    "measured_whole_protocol_rate_c_per_min": 0.026,
-    "measured_whole_sd": 0.008,
-    "model_rise_c": 1.95,
-    "measured_rise_c": 1.81,
-    "measured_rise_sd": 0.4,
-    "model_end_core_c": 39.15,
-    "fitted": false,
-    "fitted_metric": null
-   },
-   {
-    "clothing_mode": "gagge_static",
-    "condition": "FULL",
-    "gear": "full_pads",
-    "air_speed_m_s": 0.1,
-    "model_treadmill_rate_c_per_min": 0.0568,
-    "measured_treadmill_rate_c_per_min": 0.071,
-    "measured_sd": 0.032,
-    "treadmill_error_c_per_min": -0.0142,
-    "treadmill_error_in_sd": -0.44,
-    "model_whole_protocol_rate_c_per_min": 0.0395,
-    "measured_whole_protocol_rate_c_per_min": 0.042,
-    "measured_whole_sd": 0.01,
-    "model_rise_c": 2.21,
-    "measured_rise_c": 2.37,
-    "measured_rise_sd": 0.45,
-    "model_end_core_c": 39.41,
-    "fitted": false,
-    "fitted_metric": null
-   },
-   {
-    "clothing_mode": "gagge_static",
-    "condition": "FULL",
-    "gear": "full_pads",
-    "air_speed_m_s": 0.5,
-    "model_treadmill_rate_c_per_min": 0.0602,
-    "measured_treadmill_rate_c_per_min": 0.071,
-    "measured_sd": 0.032,
-    "treadmill_error_c_per_min": -0.0108,
-    "treadmill_error_in_sd": -0.34,
-    "model_whole_protocol_rate_c_per_min": 0.0417,
-    "measured_whole_protocol_rate_c_per_min": 0.042,
-    "measured_whole_sd": 0.01,
-    "model_rise_c": 2.34,
-    "measured_rise_c": 2.37,
-    "measured_rise_sd": 0.45,
-    "model_end_core_c": 39.54,
-    "fitted": false,
-    "fitted_metric": null
-   },
-   {
-    "clothing_mode": "gagge_static",
-    "condition": "FULL",
-    "gear": "full_pads",
-    "air_speed_m_s": 1.0,
-    "model_treadmill_rate_c_per_min": 0.0615,
-    "measured_treadmill_rate_c_per_min": 0.071,
-    "measured_sd": 0.032,
-    "treadmill_error_c_per_min": -0.0095,
-    "treadmill_error_in_sd": -0.3,
-    "model_whole_protocol_rate_c_per_min": 0.0426,
-    "measured_whole_protocol_rate_c_per_min": 0.042,
-    "measured_whole_sd": 0.01,
-    "model_rise_c": 2.38,
-    "measured_rise_c": 2.37,
-    "measured_rise_sd": 0.45,
-    "model_end_core_c": 39.58,
-    "fitted": false,
-    "fitted_metric": null
-   },
-   {
-    "clothing_mode": "jos3",
-    "condition": "CON",
-    "gear": "none",
-    "air_speed_m_s": 0.1,
-    "model_treadmill_rate_c_per_min": 0.0336,
-    "measured_treadmill_rate_c_per_min": 0.037,
-    "measured_sd": 0.015,
-    "treadmill_error_c_per_min": -0.0034,
-    "treadmill_error_in_sd": -0.22,
-    "model_whole_protocol_rate_c_per_min": 0.0265,
-    "measured_whole_protocol_rate_c_per_min": 0.026,
-    "measured_whole_sd": 0.008,
-    "model_rise_c": 1.88,
-    "measured_rise_c": 1.81,
-    "measured_rise_sd": 0.4,
-    "model_end_core_c": 39.63,
-    "fitted": false,
-    "fitted_metric": null
-   },
-   {
-    "clothing_mode": "jos3",
-    "condition": "CON",
-    "gear": "none",
-    "air_speed_m_s": 0.5,
-    "model_treadmill_rate_c_per_min": 0.0234,
-    "measured_treadmill_rate_c_per_min": 0.037,
-    "measured_sd": 0.015,
-    "treadmill_error_c_per_min": -0.0136,
-    "treadmill_error_in_sd": -0.91,
-    "model_whole_protocol_rate_c_per_min": 0.0188,
-    "measured_whole_protocol_rate_c_per_min": 0.026,
-    "measured_whole_sd": 0.008,
-    "model_rise_c": 1.34,
-    "measured_rise_c": 1.81,
-    "measured_rise_sd": 0.4,
-    "model_end_core_c": 39.08,
-    "fitted": false,
-    "fitted_metric": null
-   },
-   {
-    "clothing_mode": "jos3",
-    "condition": "CON",
-    "gear": "none",
-    "air_speed_m_s": 1.0,
-    "model_treadmill_rate_c_per_min": 0.0211,
-    "measured_treadmill_rate_c_per_min": 0.037,
-    "measured_sd": 0.015,
-    "treadmill_error_c_per_min": -0.0159,
-    "treadmill_error_in_sd": -1.06,
-    "model_whole_protocol_rate_c_per_min": 0.0171,
-    "measured_whole_protocol_rate_c_per_min": 0.026,
-    "measured_whole_sd": 0.008,
-    "model_rise_c": 1.21,
-    "measured_rise_c": 1.81,
-    "measured_rise_sd": 0.4,
-    "model_end_core_c": 38.96,
-    "fitted": false,
-    "fitted_metric": null
-   },
-   {
-    "clothing_mode": "jos3",
-    "condition": "FULL",
-    "gear": "full_pads",
-    "air_speed_m_s": 0.1,
-    "model_treadmill_rate_c_per_min": 0.0396,
-    "measured_treadmill_rate_c_per_min": 0.071,
-    "measured_sd": 0.032,
-    "treadmill_error_c_per_min": -0.0314,
-    "treadmill_error_in_sd": -0.98,
-    "model_whole_protocol_rate_c_per_min": 0.0284,
-    "measured_whole_protocol_rate_c_per_min": 0.042,
-    "measured_whole_sd": 0.01,
-    "model_rise_c": 1.56,
-    "measured_rise_c": 2.37,
-    "measured_rise_sd": 0.45,
-    "model_end_core_c": 39.31,
-    "fitted": false,
-    "fitted_metric": null
-   },
-   {
-    "clothing_mode": "jos3",
-    "condition": "FULL",
-    "gear": "full_pads",
-    "air_speed_m_s": 0.5,
-    "model_treadmill_rate_c_per_min": 0.0332,
-    "measured_treadmill_rate_c_per_min": 0.071,
-    "measured_sd": 0.032,
-    "treadmill_error_c_per_min": -0.0378,
-    "treadmill_error_in_sd": -1.18,
-    "model_whole_protocol_rate_c_per_min": 0.0241,
-    "measured_whole_protocol_rate_c_per_min": 0.042,
-    "measured_whole_sd": 0.01,
-    "model_rise_c": 1.33,
-    "measured_rise_c": 2.37,
-    "measured_rise_sd": 0.45,
-    "model_end_core_c": 39.07,
-    "fitted": false,
-    "fitted_metric": null
-   },
-   {
-    "clothing_mode": "jos3",
-    "condition": "FULL",
-    "gear": "full_pads",
-    "air_speed_m_s": 1.0,
-    "model_treadmill_rate_c_per_min": 0.0308,
-    "measured_treadmill_rate_c_per_min": 0.071,
-    "measured_sd": 0.032,
-    "treadmill_error_c_per_min": -0.0402,
-    "treadmill_error_in_sd": -1.26,
-    "model_whole_protocol_rate_c_per_min": 0.0225,
-    "measured_whole_protocol_rate_c_per_min": 0.042,
-    "measured_whole_sd": 0.01,
-    "model_rise_c": 1.24,
-    "measured_rise_c": 2.37,
-    "measured_rise_sd": 0.45,
-    "model_end_core_c": 38.99,
-    "fitted": false,
-    "fitted_metric": null
-   }
-  ]
- },
- "field_plausibility": {
-  "computed_by": "validation/field_plausibility.py",
-  "computed_at": "2026-10-03T19:24:47+00:00",
-  "model": "twonode-v1",
-  "synthetic": false,
-  "field_summary": "group-mean practice peaks 38.2\u201338.8 \u00b0C; individual maxima 39.1\u201339.3 \u00b0C; no reading \u2265 40 \u00b0C reported",
-  "scenarios": [
-   {
-    "study": "Godek 2006 (NFL, AM full equipment)",
-    "group": "linemen",
-    "measured_peak_mean_c": 38.65,
-    "measured_peak_sd_c": 0.48,
-    "measured_p95_c": 39.44,
-    "measured_max_individual_c": 39.29,
-    "model_p50_peak_c": {
-     "overcast": 39.5,
-     "clear": 40.64
+  "wbgt_gap": {
+    "computed_by": "validation/wbgt_gap.py",
+    "computed_at": "2026-10-04T00:16:36+00:00",
+    "synthetic": false,
+    "inputs_note": "Cached real NWS gridpoint forecasts (fixtures/); no network. Our WBGT is engine/wbgt.py as engine/weather.py runs it; NWS's is its wetBulbGlobeTemperature layer.",
+    "site": {
+      "lat": 29.6516,
+      "lon": -82.3248
     },
-    "model_p95_peak_c": {
-     "overcast": 39.98,
-     "clear": 41.16
+    "sign": "delta > 0: our choice makes our WBGT higher than NWS's documented choice. gap = ours \u2212 NWS = \u03a3 delta + residual; residual = (all swaps) \u2212 NWS.",
+    "attribution": "Shapley value over all 2^6 swap combinations (order-independent; sums exactly). delta_alone_f: each swap alone on our baseline.",
+    "factors": {
+      "solar_split": {
+        "input": "solar (direct/diffuse split)",
+        "swap": "Liljegren f_dir(S/S_toa) \u2192 NDFD direct = min(1 \u2212 sky, ndfd_wbgt.direct_beam_cap)"
+      },
+      "wind_height": {
+        "input": "wind (10 m \u2192 2 m)",
+        "swap": "stability-class power law \u2192 log law, z0 = wbgt_gap_ablation.z0_log_law_m"
+      },
+      "ground_albedo": {
+        "input": "MRT/globe (ground albedo)",
+        "swap": "liljegren_2008.alb_sfc \u2192 wbgt_gap_ablation.albedo_swap"
+      },
+      "globe_model": {
+        "input": "MRT/globe (globe equation)",
+        "swap": "Liljegren globe \u2192 Dimiceli-Piltz Eq. 10 with ndfd_wbgt.h_convective_day (sun up only)"
+      },
+      "nwb_model": {
+        "input": "natural wet bulb (equation)",
+        "swap": "Liljegren wick \u2192 ndfd_wbgt.nwb_regression on the psychrometric wet bulb"
+      },
+      "humidity": {
+        "input": "humidity (RH vs dewpoint)",
+        "swap": "relativeHumidity layer \u2192 RH from the dewpoint layer"
+      }
     },
-    "p50_minus_measured_mean_c": {
-     "overcast": 0.85,
-     "clear": 1.99
+    "not_swapped": {
+      "cloud_attenuation": "same formula both sides: R0\u00b7(1 \u2212 0.75 n^3.4), n = sky fraction (Boyer p.5; constants.clear_sky_fallback)",
+      "clear_sky_curve": "NWS: daily max at solar noon (f(latitude, day of year)) \u00d7 Gaussian (Boyer p.3); parameters not published \u2192 not reproducible; tested via implied_solar_scale",
+      "sun_time": "both evaluate the sun at the forecast hour (Boyer p.4 SOLPOS 'date/time of the forecast hour'); \u00b130 min is a sensitivity"
     },
-    "inputs": {
-     "air_temp_c": 25.0,
-     "rh_pct": 83.4,
-     "wbgt_c": null
-    },
-    "note": "RH 83.4 % from dry/wet bulb 25.0/22.8 \u00b0C (highest pair reported); age 26 assumed"
-   },
-   {
-    "study": "Godek 2006 (NFL, AM full equipment)",
-    "group": "backs",
-    "measured_peak_mean_c": 38.44,
-    "measured_peak_sd_c": 0.32,
-    "measured_p95_c": 38.97,
-    "measured_max_individual_c": 39.08,
-    "model_p50_peak_c": {
-     "overcast": 39.34,
-     "clear": 40.6
-    },
-    "model_p95_peak_c": {
-     "overcast": 40.51,
-     "clear": 41.78
-    },
-    "p50_minus_measured_mean_c": {
-     "overcast": 0.9,
-     "clear": 2.16
-    },
-    "inputs": {
-     "air_temp_c": 25.0,
-     "rh_pct": 83.4,
-     "wbgt_c": null
-    },
-    "note": "RH 83.4 % from dry/wet bulb 25.0/22.8 \u00b0C (highest pair reported); age 26 assumed"
-   },
-   {
-    "study": "Fowkes Godek 2004 (Div II, PM full pads)",
-    "group": "all",
-    "measured_peak_mean_c": 38.6,
-    "measured_peak_sd_c": null,
-    "measured_p95_c": null,
-    "measured_max_individual_c": 39.11,
-    "model_p50_peak_c": {
-     "overcast": 39.82,
-     "clear": 40.91
-    },
-    "model_p95_peak_c": {
-     "overcast": 40.19,
-     "clear": 41.45
-    },
-    "p50_minus_measured_mean_c": {
-     "overcast": 1.22,
-     "clear": 2.31
-    },
-    "inputs": {
-     "air_temp_c": 34.0,
-     "rh_pct": 41.0,
-     "wbgt_c": null
-    },
-    "note": "group value read from a figure (SECONDARY), SD not available; age 20 assumed"
-   },
-   {
-    "study": "McClelland 2018 (Div III, WBGT 29.1\u201331.4 \u00b0C)",
-    "group": "demo roster vs study cohort",
-    "measured_peak_mean_c": 38.56,
-    "measured_peak_sd_c": 0.32,
-    "measured_p95_c": 39.09,
-    "measured_max_individual_c": null,
-    "model_p50_peak_c": {
-     "demo_forecast": 40.23,
-     "demo_range": [
-      39.72,
-      40.95
-     ]
-    },
-    "model_p95_peak_c": {
-     "demo_forecast": 41.1,
-     "demo_range": [
-      40.51,
-      41.65
-     ]
-    },
-    "p50_minus_measured_mean_c": {
-     "demo_forecast": 1.67
-    },
-    "inputs": {
-     "wbgt_c": "demo forecast 28.3\u201330.0"
-    },
-    "note": "matched on WBGT band only: different roster (high school, NATA-phased gear) and practice plan"
-   },
-   {
-    "study": "DeMartini-Nolan 2018 (Div I, WBGT \u2248 28.75 \u00b0C)",
-    "group": "demo roster vs study cohort",
-    "measured_peak_mean_c": 38.83,
-    "measured_peak_sd_c": 0.42,
-    "measured_p95_c": 39.52,
-    "measured_max_individual_c": null,
-    "model_p50_peak_c": {
-     "demo_forecast": 40.23,
-     "demo_range": [
-      39.72,
-      40.95
-     ]
-    },
-    "model_p95_peak_c": {
-     "demo_forecast": 41.1,
-     "demo_range": [
-      40.51,
-      41.65
-     ]
-    },
-    "p50_minus_measured_mean_c": {
-     "demo_forecast": 1.4
-    },
-    "inputs": {
-     "wbgt_c": "demo forecast 28.3\u201330.0"
-    },
-    "note": "matched on WBGT band only: different roster (high school, NATA-phased gear) and practice plan"
-   },
-   {
-    "study": "Yeargin 2010 (high school, heat-acclimatized)",
-    "group": "all",
-    "measured_peak_mean_c": 38.7,
-    "measured_peak_sd_c": 0.3,
-    "measured_p95_c": 39.19,
-    "measured_max_individual_c": null,
-    "model_p50_peak_c": {
-     "forecast_evening": 40.44
-    },
-    "model_p95_peak_c": {
-     "forecast_evening": 41.95
-    },
-    "p50_minus_measured_mean_c": {
-     "forecast_evening": 1.73
-    },
-    "inputs": {
-     "wbgt_c": "fixture forecast 17:00\u201319:48, 27.8 \u2192 25.6 \u00b0C (study warm days 25 \u00b1 1)"
-    },
-    "note": "matched on WBGT band only (Ta/RH not in the paper): Gainesville fixture evening hours; full pads after the 3-day phase-in; fully acclimatized (day 14); slightly warmer than the study"
-   }
-  ],
-  "sensitivity_demo": [
-   {
-    "case": "baseline (conservative mode, as planned)",
-    "p50": 40.23,
-    "p95": 41.1
-   },
-   {
-    "case": "hard/max drills at the 'moderate' MET (activity level)",
-    "p50": 37.91,
-    "p95": 38.82,
-    "delta_p50": -2.32,
-    "delta_p95": -2.27
-   },
-   {
-    "case": "all drills in shade (no solar load)",
-    "p50": 39.42,
-    "p95": 40.21,
-    "delta_p50": -0.81,
-    "delta_p95": -0.88
-   },
-   {
-    "case": "ISO-dynamic clothing (no gear surcharge)",
-    "p50": 39.2,
-    "p95": 39.91,
-    "delta_p50": -1.03,
-    "delta_p95": -1.19
-   },
-   {
-    "case": "every athlete fully acclimatized (day 14)",
-    "p50": 39.9,
-    "p95": 40.73,
-    "delta_p50": -0.33,
-    "delta_p95": -0.37
-   },
-   {
-    "case": "no ensemble spread (met/thermo SD = 0)",
-    "p50": 40.25,
-    "p95": 40.25,
-    "delta_p50": 0.02,
-    "delta_p95": -0.85
-   },
-   {
-    "case": "walking-ventilation credit on (owner rule turned it off)",
-    "p50": 39.29,
-    "p95": 39.93,
-    "delta_p50": -0.94,
-    "delta_p95": -1.16
-   }
-  ],
-  "notes": [
-   "Practice structure in the studies is not reported; the fixture plan's drill mix (40 min at 'hard' = 8 MET, 12 min at 'max' = 11 MET) is used, scaled to each study's duration (gassers run in the study's gear).",
-   "NFL/college acclimatization is set to the camp day (no heat exposure before camp assumed) \u2014 pushes the model up ~0.2 \u00b0C.",
-   "WBGT-only rows run the demo roster and plan, not the study cohorts: McClelland is hotter than the demo (gap understated), Yeargin's matched evening is warmer than the study days (gap overstated).",
-   "The sweep shows sensitivities one at a time; the largest is not proven to be the cause of the gap.",
-   "Sun is bracketed (overcast vs clear) because cloud cover is not reported.",
-   "Study peaks are group means of individual maxima; the model's p50 is the median peak for the mean participant.",
-   "estimate \u2014 planning only"
-  ]
- }
+    "nws_method_read": [
+      "Boyer TR (MDL/NWS), NDFD Wet Bulb Globe Temperature Algorithm and Software Design (constants.ndfd_wbgt)",
+      "Dimiceli VE, Piltz SF, Estimation of Black Globe Temperature for Calculation of the WBGT Index (constants.dimiceli_piltz_globe)",
+      "Hunter CH, Minyard CO (1999) WSRC-MS-99-00757 (units of the NWB regression that NDFD's replaces)"
+    ],
+    "not_verified": [
+      "NWS's clear-sky curve: the daily maximum formula and the Gaussian's width are not published in what we read",
+      "which NDFD WBGT software version produced these layers (Boyer lists several updates; no version in the API)",
+      "units/inputs of the NDFD NWB regression (assumed \u00b0C, W/m\u00b2, m/s, 2 m wind, cloud-adjusted S)",
+      "NDFD's surface albedo (AVHRR) and roughness length (MODIS) at grid cell JAX/43,32",
+      "NDFD's night-time globe branch (Boyer's 'H = 0 at night' cannot be applied literally; see constants.ndfd_wbgt.assumptions)",
+      "station pressure: NDFD reduces NBM sea-level pressure to the station; we use 1013.25 mb (not tested)"
+    ],
+    "forecasts": {
+      "pinned": {
+        "label": "pinned saved forecast (demo headline)",
+        "raw_file": "nws_raw/JAX_43_32_update_2026-10-03T1207Z.json",
+        "nws_update_time": "2026-10-03T12:07:00+00:00",
+        "baseline_matches_pipeline_f": 0.0,
+        "time_alignment": {
+          "nws_update_time": "2026-10-03T12:07:00+00:00",
+          "lead_h_window": [
+            30.88,
+            33.88
+          ],
+          "within_ndfd_hourly_range": true,
+          "layer_intervals_in_window": {
+            "temperature": [
+              "2026-10-04T19:00Z/PT1H",
+              "2026-10-04T20:00Z/PT1H",
+              "2026-10-04T21:00Z/PT1H",
+              "2026-10-04T22:00Z/PT1H"
+            ],
+            "dewpoint": [
+              "2026-10-04T14:00Z/PT6H",
+              "2026-10-04T20:00Z/PT3H"
+            ],
+            "relativeHumidity": [
+              "2026-10-04T19:00Z/PT1H",
+              "2026-10-04T20:00Z/PT1H",
+              "2026-10-04T21:00Z/PT1H",
+              "2026-10-04T22:00Z/PT1H"
+            ],
+            "windSpeed": [
+              "2026-10-04T18:00Z/PT2H",
+              "2026-10-04T20:00Z/PT2H",
+              "2026-10-04T22:00Z/PT3H"
+            ],
+            "skyCover": [
+              "2026-10-04T19:00Z/PT1H",
+              "2026-10-04T20:00Z/PT1H",
+              "2026-10-04T21:00Z/PT1H",
+              "2026-10-04T22:00Z/PT1H"
+            ],
+            "wetBulbGlobeTemperature": [
+              "2026-10-04T18:00Z/PT2H",
+              "2026-10-04T20:00Z/PT1H",
+              "2026-10-04T21:00Z/PT1H",
+              "2026-10-04T22:00Z/PT1H"
+            ]
+          },
+          "local_to_utc": [
+            "2026-10-04T15:00:00-04:00 = 19:00Z",
+            "2026-10-04T16:00:00-04:00 = 20:00Z",
+            "2026-10-04T17:00:00-04:00 = 21:00Z",
+            "2026-10-04T18:00:00-04:00 = 22:00Z"
+          ],
+          "values_not_whole_degF": {
+            "temperature": 0,
+            "dewpoint": 0,
+            "wetBulbGlobeTemperature": 0
+          },
+          "reading": "NDFD is hourly out to 36 h (Boyer p.4), so inside that range a multi-hour validTime (e.g. PT3H) is one value repeated for each hour it spans, which is what weather._expand assigns. Every layer is keyed in UTC and converted to local time once, so the WBGT layer and the inputs line up hour for hour."
+        },
+        "humidity_check": {
+          "rh_layer_minus_rh_from_dewpoint_pct": {
+            "mean": 0.15,
+            "min": -0.5,
+            "max": 0.5,
+            "n": 24
+          },
+          "reading": "NWS's relativeHumidity layer minus RH computed from its temperature and dewpoint layers"
+        },
+        "lag_check": {
+          "-1": {
+            "daytime_mean_gap_f": 2.55,
+            "daytime_rms_gap_f": 3.37
+          },
+          "0": {
+            "daytime_mean_gap_f": 3.0,
+            "daytime_rms_gap_f": 3.3
+          },
+          "1": {
+            "daytime_mean_gap_f": 3.08,
+            "daytime_rms_gap_f": 4.48
+          }
+        },
+        "summary": {
+          "demo_window": {
+            "gap_f": {
+              "mean": 3.1,
+              "min": 1.98,
+              "max": 4.42,
+              "n": 4
+            },
+            "residual_f": {
+              "mean": 3.57,
+              "min": 2.27,
+              "max": 4.83,
+              "n": 4
+            },
+            "delta_f": {
+              "solar_split": {
+                "mean": -0.47,
+                "min": -1.01,
+                "max": 0.01,
+                "n": 4
+              },
+              "wind_height": {
+                "mean": -0.33,
+                "min": -0.47,
+                "max": -0.1,
+                "n": 4
+              },
+              "ground_albedo": {
+                "mean": 0.78,
+                "min": 0.39,
+                "max": 1.08,
+                "n": 4
+              },
+              "globe_model": {
+                "mean": -0.58,
+                "min": -0.75,
+                "max": -0.24,
+                "n": 4
+              },
+              "nwb_model": {
+                "mean": 0.13,
+                "min": -0.02,
+                "max": 0.3,
+                "n": 4
+              },
+              "humidity": {
+                "mean": 0.01,
+                "min": -0.08,
+                "max": 0.08,
+                "n": 4
+              }
+            },
+            "delta_alone_f": {
+              "solar_split": {
+                "mean": -0.25,
+                "min": -0.63,
+                "max": 0.03,
+                "n": 4
+              },
+              "wind_height": {
+                "mean": -0.33,
+                "min": -0.47,
+                "max": -0.1,
+                "n": 4
+              },
+              "ground_albedo": {
+                "mean": 0.94,
+                "min": 0.42,
+                "max": 1.39,
+                "n": 4
+              },
+              "globe_model": {
+                "mean": -0.14,
+                "min": -0.7,
+                "max": 0.57,
+                "n": 4
+              },
+              "nwb_model": {
+                "mean": 0.16,
+                "min": -0.04,
+                "max": 0.32,
+                "n": 4
+              },
+              "humidity": {
+                "mean": 0.01,
+                "min": -0.08,
+                "max": 0.08,
+                "n": 4
+              }
+            },
+            "sum_of_deltas_f": {
+              "mean": -0.47,
+              "min": -0.75,
+              "max": -0.29,
+              "n": 4
+            },
+            "implied_solar_scale_our_model": {
+              "mean": 0.33,
+              "min": 0.25,
+              "max": 0.43,
+              "n": 4
+            },
+            "implied_solar_scale_nws_recon": {
+              "mean": 0.2,
+              "min": 0.05,
+              "max": 0.41,
+              "n": 4
+            },
+            "sensitivity_ours_f": {
+              "clear_sky_no_cloud": {
+                "mean": -1.16,
+                "min": -1.75,
+                "max": -0.4,
+                "n": 4
+              },
+              "wind_10m_used_at_2m": {
+                "mean": 0.35,
+                "min": 0.26,
+                "max": 0.44,
+                "n": 4
+              },
+              "urban_power_law": {
+                "mean": -0.35,
+                "min": -0.46,
+                "max": -0.19,
+                "n": 4
+              },
+              "sun_plus_30min": {
+                "mean": 0.79,
+                "min": 0.33,
+                "max": 1.4,
+                "n": 4
+              },
+              "sun_minus_30min": {
+                "mean": -0.56,
+                "min": -0.93,
+                "max": -0.11,
+                "n": 4
+              }
+            },
+            "sensitivity_residual_f": {
+              "z0_0.0024m": {
+                "mean": 3.31,
+                "min": 2.13,
+                "max": 4.51,
+                "n": 4
+              },
+              "z0_1.6m": {
+                "mean": 10.68,
+                "min": 6.16,
+                "max": 13.8,
+                "n": 4
+              },
+              "albedo_0.11": {
+                "mean": 3.32,
+                "min": 2.15,
+                "max": 4.52,
+                "n": 4
+              },
+              "albedo_0.23": {
+                "mean": 3.65,
+                "min": 2.32,
+                "max": 4.94,
+                "n": 4
+              },
+              "sun_plus_30min": {
+                "mean": 2.77,
+                "min": 1.15,
+                "max": 4.1,
+                "n": 4
+              },
+              "sun_minus_30min": {
+                "mean": 4.28,
+                "min": 3.33,
+                "max": 5.46,
+                "n": 4
+              }
+            }
+          },
+          "daytime": {
+            "gap_f": {
+              "mean": 3.0,
+              "min": -0.24,
+              "max": 4.96,
+              "n": 12
+            },
+            "residual_f": {
+              "mean": 3.26,
+              "min": 0.37,
+              "max": 4.83,
+              "n": 12
+            },
+            "delta_f": {
+              "solar_split": {
+                "mean": -0.57,
+                "min": -1.19,
+                "max": 0.01,
+                "n": 12
+              },
+              "wind_height": {
+                "mean": -0.37,
+                "min": -0.64,
+                "max": -0.0,
+                "n": 12
+              },
+              "ground_albedo": {
+                "mean": 0.74,
+                "min": 0.01,
+                "max": 1.17,
+                "n": 12
+              },
+              "globe_model": {
+                "mean": -0.26,
+                "min": -0.75,
+                "max": 0.15,
+                "n": 12
+              },
+              "nwb_model": {
+                "mean": 0.17,
+                "min": -0.4,
+                "max": 0.88,
+                "n": 12
+              },
+              "humidity": {
+                "mean": 0.03,
+                "min": -0.08,
+                "max": 0.08,
+                "n": 12
+              }
+            },
+            "delta_alone_f": {
+              "solar_split": {
+                "mean": -0.35,
+                "min": -0.78,
+                "max": 0.1,
+                "n": 12
+              },
+              "wind_height": {
+                "mean": -0.38,
+                "min": -0.64,
+                "max": 0.0,
+                "n": 12
+              },
+              "ground_albedo": {
+                "mean": 0.94,
+                "min": 0.01,
+                "max": 1.47,
+                "n": 12
+              },
+              "globe_model": {
+                "mean": 0.22,
+                "min": -0.7,
+                "max": 0.93,
+                "n": 12
+              },
+              "nwb_model": {
+                "mean": 0.18,
+                "min": -0.4,
+                "max": 0.93,
+                "n": 12
+              },
+              "humidity": {
+                "mean": 0.03,
+                "min": -0.08,
+                "max": 0.08,
+                "n": 12
+              }
+            },
+            "sum_of_deltas_f": {
+              "mean": -0.26,
+              "min": -0.9,
+              "max": 0.78,
+              "n": 12
+            },
+            "implied_solar_scale_our_model": {
+              "mean": 0.33,
+              "min": 0.1,
+              "max": 0.56,
+              "n": 11
+            },
+            "implied_solar_scale_nws_recon": {
+              "mean": 0.25,
+              "min": 0.05,
+              "max": 0.45,
+              "n": 11
+            },
+            "sensitivity_ours_f": {
+              "clear_sky_no_cloud": {
+                "mean": -0.64,
+                "min": -1.75,
+                "max": -0.04,
+                "n": 12
+              },
+              "wind_10m_used_at_2m": {
+                "mean": 0.29,
+                "min": -0.02,
+                "max": 0.44,
+                "n": 12
+              },
+              "urban_power_law": {
+                "mean": -0.31,
+                "min": -0.46,
+                "max": 0.01,
+                "n": 12
+              },
+              "sun_plus_30min": {
+                "mean": -0.04,
+                "min": -1.92,
+                "max": 1.4,
+                "n": 12
+              },
+              "sun_minus_30min": {
+                "mean": 0.11,
+                "min": -1.03,
+                "max": 2.08,
+                "n": 12
+              }
+            },
+            "sensitivity_residual_f": {
+              "z0_0.0024m": {
+                "mean": 3.01,
+                "min": 0.35,
+                "max": 4.51,
+                "n": 12
+              },
+              "z0_1.6m": {
+                "mean": 9.99,
+                "min": 0.62,
+                "max": 14.05,
+                "n": 12
+              },
+              "albedo_0.11": {
+                "mean": 3.04,
+                "min": 0.37,
+                "max": 4.52,
+                "n": 12
+              },
+              "albedo_0.23": {
+                "mean": 3.33,
+                "min": 0.37,
+                "max": 4.94,
+                "n": 12
+              },
+              "sun_plus_30min": {
+                "mean": 3.24,
+                "min": 0.08,
+                "max": 4.88,
+                "n": 12
+              },
+              "sun_minus_30min": {
+                "mean": 3.21,
+                "min": -0.31,
+                "max": 5.46,
+                "n": 12
+              }
+            }
+          },
+          "night": {
+            "gap_f": {
+              "mean": -0.51,
+              "min": -1.04,
+              "max": 0.07,
+              "n": 12
+            },
+            "residual_f": {
+              "mean": -0.06,
+              "min": -0.48,
+              "max": 0.43,
+              "n": 12
+            },
+            "delta_f": {
+              "solar_split": {
+                "mean": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "n": 12
+              },
+              "wind_height": {
+                "mean": -0.05,
+                "min": -0.08,
+                "max": -0.03,
+                "n": 12
+              },
+              "ground_albedo": {
+                "mean": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "n": 12
+              },
+              "globe_model": {
+                "mean": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "n": 12
+              },
+              "nwb_model": {
+                "mean": -0.42,
+                "min": -0.55,
+                "max": -0.36,
+                "n": 12
+              },
+              "humidity": {
+                "mean": 0.02,
+                "min": -0.08,
+                "max": 0.08,
+                "n": 12
+              }
+            },
+            "delta_alone_f": {
+              "solar_split": {
+                "mean": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "n": 12
+              },
+              "wind_height": {
+                "mean": -0.09,
+                "min": -0.12,
+                "max": -0.07,
+                "n": 12
+              },
+              "ground_albedo": {
+                "mean": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "n": 12
+              },
+              "globe_model": {
+                "mean": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "n": 12
+              },
+              "nwb_model": {
+                "mean": -0.47,
+                "min": -0.59,
+                "max": -0.4,
+                "n": 12
+              },
+              "humidity": {
+                "mean": 0.02,
+                "min": -0.08,
+                "max": 0.08,
+                "n": 12
+              }
+            },
+            "sum_of_deltas_f": {
+              "mean": -0.45,
+              "min": -0.56,
+              "max": -0.35,
+              "n": 12
+            },
+            "implied_solar_scale_our_model": null,
+            "implied_solar_scale_nws_recon": null,
+            "sensitivity_ours_f": {
+              "clear_sky_no_cloud": {
+                "mean": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "n": 12
+              },
+              "wind_10m_used_at_2m": {
+                "mean": -0.14,
+                "min": -0.18,
+                "max": -0.11,
+                "n": 12
+              },
+              "urban_power_law": {
+                "mean": -0.07,
+                "min": -0.09,
+                "max": -0.05,
+                "n": 12
+              },
+              "sun_plus_30min": {
+                "mean": -0.01,
+                "min": -0.11,
+                "max": 0.0,
+                "n": 12
+              },
+              "sun_minus_30min": {
+                "mean": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "n": 12
+              }
+            },
+            "sensitivity_residual_f": {
+              "z0_0.0024m": {
+                "mean": -0.06,
+                "min": -0.49,
+                "max": 0.42,
+                "n": 12
+              },
+              "z0_1.6m": {
+                "mean": -0.13,
+                "min": -0.55,
+                "max": 0.36,
+                "n": 12
+              },
+              "albedo_0.11": {
+                "mean": -0.06,
+                "min": -0.48,
+                "max": 0.43,
+                "n": 12
+              },
+              "albedo_0.23": {
+                "mean": -0.06,
+                "min": -0.48,
+                "max": 0.43,
+                "n": 12
+              },
+              "sun_plus_30min": {
+                "mean": -0.03,
+                "min": -0.48,
+                "max": 0.43,
+                "n": 12
+              },
+              "sun_minus_30min": {
+                "mean": -0.06,
+                "min": -0.48,
+                "max": 0.43,
+                "n": 12
+              }
+            }
+          }
+        },
+        "top_contributor": {
+          "name": "residual",
+          "mean_f": 3.57,
+          "range_f": [
+            2.27,
+            4.83
+          ],
+          "attributed_to": "unexplained residual \u2014 hypothesis (not established): NWS's effective sunlight is lower than ours at all daytime hours including noon; see MODEL.md \u00a712d",
+          "evidence": {
+            "night_residual_f": {
+              "mean": -0.06,
+              "min": -0.48,
+              "max": 0.43,
+              "n": 12
+            },
+            "implied_solar_scale_our_model": {
+              "mean": 0.33,
+              "min": 0.25,
+              "max": 0.43,
+              "n": 4
+            },
+            "implied_solar_scale_nws_recon": {
+              "mean": 0.2,
+              "min": 0.05,
+              "max": 0.41,
+              "n": 4
+            },
+            "residual_mean_under_unpublished_nws_choices_f": {
+              "z0_0.0024m": 3.31,
+              "z0_1.6m": 10.68,
+              "albedo_0.11": 3.32,
+              "albedo_0.23": 3.65,
+              "sun_plus_30min": 2.77,
+              "sun_minus_30min": 4.28
+            }
+          }
+        },
+        "top_swapped_factor": {
+          "name": "ground_albedo",
+          "input": "MRT/globe (ground albedo)",
+          "mean": 0.78,
+          "min": 0.39,
+          "max": 1.08,
+          "n": 4
+        },
+        "rows": [
+          {
+            "time": "2026-10-04T00:00:00-04:00",
+            "in_demo_window": false,
+            "inputs": {
+              "air_temp_c": 24.44,
+              "rh_pct": 94.0,
+              "rh_from_dewpoint_pct": 93.6,
+              "wind_10m_m_s": 1.54,
+              "cloud_cover_pct": 83.0,
+              "solar_w_m2": 0.0
+            },
+            "ours_f": 74.63,
+            "nws_f": 75.0,
+            "gap_f": -0.37,
+            "delta_f": {
+              "solar_split": 0.0,
+              "wind_height": -0.04,
+              "ground_albedo": 0.0,
+              "globe_model": 0.0,
+              "nwb_model": -0.38,
+              "humidity": 0.07
+            },
+            "delta_alone_f": {
+              "solar_split": 0.0,
+              "wind_height": -0.09,
+              "ground_albedo": 0.0,
+              "globe_model": 0.0,
+              "nwb_model": -0.43,
+              "humidity": 0.07
+            },
+            "nws_documented_recon_f": 74.98,
+            "residual_f": -0.02,
+            "implied_solar_scale": {
+              "our_model": [
+                null,
+                null,
+                null
+              ],
+              "nws_documented_recon": [
+                null,
+                null,
+                null
+              ]
+            }
+          },
+          {
+            "time": "2026-10-04T01:00:00-04:00",
+            "in_demo_window": false,
+            "inputs": {
+              "air_temp_c": 24.44,
+              "rh_pct": 90.0,
+              "rh_from_dewpoint_pct": 90.5,
+              "wind_10m_m_s": 1.54,
+              "cloud_cover_pct": 89.0,
+              "solar_w_m2": 0.0
+            },
+            "ours_f": 73.96,
+            "nws_f": 75.0,
+            "gap_f": -1.04,
+            "delta_f": {
+              "solar_split": 0.0,
+              "wind_height": -0.04,
+              "ground_albedo": 0.0,
+              "globe_model": 0.0,
+              "nwb_model": -0.45,
+              "humidity": -0.07
+            },
+            "delta_alone_f": {
+              "solar_split": 0.0,
+              "wind_height": -0.08,
+              "ground_albedo": 0.0,
+              "globe_model": 0.0,
+              "nwb_model": -0.5,
+              "humidity": -0.08
+            },
+            "nws_documented_recon_f": 74.52,
+            "residual_f": -0.48,
+            "implied_solar_scale": {
+              "our_model": [
+                null,
+                null,
+                null
+              ],
+              "nws_documented_recon": [
+                null,
+                null,
+                null
+              ]
+            }
+          },
+          {
+            "time": "2026-10-04T02:00:00-04:00",
+            "in_demo_window": false,
+            "inputs": {
+              "air_temp_c": 24.44,
+              "rh_pct": 90.0,
+              "rh_from_dewpoint_pct": 90.5,
+              "wind_10m_m_s": 1.54,
+              "cloud_cover_pct": 75.0,
+              "solar_w_m2": 0.0
+            },
+            "ours_f": 73.96,
+            "nws_f": 75.0,
+            "gap_f": -1.04,
+            "delta_f": {
+              "solar_split": 0.0,
+              "wind_height": -0.04,
+              "ground_albedo": 0.0,
+              "globe_model": 0.0,
+              "nwb_model": -0.45,
+              "humidity": -0.07
+            },
+            "delta_alone_f": {
+              "solar_split": 0.0,
+              "wind_height": -0.08,
+              "ground_albedo": 0.0,
+              "globe_model": 0.0,
+              "nwb_model": -0.5,
+              "humidity": -0.08
+            },
+            "nws_documented_recon_f": 74.52,
+            "residual_f": -0.48,
+            "implied_solar_scale": {
+              "our_model": [
+                null,
+                null,
+                null
+              ],
+              "nws_documented_recon": [
+                null,
+                null,
+                null
+              ]
+            }
+          },
+          {
+            "time": "2026-10-04T03:00:00-04:00",
+            "in_demo_window": false,
+            "inputs": {
+              "air_temp_c": 23.89,
+              "rh_pct": 94.0,
+              "rh_from_dewpoint_pct": 93.5,
+              "wind_10m_m_s": 1.54,
+              "cloud_cover_pct": 65.0,
+              "solar_w_m2": 0.0
+            },
+            "ours_f": 73.62,
+            "nws_f": 74.0,
+            "gap_f": -0.38,
+            "delta_f": {
+              "solar_split": 0.0,
+              "wind_height": -0.04,
+              "ground_albedo": 0.0,
+              "globe_model": 0.0,
+              "nwb_model": -0.39,
+              "humidity": 0.07
+            },
+            "delta_alone_f": {
+              "solar_split": 0.0,
+              "wind_height": -0.08,
+              "ground_albedo": 0.0,
+              "globe_model": 0.0,
+              "nwb_model": -0.43,
+              "humidity": 0.08
+            },
+            "nws_documented_recon_f": 73.98,
+            "residual_f": -0.02,
+            "implied_solar_scale": {
+              "our_model": [
+                null,
+                null,
+                null
+              ],
+              "nws_documented_recon": [
+                null,
+                null,
+                null
+              ]
+            }
+          },
+          {
+            "time": "2026-10-04T04:00:00-04:00",
+            "in_demo_window": false,
+            "inputs": {
+              "air_temp_c": 23.33,
+              "rh_pct": 97.0,
+              "rh_from_dewpoint_pct": 96.7,
+              "wind_10m_m_s": 1.54,
+              "cloud_cover_pct": 46.0,
+              "solar_w_m2": 0.0
+            },
+            "ours_f": 73.07,
+            "nws_f": 73.0,
+            "gap_f": 0.07,
+            "delta_f": {
+              "solar_split": 0.0,
+              "wind_height": -0.05,
+              "ground_albedo": 0.0,
+              "globe_model": 0.0,
+              "nwb_model": -0.36,
+              "humidity": 0.04
+            },
+            "delta_alone_f": {
+              "solar_split": 0.0,
+              "wind_height": -0.1,
+              "ground_albedo": 0.0,
+              "globe_model": 0.0,
+              "nwb_model": -0.4,
+              "humidity": 0.04
+            },
+            "nws_documented_recon_f": 73.43,
+            "residual_f": 0.43,
+            "implied_solar_scale": {
+              "our_model": [
+                null,
+                null,
+                null
+              ],
+              "nws_documented_recon": [
+                null,
+                null,
+                null
+              ]
+            }
+          },
+          {
+            "time": "2026-10-04T05:00:00-04:00",
+            "in_demo_window": false,
+            "inputs": {
+              "air_temp_c": 23.33,
+              "rh_pct": 97.0,
+              "rh_from_dewpoint_pct": 96.7,
+              "wind_10m_m_s": 1.54,
+              "cloud_cover_pct": 40.0,
+              "solar_w_m2": 0.0
+            },
+            "ours_f": 73.07,
+            "nws_f": 73.0,
+            "gap_f": 0.07,
+            "delta_f": {
+              "solar_split": 0.0,
+              "wind_height": -0.05,
+              "ground_albedo": 0.0,
+              "globe_model": 0.0,
+              "nwb_model": -0.36,
+              "humidity": 0.04
+            },
+            "delta_alone_f": {
+              "solar_split": 0.0,
+              "wind_height": -0.1,
+              "ground_albedo": 0.0,
+              "globe_model": 0.0,
+              "nwb_model": -0.4,
+              "humidity": 0.04
+            },
+            "nws_documented_recon_f": 73.43,
+            "residual_f": 0.43,
+            "implied_solar_scale": {
+              "our_model": [
+                null,
+                null,
+                null
+              ],
+              "nws_documented_recon": [
+                null,
+                null,
+                null
+              ]
+            }
+          },
+          {
+            "time": "2026-10-04T06:00:00-04:00",
+            "in_demo_window": false,
+            "inputs": {
+              "air_temp_c": 23.33,
+              "rh_pct": 93.0,
+              "rh_from_dewpoint_pct": 93.5,
+              "wind_10m_m_s": 1.54,
+              "cloud_cover_pct": 47.0,
+              "solar_w_m2": 0.0
+            },
+            "ours_f": 72.43,
+            "nws_f": 73.0,
+            "gap_f": -0.57,
+            "delta_f": {
+              "solar_split": 0.0,
+              "wind_height": -0.05,
+              "ground_albedo": 0.0,
+              "globe_model": 0.0,
+              "nwb_model": -0.42,
+              "humidity": -0.08
+            },
+            "delta_alone_f": {
+              "solar_split": 0.0,
+              "wind_height": -0.1,
+              "ground_albedo": 0.0,
+              "globe_model": 0.0,
+              "nwb_model": -0.47,
+              "humidity": -0.08
+            },
+            "nws_documented_recon_f": 72.97,
+            "residual_f": -0.03,
+            "implied_solar_scale": {
+              "our_model": [
+                null,
+                null,
+                null
+              ],
+              "nws_documented_recon": [
+                null,
+                null,
+                null
+              ]
+            }
+          },
+          {
+            "time": "2026-10-04T07:00:00-04:00",
+            "in_demo_window": false,
+            "inputs": {
+              "air_temp_c": 23.33,
+              "rh_pct": 93.0,
+              "rh_from_dewpoint_pct": 93.5,
+              "wind_10m_m_s": 1.54,
+              "cloud_cover_pct": 55.0,
+              "solar_w_m2": 0.0
+            },
+            "ours_f": 72.43,
+            "nws_f": 73.0,
+            "gap_f": -0.57,
+            "delta_f": {
+              "solar_split": 0.0,
+              "wind_height": -0.05,
+              "ground_albedo": 0.0,
+              "globe_model": 0.0,
+              "nwb_model": -0.42,
+              "humidity": -0.08
+            },
+            "delta_alone_f": {
+              "solar_split": 0.0,
+              "wind_height": -0.1,
+              "ground_albedo": 0.0,
+              "globe_model": 0.0,
+              "nwb_model": -0.47,
+              "humidity": -0.08
+            },
+            "nws_documented_recon_f": 72.97,
+            "residual_f": -0.03,
+            "implied_solar_scale": {
+              "our_model": [
+                null,
+                null,
+                null
+              ],
+              "nws_documented_recon": [
+                null,
+                null,
+                null
+              ]
+            }
+          },
+          {
+            "time": "2026-10-04T08:00:00-04:00",
+            "in_demo_window": false,
+            "inputs": {
+              "air_temp_c": 23.33,
+              "rh_pct": 97.0,
+              "rh_from_dewpoint_pct": 96.7,
+              "wind_10m_m_s": 1.54,
+              "cloud_cover_pct": 52.0,
+              "solar_w_m2": 77.5
+            },
+            "ours_f": 75.26,
+            "nws_f": 74.0,
+            "gap_f": 1.26,
+            "delta_f": {
+              "solar_split": -0.28,
+              "wind_height": -0.07,
+              "ground_albedo": 0.19,
+              "globe_model": -0.28,
+              "nwb_model": 0.32,
+              "humidity": 0.04
+            },
+            "delta_alone_f": {
+              "solar_split": -0.42,
+              "wind_height": -0.06,
+              "ground_albedo": 0.24,
+              "globe_model": -0.37,
+              "nwb_model": 0.3,
+              "humidity": 0.04
+            },
+            "nws_documented_recon_f": 75.35,
+            "residual_f": 1.35,
+            "implied_solar_scale": {
+              "our_model": [
+                0.226,
+                0.56,
+                0.779
+              ],
+              "nws_documented_recon": [
+                0.0,
+                0.188,
+                0.488
+              ]
+            }
+          },
+          {
+            "time": "2026-10-04T09:00:00-04:00",
+            "in_demo_window": false,
+            "inputs": {
+              "air_temp_c": 24.44,
+              "rh_pct": 97.0,
+              "rh_from_dewpoint_pct": 96.7,
+              "wind_10m_m_s": 1.54,
+              "cloud_cover_pct": 51.0,
+              "solar_w_m2": 288.8
+            },
+            "ours_f": 80.48,
+            "nws_f": 76.0,
+            "gap_f": 4.48,
+            "delta_f": {
+              "solar_split": -0.06,
+              "wind_height": -0.44,
+              "ground_albedo": 0.6,
+              "globe_model": -0.24,
+              "nwb_model": 0.88,
+              "humidity": 0.04
+            },
+            "delta_alone_f": {
+              "solar_split": 0.1,
+              "wind_height": -0.46,
+              "ground_albedo": 0.79,
+              "globe_model": 0.12,
+              "nwb_model": 0.93,
+              "humidity": 0.04
+            },
+            "nws_documented_recon_f": 79.7,
+            "residual_f": 3.7,
+            "implied_solar_scale": {
+              "our_model": [
+                0.056,
+                0.152,
+                0.251
+              ],
+              "nws_documented_recon": [
+                0.0,
+                0.081,
+                0.205
+              ]
+            }
+          },
+          {
+            "time": "2026-10-04T10:00:00-04:00",
+            "in_demo_window": false,
+            "inputs": {
+              "air_temp_c": 26.11,
+              "rh_pct": 97.0,
+              "rh_from_dewpoint_pct": 96.8,
+              "wind_10m_m_s": 2.57,
+              "cloud_cover_pct": 51.0,
+              "solar_w_m2": 479.5
+            },
+            "ours_f": 83.96,
+            "nws_f": 79.0,
+            "gap_f": 4.96,
+            "delta_f": {
+              "solar_split": -0.42,
+              "wind_height": -0.37,
+              "ground_albedo": 0.77,
+              "globe_model": 0.15,
+              "nwb_model": 0.56,
+              "humidity": 0.03
+            },
+            "delta_alone_f": {
+              "solar_split": -0.16,
+              "wind_height": -0.4,
+              "ground_albedo": 1.04,
+              "globe_model": 0.69,
+              "nwb_model": 0.61,
+              "humidity": 0.04
+            },
+            "nws_documented_recon_f": 83.24,
+            "residual_f": 4.24,
+            "implied_solar_scale": {
+              "our_model": [
+                0.028,
+                0.102,
+                0.18
+              ],
+              "nws_documented_recon": [
+                0.0,
+                0.09,
+                0.197
+              ]
+            }
+          },
+          {
+            "time": "2026-10-04T11:00:00-04:00",
+            "in_demo_window": false,
+            "inputs": {
+              "air_temp_c": 27.78,
+              "rh_pct": 88.0,
+              "rh_from_dewpoint_pct": 87.7,
+              "wind_10m_m_s": 3.09,
+              "cloud_cover_pct": 58.0,
+              "solar_w_m2": 603.6
+            },
+            "ours_f": 85.64,
+            "nws_f": 82.0,
+            "gap_f": 3.64,
+            "delta_f": {
+              "solar_split": -0.76,
+              "wind_height": -0.41,
+              "ground_albedo": 0.91,
+              "globe_model": 0.04,
+              "nwb_model": 0.25,
+              "humidity": 0.05
+            },
+            "delta_alone_f": {
+              "solar_split": -0.45,
+              "wind_height": -0.43,
+              "ground_albedo": 1.2,
+              "globe_model": 0.71,
+              "nwb_model": 0.27,
+              "humidity": 0.05
+            },
+            "nws_documented_recon_f": 85.57,
+            "residual_f": 3.57,
+            "implied_solar_scale": {
+              "our_model": [
+                0.231,
+                0.31,
+                0.381
+              ],
+              "nws_documented_recon": [
+                0.252,
+                0.344,
+                0.436
+              ]
+            }
+          },
+          {
+            "time": "2026-10-04T12:00:00-04:00",
+            "in_demo_window": false,
+            "inputs": {
+              "air_temp_c": 29.44,
+              "rh_pct": 80.0,
+              "rh_from_dewpoint_pct": 79.7,
+              "wind_10m_m_s": 3.09,
+              "cloud_cover_pct": 59.0,
+              "solar_w_m2": 697.0
+            },
+            "ours_f": 87.42,
+            "nws_f": 84.0,
+            "gap_f": 3.42,
+            "delta_f": {
+              "solar_split": -1.01,
+              "wind_height": -0.58,
+              "ground_albedo": 1.04,
+              "globe_model": -0.0,
+              "nwb_model": -0.01,
+              "humidity": 0.06
+            },
+            "delta_alone_f": {
+              "solar_split": -0.66,
+              "wind_height": -0.59,
+              "ground_albedo": 1.34,
+              "globe_model": 0.79,
+              "nwb_model": -0.03,
+              "humidity": 0.06
+            },
+            "nws_documented_recon_f": 87.93,
+            "residual_f": 3.93,
+            "implied_solar_scale": {
+              "our_model": [
+                0.281,
+                0.343,
+                0.407
+              ],
+              "nws_documented_recon": [
+                0.287,
+                0.368,
+                0.448
+              ]
+            }
+          },
+          {
+            "time": "2026-10-04T13:00:00-04:00",
+            "in_demo_window": false,
+            "inputs": {
+              "air_temp_c": 30.0,
+              "rh_pct": 77.0,
+              "rh_from_dewpoint_pct": 77.1,
+              "wind_10m_m_s": 3.09,
+              "cloud_cover_pct": 57.0,
+              "solar_w_m2": 753.4
+            },
+            "ours_f": 88.08,
+            "nws_f": 85.0,
+            "gap_f": 3.08,
+            "delta_f": {
+              "solar_split": -1.14,
+              "wind_height": -0.6,
+              "ground_albedo": 1.1,
+              "globe_model": 0.06,
+              "nwb_model": -0.12,
+              "humidity": -0.03
+            },
+            "delta_alone_f": {
+              "solar_split": -0.77,
+              "wind_height": -0.62,
+              "ground_albedo": 1.44,
+              "globe_model": 0.93,
+              "nwb_model": -0.16,
+              "humidity": -0.03
+            },
+            "nws_documented_recon_f": 88.8,
+            "residual_f": 3.8,
+            "implied_solar_scale": {
+              "our_model": [
+                0.332,
+                0.391,
+                0.454
+              ],
+              "nws_documented_recon": [
+                0.344,
+                0.421,
+                0.497
+              ]
+            }
+          },
+          {
+            "time": "2026-10-04T14:00:00-04:00",
+            "in_demo_window": false,
+            "inputs": {
+              "air_temp_c": 30.56,
+              "rh_pct": 75.0,
+              "rh_from_dewpoint_pct": 74.7,
+              "wind_10m_m_s": 2.57,
+              "cloud_cover_pct": 62.0,
+              "solar_w_m2": 710.9
+            },
+            "ours_f": 88.94,
+            "nws_f": 86.0,
+            "gap_f": 2.94,
+            "delta_f": {
+              "solar_split": -1.19,
+              "wind_height": -0.64,
+              "ground_albedo": 1.17,
+              "globe_model": -0.33,
+              "nwb_model": 0.04,
+              "humidity": 0.06
+            },
+            "delta_alone_f": {
+              "solar_split": -0.78,
+              "wind_height": -0.64,
+              "ground_albedo": 1.47,
+              "globe_model": 0.56,
+              "nwb_model": -0.01,
+              "humidity": 0.06
+            },
+            "nws_documented_recon_f": 89.84,
+            "residual_f": 3.84,
+            "implied_solar_scale": {
+              "our_model": [
+                0.375,
+                0.434,
+                0.497
+              ],
+              "nws_documented_recon": [
+                0.382,
+                0.453,
+                0.524
+              ]
+            }
+          },
+          {
+            "time": "2026-10-04T15:00:00-04:00",
+            "in_demo_window": true,
+            "inputs": {
+              "air_temp_c": 31.11,
+              "rh_pct": 72.0,
+              "rh_from_dewpoint_pct": 72.4,
+              "wind_10m_m_s": 2.57,
+              "cloud_cover_pct": 60.0,
+              "solar_w_m2": 657.1
+            },
+            "ours_f": 89.05,
+            "nws_f": 86.0,
+            "gap_f": 3.05,
+            "delta_f": {
+              "solar_split": -1.01,
+              "wind_height": -0.47,
+              "ground_albedo": 1.08,
+              "globe_model": -0.24,
+              "nwb_model": -0.02,
+              "humidity": -0.08
+            },
+            "delta_alone_f": {
+              "solar_split": -0.63,
+              "wind_height": -0.47,
+              "ground_albedo": 1.39,
+              "globe_model": 0.57,
+              "nwb_model": -0.04,
+              "humidity": -0.08
+            },
+            "nws_documented_recon_f": 89.79,
+            "residual_f": 3.79,
+            "implied_solar_scale": {
+              "our_model": [
+                0.368,
+                0.431,
+                0.499
+              ],
+              "nws_documented_recon": [
+                0.335,
+                0.412,
+                0.49
+              ]
+            },
+            "sensitivity_ours_f": {
+              "clear_sky_no_cloud": -0.4,
+              "wind_10m_used_at_2m": 0.44,
+              "urban_power_law": -0.46,
+              "sun_plus_30min": 0.33,
+              "sun_minus_30min": -0.11
+            },
+            "sensitivity_residual_f": {
+              "z0_0.0024m": 3.45,
+              "z0_1.6m": 13.17,
+              "albedo_0.11": 3.47,
+              "albedo_0.23": 3.9,
+              "sun_plus_30min": 3.33,
+              "sun_minus_30min": 4.14
+            }
+          },
+          {
+            "time": "2026-10-04T16:00:00-04:00",
+            "in_demo_window": true,
+            "inputs": {
+              "air_temp_c": 30.0,
+              "rh_pct": 75.0,
+              "rh_from_dewpoint_pct": 74.6,
+              "wind_10m_m_s": 2.06,
+              "cloud_cover_pct": 65.0,
+              "solar_w_m2": 514.0
+            },
+            "ours_f": 87.42,
+            "nws_f": 83.0,
+            "gap_f": 4.42,
+            "delta_f": {
+              "solar_split": -0.71,
+              "wind_height": -0.45,
+              "ground_albedo": 0.99,
+              "globe_model": -0.62,
+              "nwb_model": 0.3,
+              "humidity": 0.07
+            },
+            "delta_alone_f": {
+              "solar_split": -0.37,
+              "wind_height": -0.44,
+              "ground_albedo": 1.21,
+              "globe_model": 0.05,
+              "nwb_model": 0.32,
+              "humidity": 0.07
+            },
+            "nws_documented_recon_f": 87.83,
+            "residual_f": 4.83,
+            "implied_solar_scale": {
+              "our_model": [
+                0.179,
+                0.245,
+                0.312
+              ],
+              "nws_documented_recon": [
+                0.103,
+                0.187,
+                0.271
+              ]
+            },
+            "sensitivity_ours_f": {
+              "clear_sky_no_cloud": -0.88,
+              "wind_10m_used_at_2m": 0.41,
+              "urban_power_law": -0.44,
+              "sun_plus_30min": 0.59,
+              "sun_minus_30min": -0.48
+            },
+            "sensitivity_residual_f": {
+              "z0_0.0024m": 4.51,
+              "z0_1.6m": 13.8,
+              "albedo_0.11": 4.52,
+              "albedo_0.23": 4.94,
+              "sun_plus_30min": 4.1,
+              "sun_minus_30min": 5.46
+            }
+          },
+          {
+            "time": "2026-10-04T17:00:00-04:00",
+            "in_demo_window": true,
+            "inputs": {
+              "air_temp_c": 29.44,
+              "rh_pct": 77.0,
+              "rh_from_dewpoint_pct": 77.1,
+              "wind_10m_m_s": 2.06,
+              "cloud_cover_pct": 75.0,
+              "solar_w_m2": 314.4
+            },
+            "ours_f": 84.96,
+            "nws_f": 82.0,
+            "gap_f": 2.96,
+            "delta_f": {
+              "solar_split": -0.18,
+              "wind_height": -0.32,
+              "ground_albedo": 0.66,
+              "globe_model": -0.75,
+              "nwb_model": 0.19,
+              "humidity": -0.01
+            },
+            "delta_alone_f": {
+              "solar_split": -0.03,
+              "wind_height": -0.31,
+              "ground_albedo": 0.75,
+              "globe_model": -0.48,
+              "nwb_model": 0.24,
+              "humidity": -0.01
+            },
+            "nws_documented_recon_f": 85.37,
+            "residual_f": 3.37,
+            "implied_solar_scale": {
+              "our_model": [
+                0.2,
+                0.307,
+                0.414
+              ],
+              "nws_documented_recon": [
+                0.036,
+                0.161,
+                0.285
+              ]
+            },
+            "sensitivity_ours_f": {
+              "clear_sky_no_cloud": -1.6,
+              "wind_10m_used_at_2m": 0.29,
+              "urban_power_law": -0.31,
+              "sun_plus_30min": 0.83,
+              "sun_minus_30min": -0.71
+            },
+            "sensitivity_residual_f": {
+              "z0_0.0024m": 3.14,
+              "z0_1.6m": 9.6,
+              "albedo_0.11": 3.15,
+              "albedo_0.23": 3.44,
+              "sun_plus_30min": 2.49,
+              "sun_minus_30min": 4.17
+            }
+          },
+          {
+            "time": "2026-10-04T18:00:00-04:00",
+            "in_demo_window": true,
+            "inputs": {
+              "air_temp_c": 28.89,
+              "rh_pct": 80.0,
+              "rh_from_dewpoint_pct": 79.6,
+              "wind_10m_m_s": 1.54,
+              "cloud_cover_pct": 78.0,
+              "solar_w_m2": 148.5
+            },
+            "ours_f": 82.98,
+            "nws_f": 81.0,
+            "gap_f": 1.98,
+            "delta_f": {
+              "solar_split": 0.01,
+              "wind_height": -0.1,
+              "ground_albedo": 0.39,
+              "globe_model": -0.72,
+              "nwb_model": 0.06,
+              "humidity": 0.08
+            },
+            "delta_alone_f": {
+              "solar_split": 0.03,
+              "wind_height": -0.1,
+              "ground_albedo": 0.42,
+              "globe_model": -0.7,
+              "nwb_model": 0.13,
+              "humidity": 0.08
+            },
+            "nws_documented_recon_f": 83.27,
+            "residual_f": 2.27,
+            "implied_solar_scale": {
+              "our_model": [
+                0.125,
+                0.325,
+                0.521
+              ],
+              "nws_documented_recon": [
+                0.0,
+                0.052,
+                0.261
+              ]
+            },
+            "sensitivity_ours_f": {
+              "clear_sky_no_cloud": -1.75,
+              "wind_10m_used_at_2m": 0.26,
+              "urban_power_law": -0.19,
+              "sun_plus_30min": 1.4,
+              "sun_minus_30min": -0.93
+            },
+            "sensitivity_residual_f": {
+              "z0_0.0024m": 2.13,
+              "z0_1.6m": 6.16,
+              "albedo_0.11": 2.15,
+              "albedo_0.23": 2.32,
+              "sun_plus_30min": 1.15,
+              "sun_minus_30min": 3.33
+            }
+          },
+          {
+            "time": "2026-10-04T19:00:00-04:00",
+            "in_demo_window": false,
+            "inputs": {
+              "air_temp_c": 26.67,
+              "rh_pct": 88.0,
+              "rh_from_dewpoint_pct": 87.6,
+              "wind_10m_m_s": 1.54,
+              "cloud_cover_pct": 86.0,
+              "solar_w_m2": 2.7
+            },
+            "ours_f": 77.76,
+            "nws_f": 78.0,
+            "gap_f": -0.24,
+            "delta_f": {
+              "solar_split": -0.05,
+              "wind_height": -0.0,
+              "ground_albedo": 0.01,
+              "globe_model": -0.23,
+              "nwb_model": -0.4,
+              "humidity": 0.06
+            },
+            "delta_alone_f": {
+              "solar_split": -0.06,
+              "wind_height": 0.0,
+              "ground_albedo": 0.01,
+              "globe_model": -0.23,
+              "nwb_model": -0.4,
+              "humidity": 0.07
+            },
+            "nws_documented_recon_f": 78.37,
+            "residual_f": 0.37,
+            "implied_solar_scale": {
+              "our_model": [
+                null,
+                null,
+                null
+              ],
+              "nws_documented_recon": [
+                null,
+                null,
+                null
+              ]
+            }
+          },
+          {
+            "time": "2026-10-04T20:00:00-04:00",
+            "in_demo_window": false,
+            "inputs": {
+              "air_temp_c": 25.56,
+              "rh_pct": 91.0,
+              "rh_from_dewpoint_pct": 90.5,
+              "wind_10m_m_s": 1.54,
+              "cloud_cover_pct": 87.0,
+              "solar_w_m2": 0.0
+            },
+            "ours_f": 76.17,
+            "nws_f": 77.0,
+            "gap_f": -0.83,
+            "delta_f": {
+              "solar_split": 0.0,
+              "wind_height": -0.03,
+              "ground_albedo": 0.0,
+              "globe_model": 0.0,
+              "nwb_model": -0.42,
+              "humidity": 0.08
+            },
+            "delta_alone_f": {
+              "solar_split": 0.0,
+              "wind_height": -0.07,
+              "ground_albedo": 0.0,
+              "globe_model": 0.0,
+              "nwb_model": -0.46,
+              "humidity": 0.08
+            },
+            "nws_documented_recon_f": 76.54,
+            "residual_f": -0.46,
+            "implied_solar_scale": {
+              "our_model": [
+                null,
+                null,
+                null
+              ],
+              "nws_documented_recon": [
+                null,
+                null,
+                null
+              ]
+            }
+          },
+          {
+            "time": "2026-10-04T21:00:00-04:00",
+            "in_demo_window": false,
+            "inputs": {
+              "air_temp_c": 25.0,
+              "rh_pct": 94.0,
+              "rh_from_dewpoint_pct": 93.6,
+              "wind_10m_m_s": 1.03,
+              "cloud_cover_pct": 88.0,
+              "solar_w_m2": 0.0
+            },
+            "ours_f": 75.58,
+            "nws_f": 76.0,
+            "gap_f": -0.42,
+            "delta_f": {
+              "solar_split": 0.0,
+              "wind_height": -0.05,
+              "ground_albedo": 0.0,
+              "globe_model": 0.0,
+              "nwb_model": -0.44,
+              "humidity": 0.07
+            },
+            "delta_alone_f": {
+              "solar_split": 0.0,
+              "wind_height": -0.09,
+              "ground_albedo": 0.0,
+              "globe_model": 0.0,
+              "nwb_model": -0.47,
+              "humidity": 0.07
+            },
+            "nws_documented_recon_f": 76.01,
+            "residual_f": 0.01,
+            "implied_solar_scale": {
+              "our_model": [
+                null,
+                null,
+                null
+              ],
+              "nws_documented_recon": [
+                null,
+                null,
+                null
+              ]
+            }
+          },
+          {
+            "time": "2026-10-04T22:00:00-04:00",
+            "in_demo_window": false,
+            "inputs": {
+              "air_temp_c": 25.0,
+              "rh_pct": 94.0,
+              "rh_from_dewpoint_pct": 93.6,
+              "wind_10m_m_s": 1.03,
+              "cloud_cover_pct": 82.0,
+              "solar_w_m2": 0.0
+            },
+            "ours_f": 75.58,
+            "nws_f": 76.0,
+            "gap_f": -0.42,
+            "delta_f": {
+              "solar_split": 0.0,
+              "wind_height": -0.05,
+              "ground_albedo": 0.0,
+              "globe_model": 0.0,
+              "nwb_model": -0.44,
+              "humidity": 0.07
+            },
+            "delta_alone_f": {
+              "solar_split": 0.0,
+              "wind_height": -0.09,
+              "ground_albedo": 0.0,
+              "globe_model": 0.0,
+              "nwb_model": -0.47,
+              "humidity": 0.07
+            },
+            "nws_documented_recon_f": 76.01,
+            "residual_f": 0.01,
+            "implied_solar_scale": {
+              "our_model": [
+                null,
+                null,
+                null
+              ],
+              "nws_documented_recon": [
+                null,
+                null,
+                null
+              ]
+            }
+          },
+          {
+            "time": "2026-10-04T23:00:00-04:00",
+            "in_demo_window": false,
+            "inputs": {
+              "air_temp_c": 24.44,
+              "rh_pct": 94.0,
+              "rh_from_dewpoint_pct": 93.6,
+              "wind_10m_m_s": 0.51,
+              "cloud_cover_pct": 74.0,
+              "solar_w_m2": 0.0
+            },
+            "ours_f": 74.41,
+            "nws_f": 75.0,
+            "gap_f": -0.59,
+            "delta_f": {
+              "solar_split": 0.0,
+              "wind_height": -0.08,
+              "ground_albedo": 0.0,
+              "globe_model": 0.0,
+              "nwb_model": -0.55,
+              "humidity": 0.07
+            },
+            "delta_alone_f": {
+              "solar_split": 0.0,
+              "wind_height": -0.12,
+              "ground_albedo": 0.0,
+              "globe_model": 0.0,
+              "nwb_model": -0.59,
+              "humidity": 0.07
+            },
+            "nws_documented_recon_f": 74.97,
+            "residual_f": -0.03,
+            "implied_solar_scale": {
+              "our_model": [
+                null,
+                null,
+                null
+              ],
+              "nws_documented_recon": [
+                null,
+                null,
+                null
+              ]
+            }
+          }
+        ]
+      },
+      "context": {
+        "label": "later cached forecast (context)",
+        "raw_file": "weather_cache/nws_raw_2026-10-03.json",
+        "nws_update_time": "2026-10-03T18:21:06+00:00",
+        "baseline_matches_pipeline_f": 0.0,
+        "time_alignment": {
+          "nws_update_time": "2026-10-03T18:21:06+00:00",
+          "lead_h_window": [
+            24.65,
+            27.65
+          ],
+          "within_ndfd_hourly_range": true,
+          "layer_intervals_in_window": {
+            "temperature": [
+              "2026-10-04T19:00Z/PT1H",
+              "2026-10-04T20:00Z/PT1H",
+              "2026-10-04T21:00Z/PT1H",
+              "2026-10-04T22:00Z/PT1H"
+            ],
+            "dewpoint": [
+              "2026-10-04T19:00Z/PT3H",
+              "2026-10-04T22:00Z/PT1H"
+            ],
+            "relativeHumidity": [
+              "2026-10-04T19:00Z/PT1H",
+              "2026-10-04T20:00Z/PT1H",
+              "2026-10-04T21:00Z/PT1H",
+              "2026-10-04T22:00Z/PT1H"
+            ],
+            "windSpeed": [
+              "2026-10-04T18:00Z/PT3H",
+              "2026-10-04T21:00Z/PT2H"
+            ],
+            "skyCover": [
+              "2026-10-04T19:00Z/PT1H",
+              "2026-10-04T20:00Z/PT1H",
+              "2026-10-04T21:00Z/PT1H",
+              "2026-10-04T22:00Z/PT1H"
+            ],
+            "wetBulbGlobeTemperature": [
+              "2026-10-04T17:00Z/PT3H",
+              "2026-10-04T20:00Z/PT1H",
+              "2026-10-04T21:00Z/PT1H",
+              "2026-10-04T22:00Z/PT1H"
+            ]
+          },
+          "local_to_utc": [
+            "2026-10-04T15:00:00-04:00 = 19:00Z",
+            "2026-10-04T16:00:00-04:00 = 20:00Z",
+            "2026-10-04T17:00:00-04:00 = 21:00Z",
+            "2026-10-04T18:00:00-04:00 = 22:00Z"
+          ],
+          "values_not_whole_degF": {
+            "temperature": 0,
+            "dewpoint": 0,
+            "wetBulbGlobeTemperature": 0
+          },
+          "reading": "NDFD is hourly out to 36 h (Boyer p.4), so inside that range a multi-hour validTime (e.g. PT3H) is one value repeated for each hour it spans, which is what weather._expand assigns. Every layer is keyed in UTC and converted to local time once, so the WBGT layer and the inputs line up hour for hour."
+        },
+        "humidity_check": {
+          "rh_layer_minus_rh_from_dewpoint_pct": {
+            "mean": 0.2,
+            "min": -0.5,
+            "max": 0.5,
+            "n": 24
+          },
+          "reading": "NWS's relativeHumidity layer minus RH computed from its temperature and dewpoint layers"
+        },
+        "lag_check": {
+          "-1": {
+            "daytime_mean_gap_f": 2.66,
+            "daytime_rms_gap_f": 3.39
+          },
+          "0": {
+            "daytime_mean_gap_f": 3.11,
+            "daytime_rms_gap_f": 3.37
+          },
+          "1": {
+            "daytime_mean_gap_f": 3.25,
+            "daytime_rms_gap_f": 4.55
+          }
+        },
+        "summary": {
+          "demo_window": {
+            "gap_f": {
+              "mean": 3.15,
+              "min": 1.82,
+              "max": 3.6,
+              "n": 4
+            },
+            "residual_f": {
+              "mean": 3.89,
+              "min": 2.37,
+              "max": 4.54,
+              "n": 4
+            },
+            "delta_f": {
+              "solar_split": {
+                "mean": -0.39,
+                "min": -1.03,
+                "max": -0.01,
+                "n": 4
+              },
+              "wind_height": {
+                "mean": -0.36,
+                "min": -0.51,
+                "max": -0.09,
+                "n": 4
+              },
+              "ground_albedo": {
+                "mean": 0.78,
+                "min": 0.34,
+                "max": 1.18,
+                "n": 4
+              },
+              "globe_model": {
+                "mean": -0.97,
+                "min": -1.18,
+                "max": -0.76,
+                "n": 4
+              },
+              "nwb_model": {
+                "mean": 0.17,
+                "min": 0.0,
+                "max": 0.28,
+                "n": 4
+              },
+              "humidity": {
+                "mean": 0.03,
+                "min": -0.03,
+                "max": 0.08,
+                "n": 4
+              }
+            },
+            "delta_alone_f": {
+              "solar_split": {
+                "mean": -0.22,
+                "min": -0.64,
+                "max": -0.02,
+                "n": 4
+              },
+              "wind_height": {
+                "mean": -0.35,
+                "min": -0.5,
+                "max": -0.08,
+                "n": 4
+              },
+              "ground_albedo": {
+                "mean": 0.89,
+                "min": 0.36,
+                "max": 1.43,
+                "n": 4
+              },
+              "globe_model": {
+                "mean": -0.63,
+                "min": -0.96,
+                "max": -0.06,
+                "n": 4
+              },
+              "nwb_model": {
+                "mean": 0.2,
+                "min": 0.05,
+                "max": 0.33,
+                "n": 4
+              },
+              "humidity": {
+                "mean": 0.03,
+                "min": -0.04,
+                "max": 0.09,
+                "n": 4
+              }
+            },
+            "sum_of_deltas_f": {
+              "mean": -0.74,
+              "min": -0.96,
+              "max": -0.55,
+              "n": 4
+            },
+            "implied_solar_scale_our_model": {
+              "mean": 0.27,
+              "min": 0.18,
+              "max": 0.4,
+              "n": 4
+            },
+            "implied_solar_scale_nws_recon": {
+              "mean": 0.14,
+              "min": 0.0,
+              "max": 0.35,
+              "n": 4
+            },
+            "sensitivity_ours_f": {
+              "clear_sky_no_cloud": {
+                "mean": -1.72,
+                "min": -2.32,
+                "max": -0.73,
+                "n": 4
+              },
+              "wind_10m_used_at_2m": {
+                "mean": 0.31,
+                "min": 0.21,
+                "max": 0.47,
+                "n": 4
+              },
+              "urban_power_law": {
+                "mean": -0.32,
+                "min": -0.49,
+                "max": -0.15,
+                "n": 4
+              },
+              "sun_plus_30min": {
+                "mean": 0.76,
+                "min": 0.38,
+                "max": 1.16,
+                "n": 4
+              },
+              "sun_minus_30min": {
+                "mean": -0.6,
+                "min": -0.85,
+                "max": -0.28,
+                "n": 4
+              }
+            },
+            "sensitivity_residual_f": {
+              "z0_0.0024m": {
+                "mean": 3.63,
+                "min": 2.25,
+                "max": 4.17,
+                "n": 4
+              },
+              "z0_1.6m": {
+                "mean": 11.14,
+                "min": 5.69,
+                "max": 15.11,
+                "n": 4
+              },
+              "albedo_0.11": {
+                "mean": 3.63,
+                "min": 2.26,
+                "max": 4.16,
+                "n": 4
+              },
+              "albedo_0.23": {
+                "mean": 3.98,
+                "min": 2.41,
+                "max": 4.67,
+                "n": 4
+              },
+              "sun_plus_30min": {
+                "mean": 3.1,
+                "min": 1.38,
+                "max": 4.03,
+                "n": 4
+              },
+              "sun_minus_30min": {
+                "mean": 4.59,
+                "min": 3.32,
+                "max": 5.14,
+                "n": 4
+              }
+            }
+          },
+          "daytime": {
+            "gap_f": {
+              "mean": 3.12,
+              "min": -0.22,
+              "max": 4.44,
+              "n": 12
+            },
+            "residual_f": {
+              "mean": 3.62,
+              "min": 0.31,
+              "max": 5.18,
+              "n": 12
+            },
+            "delta_f": {
+              "solar_split": {
+                "mean": -0.53,
+                "min": -1.3,
+                "max": -0.01,
+                "n": 12
+              },
+              "wind_height": {
+                "mean": -0.37,
+                "min": -0.71,
+                "max": -0.01,
+                "n": 12
+              },
+              "ground_albedo": {
+                "mean": 0.78,
+                "min": 0.01,
+                "max": 1.3,
+                "n": 12
+              },
+              "globe_model": {
+                "mean": -0.67,
+                "min": -1.18,
+                "max": -0.2,
+                "n": 12
+              },
+              "nwb_model": {
+                "mean": 0.27,
+                "min": -0.36,
+                "max": 0.85,
+                "n": 12
+              },
+              "humidity": {
+                "mean": 0.02,
+                "min": -0.05,
+                "max": 0.08,
+                "n": 12
+              }
+            },
+            "delta_alone_f": {
+              "solar_split": {
+                "mean": -0.33,
+                "min": -0.84,
+                "max": 0.1,
+                "n": 12
+              },
+              "wind_height": {
+                "mean": -0.36,
+                "min": -0.69,
+                "max": 0.01,
+                "n": 12
+              },
+              "ground_albedo": {
+                "mean": 0.92,
+                "min": 0.01,
+                "max": 1.59,
+                "n": 12
+              },
+              "globe_model": {
+                "mean": -0.24,
+                "min": -0.96,
+                "max": 0.24,
+                "n": 12
+              },
+              "nwb_model": {
+                "mean": 0.28,
+                "min": -0.35,
+                "max": 0.91,
+                "n": 12
+              },
+              "humidity": {
+                "mean": 0.02,
+                "min": -0.05,
+                "max": 0.09,
+                "n": 12
+              }
+            },
+            "sum_of_deltas_f": {
+              "mean": -0.51,
+              "min": -1.23,
+              "max": 0.41,
+              "n": 12
+            },
+            "implied_solar_scale_our_model": {
+              "mean": 0.28,
+              "min": 0.07,
+              "max": 0.41,
+              "n": 11
+            },
+            "implied_solar_scale_nws_recon": {
+              "mean": 0.19,
+              "min": 0.0,
+              "max": 0.38,
+              "n": 11
+            },
+            "sensitivity_ours_f": {
+              "clear_sky_no_cloud": {
+                "mean": -1.04,
+                "min": -2.32,
+                "max": -0.04,
+                "n": 12
+              },
+              "wind_10m_used_at_2m": {
+                "mean": 0.3,
+                "min": -0.02,
+                "max": 0.47,
+                "n": 12
+              },
+              "urban_power_law": {
+                "mean": -0.32,
+                "min": -0.49,
+                "max": 0.01,
+                "n": 12
+              },
+              "sun_plus_30min": {
+                "mean": -0.08,
+                "min": -2.0,
+                "max": 1.16,
+                "n": 12
+              },
+              "sun_minus_30min": {
+                "mean": 0.1,
+                "min": -0.85,
+                "max": 1.87,
+                "n": 12
+              }
+            },
+            "sensitivity_residual_f": {
+              "z0_0.0024m": {
+                "mean": 3.36,
+                "min": 0.28,
+                "max": 4.77,
+                "n": 12
+              },
+              "z0_1.6m": {
+                "mean": 10.75,
+                "min": 0.55,
+                "max": 16.73,
+                "n": 12
+              },
+              "albedo_0.11": {
+                "mean": 3.37,
+                "min": 0.31,
+                "max": 4.77,
+                "n": 12
+              },
+              "albedo_0.23": {
+                "mean": 3.7,
+                "min": 0.31,
+                "max": 5.32,
+                "n": 12
+              },
+              "sun_plus_30min": {
+                "mean": 3.63,
+                "min": 0.05,
+                "max": 5.0,
+                "n": 12
+              },
+              "sun_minus_30min": {
+                "mean": 3.55,
+                "min": 0.13,
+                "max": 5.3,
+                "n": 12
+              }
+            }
+          },
+          "night": {
+            "gap_f": {
+              "mean": -0.76,
+              "min": -1.21,
+              "max": 0.1,
+              "n": 12
+            },
+            "residual_f": {
+              "mean": -0.29,
+              "min": -0.59,
+              "max": 0.44,
+              "n": 12
+            },
+            "delta_f": {
+              "solar_split": {
+                "mean": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "n": 12
+              },
+              "wind_height": {
+                "mean": -0.06,
+                "min": -0.09,
+                "max": -0.03,
+                "n": 12
+              },
+              "ground_albedo": {
+                "mean": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "n": 12
+              },
+              "globe_model": {
+                "mean": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "n": 12
+              },
+              "nwb_model": {
+                "mean": -0.45,
+                "min": -0.57,
+                "max": -0.34,
+                "n": 12
+              },
+              "humidity": {
+                "mean": 0.04,
+                "min": -0.08,
+                "max": 0.08,
+                "n": 12
+              }
+            },
+            "delta_alone_f": {
+              "solar_split": {
+                "mean": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "n": 12
+              },
+              "wind_height": {
+                "mean": -0.11,
+                "min": -0.14,
+                "max": -0.07,
+                "n": 12
+              },
+              "ground_albedo": {
+                "mean": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "n": 12
+              },
+              "globe_model": {
+                "mean": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "n": 12
+              },
+              "nwb_model": {
+                "mean": -0.5,
+                "min": -0.62,
+                "max": -0.39,
+                "n": 12
+              },
+              "humidity": {
+                "mean": 0.04,
+                "min": -0.08,
+                "max": 0.08,
+                "n": 12
+              }
+            },
+            "sum_of_deltas_f": {
+              "mean": -0.47,
+              "min": -0.62,
+              "max": -0.34,
+              "n": 12
+            },
+            "implied_solar_scale_our_model": null,
+            "implied_solar_scale_nws_recon": null,
+            "sensitivity_ours_f": {
+              "clear_sky_no_cloud": {
+                "mean": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "n": 12
+              },
+              "wind_10m_used_at_2m": {
+                "mean": -0.17,
+                "min": -0.21,
+                "max": -0.11,
+                "n": 12
+              },
+              "urban_power_law": {
+                "mean": -0.09,
+                "min": -0.11,
+                "max": -0.05,
+                "n": 12
+              },
+              "sun_plus_30min": {
+                "mean": -0.01,
+                "min": -0.12,
+                "max": 0.0,
+                "n": 12
+              },
+              "sun_minus_30min": {
+                "mean": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "n": 12
+              }
+            },
+            "sensitivity_residual_f": {
+              "z0_0.0024m": {
+                "mean": -0.29,
+                "min": -0.58,
+                "max": 0.44,
+                "n": 12
+              },
+              "z0_1.6m": {
+                "mean": -0.38,
+                "min": -0.67,
+                "max": 0.38,
+                "n": 12
+              },
+              "albedo_0.11": {
+                "mean": -0.29,
+                "min": -0.59,
+                "max": 0.44,
+                "n": 12
+              },
+              "albedo_0.23": {
+                "mean": -0.29,
+                "min": -0.59,
+                "max": 0.44,
+                "n": 12
+              },
+              "sun_plus_30min": {
+                "mean": -0.26,
+                "min": -0.59,
+                "max": 0.44,
+                "n": 12
+              },
+              "sun_minus_30min": {
+                "mean": -0.29,
+                "min": -0.59,
+                "max": 0.44,
+                "n": 12
+              }
+            }
+          }
+        },
+        "top_contributor": {
+          "name": "residual",
+          "mean_f": 3.89,
+          "range_f": [
+            2.37,
+            4.54
+          ],
+          "attributed_to": "unexplained residual \u2014 hypothesis (not established): NWS's effective sunlight is lower than ours at all daytime hours including noon; see MODEL.md \u00a712d",
+          "evidence": {
+            "night_residual_f": {
+              "mean": -0.29,
+              "min": -0.59,
+              "max": 0.44,
+              "n": 12
+            },
+            "implied_solar_scale_our_model": {
+              "mean": 0.27,
+              "min": 0.18,
+              "max": 0.4,
+              "n": 4
+            },
+            "implied_solar_scale_nws_recon": {
+              "mean": 0.14,
+              "min": 0.0,
+              "max": 0.35,
+              "n": 4
+            },
+            "residual_mean_under_unpublished_nws_choices_f": {
+              "z0_0.0024m": 3.63,
+              "z0_1.6m": 11.14,
+              "albedo_0.11": 3.63,
+              "albedo_0.23": 3.98,
+              "sun_plus_30min": 3.1,
+              "sun_minus_30min": 4.59
+            }
+          }
+        },
+        "top_swapped_factor": {
+          "name": "globe_model",
+          "input": "MRT/globe (globe equation)",
+          "mean": -0.97,
+          "min": -1.18,
+          "max": -0.76,
+          "n": 4
+        },
+        "rows": [
+          {
+            "time": "2026-10-04T15:00:00-04:00",
+            "in_demo_window": true,
+            "inputs": {
+              "air_temp_c": 31.11,
+              "rh_pct": 68.0,
+              "rh_from_dewpoint_pct": 67.8,
+              "wind_10m_m_s": 2.06,
+              "cloud_cover_pct": 67.0,
+              "solar_w_m2": 611.6
+            },
+            "ours_f": 88.59,
+            "nws_f": 85.0,
+            "gap_f": 3.59,
+            "delta_f": {
+              "solar_split": -1.03,
+              "wind_height": -0.51,
+              "ground_albedo": 1.18,
+              "globe_model": -0.86,
+              "nwb_model": 0.21,
+              "humidity": 0.05
+            },
+            "delta_alone_f": {
+              "solar_split": -0.64,
+              "wind_height": -0.5,
+              "ground_albedo": 1.43,
+              "globe_model": -0.06,
+              "nwb_model": 0.19,
+              "humidity": 0.05
+            },
+            "nws_documented_recon_f": 89.54,
+            "residual_f": 4.54,
+            "implied_solar_scale": {
+              "our_model": [
+                0.34,
+                0.4,
+                0.461
+              ],
+              "nws_documented_recon": [
+                0.283,
+                0.354,
+                0.425
+              ]
+            },
+            "sensitivity_ours_f": {
+              "clear_sky_no_cloud": -0.73,
+              "wind_10m_used_at_2m": 0.47,
+              "urban_power_law": -0.49,
+              "sun_plus_30min": 0.38,
+              "sun_minus_30min": -0.28
+            },
+            "sensitivity_residual_f": {
+              "z0_0.0024m": 4.17,
+              "z0_1.6m": 15.11,
+              "albedo_0.11": 4.16,
+              "albedo_0.23": 4.67,
+              "sun_plus_30min": 4.03,
+              "sun_minus_30min": 4.93
+            }
+          },
+          {
+            "time": "2026-10-04T16:00:00-04:00",
+            "in_demo_window": true,
+            "inputs": {
+              "air_temp_c": 30.56,
+              "rh_pct": 70.0,
+              "rh_from_dewpoint_pct": 69.9,
+              "wind_10m_m_s": 2.06,
+              "cloud_cover_pct": 77.0,
+              "solar_w_m2": 430.0
+            },
+            "ours_f": 86.59,
+            "nws_f": 83.0,
+            "gap_f": 3.59,
+            "delta_f": {
+              "solar_split": -0.41,
+              "wind_height": -0.41,
+              "ground_albedo": 0.91,
+              "globe_model": -1.09,
+              "nwb_model": 0.19,
+              "humidity": 0.02
+            },
+            "delta_alone_f": {
+              "solar_split": -0.22,
+              "wind_height": -0.4,
+              "ground_albedo": 1.02,
+              "globe_model": -0.71,
+              "nwb_model": 0.23,
+              "humidity": 0.02
+            },
+            "nws_documented_recon_f": 87.38,
+            "residual_f": 4.38,
+            "implied_solar_scale": {
+              "our_model": [
+                0.227,
+                0.307,
+                0.387
+              ],
+              "nws_documented_recon": [
+                0.096,
+                0.188,
+                0.281
+              ]
+            },
+            "sensitivity_ours_f": {
+              "clear_sky_no_cloud": -1.64,
+              "wind_10m_used_at_2m": 0.37,
+              "urban_power_law": -0.39,
+              "sun_plus_30min": 0.6,
+              "sun_minus_30min": -0.5
+            },
+            "sensitivity_residual_f": {
+              "z0_0.0024m": 4.08,
+              "z0_1.6m": 12.67,
+              "albedo_0.11": 4.07,
+              "albedo_0.23": 4.48,
+              "sun_plus_30min": 3.68,
+              "sun_minus_30min": 4.98
+            }
+          },
+          {
+            "time": "2026-10-04T17:00:00-04:00",
+            "in_demo_window": true,
+            "inputs": {
+              "air_temp_c": 29.44,
+              "rh_pct": 75.0,
+              "rh_from_dewpoint_pct": 74.6,
+              "wind_10m_m_s": 1.54,
+              "cloud_cover_pct": 80.0,
+              "solar_w_m2": 284.1
+            },
+            "ours_f": 84.6,
+            "nws_f": 81.0,
+            "gap_f": 3.6,
+            "delta_f": {
+              "solar_split": -0.13,
+              "wind_height": -0.43,
+              "ground_albedo": 0.71,
+              "globe_model": -1.18,
+              "nwb_model": 0.28,
+              "humidity": 0.08
+            },
+            "delta_alone_f": {
+              "solar_split": -0.02,
+              "wind_height": -0.41,
+              "ground_albedo": 0.76,
+              "globe_model": -0.96,
+              "nwb_model": 0.33,
+              "humidity": 0.09
+            },
+            "nws_documented_recon_f": 85.26,
+            "residual_f": 4.26,
+            "implied_solar_scale": {
+              "our_model": [
+                0.073,
+                0.176,
+                0.279
+              ],
+              "nws_documented_recon": [
+                0.0,
+                0.009,
+                0.125
+              ]
+            },
+            "sensitivity_ours_f": {
+              "clear_sky_no_cloud": -2.21,
+              "wind_10m_used_at_2m": 0.21,
+              "urban_power_law": -0.25,
+              "sun_plus_30min": 0.9,
+              "sun_minus_30min": -0.78
+            },
+            "sensitivity_residual_f": {
+              "z0_0.0024m": 4.02,
+              "z0_1.6m": 11.07,
+              "albedo_0.11": 4.01,
+              "albedo_0.23": 4.34,
+              "sun_plus_30min": 3.3,
+              "sun_minus_30min": 5.14
+            }
+          },
+          {
+            "time": "2026-10-04T18:00:00-04:00",
+            "in_demo_window": true,
+            "inputs": {
+              "air_temp_c": 28.33,
+              "rh_pct": 82.0,
+              "rh_from_dewpoint_pct": 82.2,
+              "wind_10m_m_s": 1.54,
+              "cloud_cover_pct": 85.0,
+              "solar_w_m2": 124.6
+            },
+            "ours_f": 81.82,
+            "nws_f": 80.0,
+            "gap_f": 1.82,
+            "delta_f": {
+              "solar_split": -0.01,
+              "wind_height": -0.09,
+              "ground_albedo": 0.34,
+              "globe_model": -0.76,
+              "nwb_model": 0.0,
+              "humidity": -0.03
+            },
+            "delta_alone_f": {
+              "solar_split": -0.02,
+              "wind_height": -0.08,
+              "ground_albedo": 0.36,
+              "globe_model": -0.8,
+              "nwb_model": 0.05,
+              "humidity": -0.04
+            },
+            "nws_documented_recon_f": 82.37,
+            "residual_f": 2.37,
+            "implied_solar_scale": {
+              "our_model": [
+                0.0,
+                0.195,
+                0.434
+              ],
+              "nws_documented_recon": [
+                0.0,
+                0.0,
+                0.08
+              ]
+            },
+            "sensitivity_ours_f": {
+              "clear_sky_no_cloud": -2.32,
+              "wind_10m_used_at_2m": 0.21,
+              "urban_power_law": -0.15,
+              "sun_plus_30min": 1.16,
+              "sun_minus_30min": -0.85
+            },
+            "sensitivity_residual_f": {
+              "z0_0.0024m": 2.25,
+              "z0_1.6m": 5.69,
+              "albedo_0.11": 2.26,
+              "albedo_0.23": 2.41,
+              "sun_plus_30min": 1.38,
+              "sun_minus_30min": 3.32
+            }
+          }
+        ]
+      }
+    }
+  },
+  "field_node": {
+    "status": "no field recording yet",
+    "synthetic": false
+  }
 }

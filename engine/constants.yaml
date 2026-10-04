@@ -5,17 +5,34 @@
 #         DESIGN    = a modelling/product choice (not a sourced fact); an AT/coach should own it, and the UI labels it
 
 fhsaa_wbgt_zones:   # Florida statewide WBGT chart, practices
-  status: SECONDARY
-  source: "Perry Weather, '2026 Heat Stress Playbook: Florida' summarizing FHSAA policy — confirm with FHSAA Sports Medicine heat policy PDF"
-  url: "https://perryweather.com/resources/2026-heat-stress-playbook-florida/"
+  status: VERIFIED
+  source: "Bylaws of the Florida High School Athletic Association 2025-26 (FHSAA Handbook, revised 4/24/26), Policy 41 Exertional Heat Illness, §41.8.3 WBGT Index for Practices, p.107 (read). Summary also in Perry Weather, '2026 Heat Stress Playbook: Florida'."
+  url: "https://s3.amazonaws.com/fhsaa.org/documents/2026/4/27/2526_handbook_42426.pdf ; https://perryweather.com/resources/2026-heat-stress-playbook-florida/"
+  quote_or_location: "§41.8.3 table: '< 82.0 Normal activities.' '82.1 - 87.0 Three (3) separate four (4) minute rest breaks per hour of activity.' '87.1 - 90.0 Maximum two (2) hour activity time. Four (4) separate four (4) minute rest breaks per hour of activity. For football, student-athletes are restricted to helmet, shoulder pads and shorts during activity. If WBGT reading rises to this level after practice has begun, student-athletes may continue to workout wearing football pants without changing into shorts.' '90.1 - 92.0 Maximum one (1) hour activity time. Five (5) separate four (4) minute rest breaks. No protective equipment permitted. No conditioning activities permitted.' '≥ 92.1 No outdoor activities.'"
+  note: "Readings are to 0.1 °F; engine/fhsaa.py rounds WBGT to 0.1 before applying the bands. Zone 4's 'five breaks' has no 'per hour' but the zone allows only 1 h, so it is applied per hour."
+  zone3_pants_if_rose_after_start: true   # §41.8.3 zone-3 exception: full pads (pants) may stay on if zone 3 began after practice started
   zones:
     - {zone: 1, wbgt_f_max: 82.0, activity: "normal", breaks_per_hour: 0, break_min: 0, max_duration_min: null, gear: "any"}
     - {zone: 2, wbgt_f_max: 87.0, activity: "unrestricted", breaks_per_hour: 3, break_min: 4, max_duration_min: null, gear: "any"}
     - {zone: 3, wbgt_f_max: 90.0, activity: "max 2 h", breaks_per_hour: 4, break_min: 4, max_duration_min: 120, gear: "football: helmet, shoulder pads, shorts only"}
     - {zone: 4, wbgt_f_max: 92.0, activity: "max 1 h", breaks_per_hour: 5, break_min: 4, max_duration_min: 60, gear: "no protective gear, no conditioning"}
     - {zone: 5, wbgt_f_max: 999, activity: "no outdoor activity", breaks_per_hour: null, break_min: null, max_duration_min: 0, gear: "n/a"}
-  measurement: "15–20 min before activity, then every 30 min"
+  measurement: "15–20 min before activity, then every 30 min"   # §41.7.2, §41.7.5
   cooling_zone_required_above_wbgt_f: 82.1
+  cooling_zone_status: SECONDARY
+  cooling_zone_note: "82.1 °F threshold is from the Perry Weather summary ('Above 82.1°F, cold water immersion tubs or ice and water tarps must be available'). The handbook (§41.8.4-41.8.5) defines cooling zones (CWI tub or TACO + trained individual) and requires them 'for each outdoor athletic contest, practice, workout, or conditioning session as designated by this policy' without a WBGT number in the text read; §41.7.1 triggers WBGT recording and modifications when WBGT is 'reasonably expected to exceed 82 degrees'."
+
+fhsaa_practice_limits:
+  status: VERIFIED
+  source: "FHSAA Handbook 2025-26, Policy 41 §41.5.7 and §41.5.12, p.106 (read)"
+  url: "https://s3.amazonaws.com/fhsaa.org/documents/2026/4/27/2526_handbook_42426.pdf"
+  quote_or_location: "§41.5.12 'On days when a single practice is conducted, practices shall not exceed three (3) hours in length.' §41.5.7 'Football only (including spring): ... the first two (2) days of practice are restricted to helmets only, days 3-5 can introduce shoulder-pads with shorts and then beginning day six (6) of practice, full gear can be utilized'"
+  max_single_practice_min: 180
+  football_gear_by_day:             # last practice day on which each gear level is the maximum allowed
+    - {through_day: 2, max_gear: helmet}
+    - {through_day: 5, max_gear: helmet_shoulder_pads}
+  gear_order: [none, helmet, helmet_shoulder_pads, full_pads]   # DESIGN: GearLevel from least to most protective equipment
+  note: "Applies football acclimatization by Athlete.acclimatization_day, treated as the athlete's practice day (CONTRACTS.md defines it as day of heat exposure this preseason)."
 
 ksi_cwi:
   status: VERIFIED
@@ -77,6 +94,7 @@ ect_buller_2013:     # OPTIONAL MODULE — method appears patented
 
 drill_met:
   status: DESIGN
+  justification: "The Compendium has no football practice or drill codes; mapping each drill intensity to the closest measured activity is a judgement. Game-level values make the estimate err hot (MODEL.md §12b) until live HR calibrates them."
   source: "Herrmann SD, Willis EA, Ainsworth BE et al. (2024) 2024 Adult Compendium of Physical Activities. J Sport Health Sci 13(1):6-12 (PMID 38242596); values read on pacompendium.com category tables by source-checker"
   url: "https://pacompendium.com/"
   quote_or_location: "codes 07040, 02024, 15232, 15210, 02078 (see values)"
@@ -104,7 +122,7 @@ gear_clothing:
   i_a_static_m2k_w: 0.0946   # manikin still-air layer: Table 2 footnote 'Icl was calculated using an Ia value of 0.61 clo' (0.61 × 0.155)
   levels:
     none:                  {ensemble: "Reference: T-shirt, briefs, shorts, ankle socks, athletic shoes", i_t_clo: 0.90, i_cl_clo: 0.35, f_cl: 1.10, r_ecl_m2kpa_w: 0.009, i_m: 0.42, mapping: "good match (athletic shoes, not cleats)"}
-    helmet:                {ensemble: "NOT MEASURED — uses P2 (helmet + shoulder pads) values", i_t_clo: 1.14, i_cl_clo: 0.63, f_cl: 1.20, r_ecl_m2kpa_w: 0.017, i_m: 0.40, status: TODO, mapping: "DESIGN: no published helmet-only ensemble; conservatively takes P2 (overestimates heat strain)"}
+    helmet:                {ensemble: "NOT MEASURED — uses P2 (helmet + shoulder pads) values", i_t_clo: 1.14, i_cl_clo: 0.63, f_cl: 1.20, r_ecl_m2kpa_w: 0.017, i_m: 0.40, status: DESIGN, mapping: "no published helmet-only ensemble; takes P2", justification: "No helmet-only ensemble has been measured (McCullough & Kenney 2003 measured P2 helmet + shoulder pads, P1 and G1, not a helmet with T-shirt and shorts). Reusing the helmet + shoulder-pads values gives more insulation and evaporative resistance than a helmet alone, so it over-predicts heat strain — the conservative direction. Owner decision Oct 3."}
     helmet_shoulder_pads:  {ensemble: "P2 practice: helmet, shoulder pads, cut-off T-shirt, mesh jersey, mesh shorts", i_t_clo: 1.14, i_cl_clo: 0.63, f_cl: 1.20, r_ecl_m2kpa_w: 0.017, i_m: 0.40, mapping: "good match (P2 also has a mesh jersey)"}
     full_pads:             {ensemble: "G1 warm-weather game uniform (P1 + pants with knee pads)", i_t_clo: 1.28, i_cl_clo: 0.79, f_cl: 1.25, r_ecl_m2kpa_w: 0.022, i_m: 0.37, mapping: "judgement call: lightest full uniform; P1 (0.71 clo, 0.020) would fit 'shells'"}
 
@@ -131,12 +149,80 @@ hr_met:
 
 wbgt_model:
   status: VERIFIED
-  source: "Liljegren et al. 2008 model; open implementation PyWBGT (Kong & Huber 2022)"
+  source: "Liljegren et al. 2008 model, implemented in engine/wbgt.py from the author's reference C code (see liljegren_2008). Open implementations for cross-checks: PyWBGT (Kong & Huber 2022), pywbgt (Wodzicki)."
   url: "https://github.com/QINQINKONG/PyWBGT"
 
-wbgt_globe_height_m:
+liljegren_2008:
+  status: VERIFIED
+  source: "Liljegren JC, Carhart RA, Lawday P, Tschopp S, Sharp R (2008) Modeling the wet bulb globe temperature using standard meteorological measurements. J Occup Environ Hyg 5(10):645-655. Every value below read from the author's reference code 'WBGT, Version 1.1' (© 2008 UChicago Argonne, J.C. Liljegren) as redistributed in pywbgt 3.0.7 (K. Wodzicki), file pywbgt/src/liljegren_c.c. The paper itself was not read."
+  url: "https://github.com/kwodzicki/pywbgt ; https://doi.org/10.1080/15459620802310770"
+  quote_or_location: "liljegren_c.c: #defines lines 71-107; esat 254-276 (Buck 1981); dew_point 228-245; emis_atm 284-291 (Oke p.373); evap 301-306; est_wind_speed 315-336 (EPA-454/5-99-005 §6.2.5); diffusivity/viscosity/thermal_cond 346-402 (Bird, Stewart & Lightfoot); h_sphere 412-429; h_cylinder 439-461 (Bedingfield & Drew); calc_solar_parameters 754-821; stab_srdt 828-881; Twb 892-956; Tglobe 966-1011; 'Twbg = 0.1 * Tair + 0.2 * (*Tg) + 0.7 * (*Tnwb)' line 1151"
+  note: "Liljegren's own physical constants (Stefan-Boltzmann 5.6696e-8, solar constant 1367) are kept rather than CODATA/IAU values so the port reproduces the reference model."
+  weights: {nwb: 0.7, globe: 0.2, air: 0.1}
+  solar_const_w_m2: 1367.0
+  stefan_boltzmann_w_m2_k4: 5.6696e-8
+  cp_j_kg_k: 1003.5
+  m_air_g_mol: 28.97
+  m_h2o_g_mol: 18.015
+  r_gas_j_kmol_k: 8314.34
+  pr_r_coeff: 1.25          # Pr = Cp / (Cp + 1.25 R_air); thermal_cond = (Cp + 1.25 R_air)·viscosity
+  emis_wick: 0.95
+  alb_wick: 0.4
+  d_wick_m: 0.007
+  l_wick_m: 0.0254
+  emis_globe: 0.95
+  alb_globe: 0.05
+  d_globe_m: 0.0508         # 2-inch globe (Liljegren's default)
+  emis_sfc: 0.999
+  alb_sfc: 0.45
+  cza_min: 0.00873
+  normsolar_max: 0.85
+  ref_height_m: 2.0
+  min_speed_m_s: 0.13
+  convergence_k: 0.02
+  max_iter: 50
+  relaxation: 0.1           # T_prev = 0.9 T_prev + 0.1 T_new
+  esat: {a_mb: 6.1121, b: 17.502, c_k: 32.18, enhancement: 1.004}   # es = 1.004 · 6.1121 exp(17.502 (T-273.15)/(T-32.18))
+  dewpoint: {c_c: 240.97}                                          # Td = 273.15 + 240.97 z/(17.502 - z), z = ln(e/(6.1121·1.004))
+  emis_atm: {a: 0.575, b: 0.143}                                    # ε_a = 0.575 e^0.143, e in mb
+  evap: {t_ref_k: 313.15, span_k: 30.0, slope_j_kg: -71100.0, l_ref_j_kg: 2.4073e+6}
+  diffusivity: {pcrit_air_atm: 36.4, pcrit_h2o_atm: 218.0, tcrit_air_k: 132.0, tcrit_h2o_k: 647.3, a: 3.640e-4, b: 2.334, mb_per_atm: 1013.25}
+  viscosity: {sigma_angstrom: 3.617, eps_kappa_k: 97.0, omega_tr0: 2.9, omega_scale: 0.4, omega_slope: -0.034, omega0: 1.048, coeff: 2.6693e-6}
+  sphere_nu: {a: 2.0, b: 0.6, pr_exp: 0.3333}                       # Nu = 2 + 0.6 Re^0.5 Pr^(1/3)
+  cylinder_nu: {a: 0.56, b: 0.281, c: 0.4}                          # Nu = 0.281 Re^(1-0.4) Pr^(1-0.56); Twb also uses (Pr/Sc)^0.56
+  fdir: {a: 3.0, b: 1.34, c: 1.65, max: 0.9}                        # f_dir = exp(3 - 1.34 n - 1.65/n), n = normalised solar
+  wind_exp_rural: [0.07, 0.07, 0.10, 0.15, 0.35, 0.55]              # power-law exponent by stability class A-F
+  wind_exp_urban: [0.15, 0.15, 0.20, 0.25, 0.30, 0.30]
+  stability_solar_breaks_w_m2: [925.0, 675.0, 175.0]
+  stability_day_speed_breaks_m_s: [2.0, 3.0, 5.0, 6.0]
+  stability_night_speed_breaks_m_s: [2.0, 2.5]
+  stability_table:          # lsrdt[speed row][solar col]; cols 0-3 day solar ≥925/≥675/≥175/<175, 5 night dT<0, 6 night dT≥0
+    - [1, 1, 2, 4, 0, 5, 6, 0]
+    - [1, 2, 3, 4, 0, 5, 6, 0]
+    - [2, 2, 3, 4, 0, 4, 4, 0]
+    - [3, 3, 4, 4, 0, 0, 0, 0]
+    - [3, 4, 4, 4, 0, 0, 0, 0]
+    - [0, 0, 0, 0, 0, 0, 0, 0]
+
+wbgt_inputs:
+  status: DESIGN
+  note: "How engine/wbgt.py feeds Liljegren from an NWS forecast. Pressure: 1 atm (1013.25 mb, exact) — Gainesville is ~50 m elevation, consistent with gagge_1986.p_atm_atm. Wind: NWS windSpeed is a 10 m value (wind_profile.z_ref_m), reduced to 2 m with Liljegren's stability-class power law, rural exponents (open practice field). Night-time vertical temperature difference dT unknown → 0 (stable class), irrelevant for daytime practice."
+  pressure_mb: 1013.25
+  wind_height_m: 10.0
+  urban: false
+  night_dt_c: 0.0
+
+node_globe:
   status: TODO
-  note: "Confirm standard measurement height for standing subjects (ISO 7243)."
+  note: "Sideline node black globe = matte-black-painted table-tennis ball around a DS18B20. Diameter assumed 40 mm (regulation ball size, from memory — measure the actual ball with calipers and update). Emissivity/albedo of matte black spray paint assumed equal to Liljegren's globe (DESIGN). A 40 mm globe is not the ISO 7243 150 mm globe: it responds faster and is more convection-coupled, so wbgt_from_node inverts the energy balance for this diameter instead of using the globe reading directly."
+  d_globe_m: 0.040
+
+wbgt_globe_height_m:
+  status: VERIFIED
+  source: "FHSAA Handbook 2025-26, Policy 41 §41.7.3-41.7.4, p.107 (read)"
+  url: "https://s3.amazonaws.com/fhsaa.org/documents/2026/4/27/2526_handbook_42426.pdf"
+  quote_or_location: "'The WBGT should be set up three (3) feet above the surface of the field or turf and away from any obstructions.' 'The WBGT should be set up in the sun, not under shade.'"
+  value: 0.914          # 3 ft (FHSAA). ISO 7243 itself (paywalled) not read.
 
 # ─────────────────────────────────────────────────────────────────────────────
 # WS2 physiology (engine/physio). Equations: engine/physio/MODEL.md
@@ -268,11 +354,13 @@ solarcal:
 
 shade_model:
   status: DESIGN
+  justification: "No measured radiant field under a canopy is available; MRT = air temperature in shade is the standard simplification. It biases in-shade estimates LOW (not conservative) and is labelled so (MODEL.md §6.3)."
   note: "Shaded drills / cooling area: mean radiant temperature = air temperature (canopy blocks all shortwave; hot-ground longwave ignored). Biases in-shade predictions low. See MODEL.md §6.3."
   mrt_equals_air_temp: true
 
 non_participant:
   status: DESIGN
+  justification: "A plan doesn't say where rotated-out athletes stand; resting in the shaded cooling area matches FHSAA cooling-zone practice. It is an AT-owned setting the coach should confirm."
   note: "Athletes not listed in a drill's participants rest in the shaded cooling area, keeping the drill's gear. Coach/AT should confirm this matches how the team rotates players."
   intensity: rest
   shade: true
@@ -301,6 +389,7 @@ clear_sky_fallback:
 
 model_options:
   status: DESIGN
+  justification: "cap_mode 'consistent' follows the definition of skin wettedness (evaporation ≤ w_crit·E_max); the ASHRAE 55 code's +0.06 allowance is kept only as a reference mode for the pythermalcomfort cross-check."
   note: "cap_mode 'consistent' = skin evaporation capped at w_crit·E_max (definition of wettedness); 'ashrae55_reference' reproduces pythermalcomfort/ASHRAE 55 code, which allows (w_crit + 0.06)·E_max. See MODEL.md §7.3."
   cap_mode: consistent
   max_internal_dt_s: 30           # numerical: integration sub-step; outputs stay on the step_min grid (Euler lag at drill boundaries)
@@ -308,6 +397,7 @@ model_options:
 
 acclimatization:
   status: DESIGN
+  justification: "No study gives the day-by-day time course of heat acclimatization in adolescent football players; a piecewise-linear course between the verified (mostly laboratory) magnitudes is the simplest form consistent with them (MODEL.md §8). Review with the AT."
   enabled: true
   note: "Magnitudes are VERIFIED in the cited (mostly laboratory) studies; the piecewise-linear time course and their transfer to adolescent football players are modelling choices. MODEL.md §8."
   setpoint_shift:
@@ -338,6 +428,7 @@ acclimatization:
 
 ensemble_priors:
   status: DESIGN
+  justification: "Before any HR calibration there is no per-athlete data; spreads derived from verified tables make the uncertainty explicit (p95), and live HR narrows it (WS3)."
   note: "Prior SDs when an athlete has no calibration. Derived (by the source-checker) from verified tables; using them as SDs of the model's scale factors is an inference."
   met_scale_sd: 0.20
   met_scale_source: "Kozey SL et al. (2010) Med Sci Sports Exerc 42:1776, Table 3 (PMC2924952): between-person CV of measured METs, median ~20% (range 12–31%) across 23 activities"
@@ -403,6 +494,7 @@ optimizer:
   priority_weights: {1: 3.0, 2: 2.0, 3: 1.0}      # objective weight per drill priority (product choice)
   p1_min_kept_fraction: 0.9                       # WS4 brief: priority-1 drills kept at ≥ 90 % of their minutes
   max_added_minutes: 20                           # practice may grow by at most this much (coach's time window)
+  seed_max_load_from_min_edit: true               # demo mode: max_load also anneals from the minimum compliant edit and keeps the best compliant plan by load (owner decision Oct 3); time-budgeted calls keep default_budget_s
   inserted_break_gear: same_as_previous          # athletes keep the previous drill's gear on an added break (conservative)
   gear_floor_by_intensity: {hard: helmet, max: none}   # contact drills keep at least a helmet (coach-owned; PLAN.md demo: "team period drops to helmets-only")
   trim_step_min: 5
@@ -467,6 +559,7 @@ armstrong_2010_reproduction:
 
 clothing_conservative:
   status: DESIGN
+  justification: "Planning default because, calibrated on Armstrong 2010's full-uniform rise, it reproduces the measured rises (validation/results.json armstrong_2010); the walking-ventilation credit stays off because the control-clothing rate rules it out (owner decision)."
   note: "Planning-default clothing mode ('conservative' is the historical name; it is now the Armstrong-calibrated mode). ISO 7933 dynamic structure with the wind credit kept and the walking-ventilation credit off (with the ACSM treadmill MET and the 5 % grade's external work subtracted, credit off reproduces Armstrong CON; credit on under-predicts it by ~1 SD) plus a gear load surcharge on metabolic heat, M × (1 + δ·w(gear)), δ fitted to Armstrong 2010's mean FULL whole-protocol rise (2.37 °C). The surcharge is metabolic: applied before the VO2max ceiling and inside the live-HR observation model. δ lumps uniform weight, pad coverage and sweat-soaking (Armstrong and Hitchcock 2007 attribute extra metabolic cost to the uniform); it is a calibration, not a measured quantity. Safety margin lives in p95 + the AT-owned limit, not in the median physics."
   calibrated_by: "validation/armstrong_2010.py --calibrate"
   calibration_metric: whole_rise    # owner decision Oct 3: fit Table 3 whole-protocol FULL rise (2.37 °C); safety margin lives in p95 + the AT limit, not in median physics
@@ -622,3 +715,88 @@ drill_duty_cycle:
       status: VERIFIED
       source: "Mamon et al. (accepted manuscript, LJMU repository): drill length 'indy: 13.5 ± 3.4 mins … ST: 7.8 ± 1.7 mins; team: 9.4 ± 3.4 mins' — no active-time fractions"
   types: {}
+
+assimilation:
+  status: DESIGN
+  note: "engine/weather.py assimilate_env: bias-correct the remaining forecast from sideline-node readings. Bias = mean(node − forecast) over the last window_min of readings, applied to later hours with weight falling linearly from 1 at the last reading to 0 after decay_h (WS1 brief: 'rolling mean of node−forecast WBGT, decayed over 3 h'). Corrects wbgt_f and air_temp_c (the physiology model reads air temperature, not WBGT). A modelling choice, not a sourced method; field validation (WS7) reports how well it does."
+  window_min: 60
+  decay_h: 3.0
+
+live_replay:
+  status: DESIGN
+  note: "Display only (CONTRACTS v1.3 LiveReplay.hr_series): keep one HR point per this many seconds for the chart. Calibration uses every reading; not physiology."
+  hr_series_every_s: 10
+
+voice:
+  status: DESIGN
+  note: "Voice Q&A (engine/voice.py): Gemini returns only {transcript, intent, slots}; this caps tokens per routing call. Not physiology."
+  max_output_tokens: 512
+  connect_timeout_s: 3      # Gemini / ElevenLabs connect timeout: a dead network fails fast and the app falls back
+  read_timeout_s: 15        # routing a question or speaking one sentence; longer means fall back (local router / browser voice)
+
+demo_node:
+  status: DESIGN
+  synthetic: true
+  note: "Indoor demo of the sideline node (no outdoor readings were collected). The bridge zeroes the globe thermistor on the room (mean of the first baseline_samples readings) and adds only the globe's rise above that baseline to a hot-day scenario: air temperature chosen so WBGT is baseline_wbgt_f with no sun, humidity rh_pct, wind wind_10m_m_s. A heat gun / hair dryer on the globe reads as sunlight, so field WBGT and the athletes' estimated core temperatures climb live. Every reading and result is labelled 'DEMO scenario'. Not field data and not used in validation."
+  baseline_wbgt_f: 80.0
+  rh_pct: 70.0
+  wind_10m_m_s: 1.5
+  baseline_samples: 5
+  stale_after_s: 300          # scenario weather is used only while demo readings keep arriving
+  reforecast_min_change_w_m2: 25.0   # re-run the live session when inferred sunlight moves at least this much
+
+# ─────────────────────────────────────────────────────────────────────────────
+# WBGT gap analysis (validation/wbgt_gap.py). ABLATION ONLY: these blocks describe what NWS documents for its NDFD
+# wetBulbGlobeTemperature layer, so the gap between our Liljegren WBGT and NWS's can be measured one input at a time.
+# engine/wbgt.py and engine/weather.py never read them. Nothing here is a model change.
+# ─────────────────────────────────────────────────────────────────────────────
+
+ndfd_wbgt:
+  status: VERIFIED
+  use: "ablation only (validation/wbgt_gap.py)"
+  source: "Boyer TR, Meteorological Development Laboratory, NWS/NOAA. 'NDFD Wet Bulb Globe Temperature Algorithm and Software Design' (8 pp., undated; read in full)"
+  url: "https://vlab.noaa.gov/documents/6609493/7858379/NDFD%2BWBGT%2BDescription%2BDocument.pdf"
+  quote_or_location: "p.1 'WBGT = 0.7NWB + 0.2BGT + 0.1DB' (globe by Dimiceli and Piltz); p.3 'the NDFD application estimates hourly solar flux from the daily maximum value (assumed to occur at solar noon) and a curve' … 'a Gaussian curve with the peak intensity at solar noon (Guo, 2017)'; p.3-4 inputs T, Td, Sky, WSpd; 'NDFD forecasts … at hourly resolution from 1-36 hours'; p.4 'the NDFD application applies the Log Law to the 10 m wind speeds', z0 from MODIS land cover (Appendix A); albedo from NOAA17 AVHRR3; cos(Z) from NREL SOLPOS at 'the date/time of the forecast hour'; p.5 'cap the direct beam proportion at 0.75' (diffuse = sky cover); 'during daylight hours, the value [H] is set to 0.228, while at night, the value is set to zero'; 'R = R0 (1 – 0.75n^3.4)'; p.6 'Tnwb= Tw+ 0.001651S – 0.09555u + 0.13235Twd + 0.20249'"
+  direct_beam_cap: 0.75
+  h_convective_day: 0.228
+  h_convective_night: 0.0
+  nwb_regression: {s: 0.001651, u: -0.09555, twd: 0.13235, c: 0.20249}   # Tnwb = Tw + s·S + u·u + twd·(Ta − Tw) + c
+  roughness_appendix_a_m: [0.0002, 0.0005, 0.0024, 0.03, 0.055, 0.1, 0.2, 0.4, 0.8, 1.6]
+  hourly_resolution_h: 36
+  assumptions:
+    status: DESIGN
+    note: "Not stated by Boyer, chosen for the ablation: regression units °C, W/m², m/s (the units of the Hunter & Minyard 1999 regression it replaces, WSRC-MS-99-00757 Eq. 3, read); its S is the cloud-adjusted flux and u the log-law 2 m wind; Tw is Liljegren's psychrometric wet bulb (engine.wbgt.wet_bulb_k, radiative=False); after the 0.75 cap the diffuse share is 1 − direct (moot when sky cover ≥ 25 %, i.e. every daytime demo hour). Boyer's 'H = 0 at night' is not applied: in Dimiceli Eq. 10 it gives T_g = (ε_a·T_a⁴ + 7,680,000)/256,000 ≈ 31 °C at 24 °C air, which NWS's night values (within 1 °F of ours) do not show, so the night branch of NDFD is not what that sentence implies; the globe swap is applied only while the sun is up."
+
+dimiceli_piltz_globe:
+  status: VERIFIED
+  use: "ablation only (validation/wbgt_gap.py) — the globe model NDFD's WBGT is built on"
+  source: "Dimiceli VE, Piltz SF. 'Estimation of Black Globe Temperature for Calculation of the WBGT Index' (Oral Roberts University / NWS Tulsa; read in full)"
+  url: "https://www.weather.gov/media/tsa/pdf/WBGTpaper2.pdf"
+  quote_or_location: "'An Algorithm': 'B = S(fdb/(4σcos(z)) + (1.2/σ)fdif) + (εa)Ta^4, where σ=5.67x10^-8'; 'C = hu^0.58/(5.3865x10^-8), where h=0.315'; 'Tg = (B + CTa + 7680000)/(C + 256000)'; 'wind speed (u in meters per hour), ambient temperature (Ta in degrees Celsius), dew point temperature (Td in degrees Celsius)'; Eq.5 'εa = 0.575ea^(1/7)'; Eq.6 'ea = exp(17.67(Td−Ta)/(Td+243.5)) × (1.0007 + 0.00000346P) × 6.112exp(17.502Ta/(240.97+Ta))'; 'Albedo for grassy surfaces: αes = 0.2' (the 1.2 is 1 + αes); globe ε = 0.95, albedo 0.05 (5.3865e-8 = 0.95 × 5.67e-8)"
+  note: "Temperatures enter B, C and the tangent line in °C, as published (256000 = 4·40³ is the tangent of t⁴ at t = 40 °C). Because C ≫ 256000 the result is ≈ T_a + B/C: the globe's longwave exchange almost vanishes. Reproduced as published; NDFD replaces h = 0.315 with ndfd_wbgt.h_convective_day."
+  sigma: 5.67e-8
+  eps_sigma: 5.3865e-8
+  wind_exp: 0.58
+  tangent_slope: 256000.0
+  tangent_intercept: 7680000.0
+  albedo_grass: 0.2
+  emis_atm: {a: 0.575, b: 0.142857142857143}    # εa = 0.575·ea^(1/7), ea in mb
+  vapour: {a: 17.67, b_c: 243.5, f0: 1.0007, f1_per_mb: 3.46e-6, e0_mb: 6.112, c: 17.502, d_c: 240.97}
+
+wbgt_gap_ablation:
+  status: DESIGN
+  use: "ablation only (validation/wbgt_gap.py): how the gap is measured, not how WBGT is computed"
+  note: "z0_log_law_m: the main wind swap uses Boyer's log law with open-country z0 (= wind_profile.z0_open_grass_m, VERIFIED, and Boyer Appendix A class 1); the z0 of NWS's MODIS grid at JAX/43,32 is unknown, so Appendix A's land classes are a sensitivity. albedo_swap: the TSA/Dimiceli grass albedo; NDFD uses an AVHRR albedo at this cell that we could not read, so solarcal_ground (0.11 turf, 0.23 grass) is a sensitivity. sun_shift_min: the sun is evaluated ±30 min from the top of the hour as a timing sensitivity (NWS documents the forecast hour, the same as ours). nws_rounding_f: the NWS layer is whole °F (the script checks every value), so it carries ±0.5 °F. implied_s_*: bracket and minimum sun signal for the implied-irradiance diagnostic (the scale k on our irradiance at which a model reproduces NWS's value); hours whose whole sun effect is under 2 × nws_rounding_f are not inverted. demo window: the plan starts 15:30, hours 15:00-18:00 inclusive."
+  z0_log_law_m: 0.03
+  z0_sensitivity_m: [0.0024, 1.6]   # Boyer Appendix A land classes 0.5 (mowed grass) to 4 (very large cities); water excluded
+  albedo_swap: 0.2
+  sun_shift_min: 30.0
+  lag_hours: [-1, 0, 1]
+  nws_rounding_f: 0.5
+  implied_s_scale_max: 3.0
+  implied_s_min_sun_effect_f: 1.0
+  bisection_iter: 60
+  demo_window_local: ["2026-10-04T15:00:00-04:00", "2026-10-04T18:00:00-04:00"]
+  context_day_local: "2026-10-04"
+  raw_pinned: "nws_raw/JAX_43_32_update_2026-10-03T1207Z.json"
+  raw_context: "weather_cache/nws_raw_2026-10-03.json"

@@ -8,11 +8,13 @@ GET  /sources                                                                   
 GET  /health
 
 Missing ``plan``/``roster`` fall back to fixtures/plan.json and fixtures/roster.json (labelled synthetic).
-Missing ``weather`` uses WS1's engine.weather.get_forecast when it exists and covers the plan, otherwise the cached
-NWS fixture forecast (labelled "forecast is fixture"). Every result is labelled "estimate — planning only".
+Missing ``weather`` uses the cached NWS fixture forecast (labelled "forecast is fixture"). Live NWS (WS1
+engine.weather.get_forecast) is opt-in with HEATTWIN_WEATHER=live and is never used with ``?demo=1``, so demo numbers are
+reproducible with the network off. Every result is labelled "estimate — planning only".
 """
 from __future__ import annotations
 
+import os
 from datetime import timedelta
 from typing import Any, Literal, Optional
 
@@ -20,7 +22,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
 
-from engine import consts, fixtures, optimizer
+from engine import consts, fixtures, node_routes, optimizer
 from engine import settings as at_settings
 from engine.physio import twonode
 
@@ -126,10 +128,15 @@ def _dump(x):
     return x.model_dump(exclude_none=True) if hasattr(x, "model_dump") else x
 
 
-def _inputs(req: SimulateRequest) -> tuple[dict, list[dict], list[dict], list[str]]:
+def _inputs(req: SimulateRequest, demo_mode: bool = False, node_scenario: bool = False
+            ) -> tuple[dict, list[dict], list[dict], list[str]]:
     labels: list[str] = []
     if req.plan is not None:
         plan = _dump(req.plan)
+        fx = fixtures.plan()
+        if plan.get("id") == fx["id"] and fixtures.plan_is_synthetic():   # the web sends the fixture plan back
+            same = [(d["id"], d["duration_min"]) for d in plan["drills"]] == [(d["id"], d["duration_min"]) for d in fx["drills"]]
+            labels.append("synthetic plan (fixture)" if same else "edited from the synthetic fixture plan")
     else:
         plan = fixtures.plan()
         labels.append("synthetic plan (fixture)")
@@ -146,31 +153,68 @@ def _inputs(req: SimulateRequest) -> tuple[dict, list[dict], list[dict], list[st
         unknown = set(d.get("participants") or []) - ids
         if unknown:
             raise HTTPException(422, f"drill {d['id']} lists participants not on the roster: {sorted(unknown)}")
-    weather = [_dump(h) for h in req.weather] if req.weather is not None else _forecast_for(plan, labels)
+    weather = ([_dump(h) for h in req.weather] if req.weather is not None
+               else _forecast_for(plan, labels, demo_mode, node_scenario))
     return plan, roster, weather, labels
 
 
-def _forecast_for(plan: dict, labels: list[str]) -> list[dict]:
-    """WS1 live forecast if available and covering the plan window, else the cached NWS fixture."""
+def weather_mode(demo_mode: bool = False) -> str:
+    """'fixture' (default, and always with ?demo=1) or 'live' (HEATTWIN_WEATHER=live: WS1 NWS fetch)."""
+    return "live" if not demo_mode and os.environ.get("HEATTWIN_WEATHER", "").lower() == "live" else "fixture"
+
+
+def _forecast_for(plan: dict, labels: list[str], demo_mode: bool = False, node_scenario: bool = False) -> list[dict]:
+    """Weather for a plan, in order: ?demo=1 → the pinned saved forecast (always); node_scenario (live session or
+    ?source=node) and the indoor node demo running → its labelled scenario weather; HEATTWIN_WEATHER=live → live NWS;
+    else the saved forecast. Live falls back to the saved forecast."""
     t0 = twonode.parse_time(plan["start"])
     minutes = sum(float(d["duration_min"]) for d in plan["drills"]) + consts.get("optimizer.max_added_minutes")
     t1 = t0 + timedelta(minutes=minutes)
-    try:
-        from engine import weather as ws1  # WS1, may not exist yet
-        hours = ws1.get_forecast(plan["site"]["lat"], plan["site"]["lon"])
-        hours = [h.model_dump() if hasattr(h, "model_dump") else dict(h) for h in hours]
-        ts = [twonode.parse_time(h["time"]) for h in hours]
-        if hours and min(ts) <= t0 and max(ts) + timedelta(hours=1) >= t1:
-            if any(h.get("source") == "fixture" for h in hours):
-                labels.append("forecast is fixture")
-            return hours
-    except Exception:  # noqa: BLE001 — any WS1 failure falls back to the cached fixture
-        pass
+    if demo_mode:  # ?demo=1: always the pinned saved forecast, even while the node demo runs
+        labels.append("demo mode: forecast pinned to the cached NWS fixture")
+        return _fixture_hours(t0, t1, labels)
+    if node_scenario:  # live session or ?source=node: the indoor node demo's scenario weather, when it is running
+        scenario = node_routes.demo_weather(t0, t1)
+        if scenario:
+            labels.append(node_routes.DEMO_LABEL)
+            return scenario
+    if weather_mode() == "live":
+        try:
+            from engine import weather as ws1  # WS1
+            hours = ws1.get_forecast(plan["site"]["lat"], plan["site"]["lon"])
+            hours = [h.model_dump() if hasattr(h, "model_dump") else dict(h) for h in hours]
+            ts = [twonode.parse_time(h["time"]) for h in hours]
+            if hours and min(ts) <= t0 and max(ts) + timedelta(hours=1) >= t1:
+                if any(h.get("source") == "fixture" for h in hours):
+                    labels.append("forecast is fixture")
+                return hours
+        except Exception:  # noqa: BLE001 — any WS1 failure falls back to the cached fixture
+            pass
+        labels.append("live forecast unavailable; cached NWS fixture used")
+    return _fixture_hours(t0, t1, labels)
+
+
+def _fixture_hours(t0, t1, labels: list[str]) -> list[dict]:
     hours = fixtures.forecast()
     ts = [twonode.parse_time(h["time"]) for h in hours]
     if not (min(ts) <= t0 and max(ts) + timedelta(hours=1) >= t1):
         labels.append("fixture forecast does not cover the plan window; nearest hours used")
     return hours
+
+
+def _plan_roster(req: SimulateRequest) -> tuple[dict, list[dict]]:
+    """Plan and roster only (no forecast needed), with the same fixture fallbacks as _inputs."""
+    plan = _dump(req.plan) if req.plan is not None else fixtures.plan()
+    roster = [_dump(a) for a in req.roster] if req.roster is not None else fixtures.roster()
+    return plan, roster
+
+
+def _demo_req(req: SimulateRequest, demo_mode: bool) -> SimulateRequest:
+    """Demo mode: the fixed seed and ensemble size from constants.demo_mode."""
+    if not demo_mode:
+        return req
+    dm = consts.get("demo_mode")
+    return req.model_copy(update={"seed": int(dm["seed"]), "n_ensemble": int(dm["n_ensemble"])})
 
 
 def _settings(req: SimulateRequest) -> at_settings.AtSettings:
@@ -198,6 +242,10 @@ class HrReading(_Model):
     replay: bool = False
 
 
+class LiveReplayRequest(SimulateRequest):
+    file: Optional[str] = Field(default=None, description="v1.3: HR file under fixtures/; default newest real, else synthetic")
+
+
 class LiveStart(SimulateRequest):
     start_now: bool = Field(default=False, description="v1.1: set the plan start to now (live HR from a strap)")
 
@@ -220,42 +268,54 @@ def _live_session():
 @app.get("/health")
 def health() -> dict[str, Any]:
     from engine import fhsaa_adapter
-    return {"ok": True, "model": twonode.MODEL_NAME, "fhsaa": "stub" if fhsaa_adapter.USING_STUB else "ws1"}
+    return {"ok": True, "model": twonode.MODEL_NAME, "fhsaa": "stub" if fhsaa_adapter.USING_STUB else "ws1",
+            "weather": weather_mode()}
 
 
 @app.post("/simulate")
-def simulate(req: SimulateRequest | None = None, demo: bool = Query(False, description="fixed seed (demo mode)")
+def simulate(req: SimulateRequest | None = None,
+             demo_mode: bool = Query(False, alias="demo", description="fixed seed + pinned saved forecast"),
+             source: str = Query("auto", description="auto | node (use the indoor node demo's scenario weather)")
              ) -> dict[str, Any]:
-    req = req or SimulateRequest()
-    if demo:
-        dm = consts.get("demo_mode")
-        req = req.model_copy(update={"seed": int(dm["seed"]), "n_ensemble": int(dm["n_ensemble"])})
-    plan, roster, weather, labels = _inputs(req)
+    req = _demo_req(req or SimulateRequest(), demo_mode)
+    plan, roster, weather, labels = _inputs(req, demo_mode, node_scenario=source == "node")
     return _guard(twonode.simulate_roster(roster, plan, weather, step_min=req.step_min, n_ensemble=req.n_ensemble,
                                           seed=req.seed, extra_labels=labels, settings=_settings(req)))
 
 
 @app.post("/optimize")
 def optimize(req: OptimizeRequest | None = None,
-             demo: bool = Query(False, description="fixed seed + fixed iteration cap instead of a time budget"),
-             preset: str = Query("max_load", description="max_load | fewest_changes (cap of changes, maximize load)")
+             demo_mode: bool = Query(False, alias="demo", description="fixed seed + fixed iteration cap instead of a time budget"),
+             preset: str = Query("max_load", description="max_load | fewest_changes (cap of changes, maximize load)"),
+             source: str = Query("auto", description="auto | node (use the indoor node demo's scenario weather)")
              ) -> dict[str, Any]:
     req = req or OptimizeRequest()
     key = None
-    if demo:  # demo runs are deterministic → cache identical requests (warm before presenting)
+    if demo_mode:  # demo runs are deterministic (pinned forecast, fixed seed) → cache identical requests
         key = (preset, req.model_dump_json())
         if key in _DEMO_CACHE:
             return _DEMO_CACHE[key]
-    plan, roster, weather, labels = _inputs(req)
+    plan, roster, weather, labels = _inputs(req, demo_mode, node_scenario=source == "node")
+    disk = None
+    if key is not None:  # demo results persist across engine restarts (keyed by inputs + code version)
+        from engine import demo_cache
+        disk = demo_cache.key("optimize", preset, plan, roster, weather, req.model_dump(exclude={"plan", "roster", "weather"}),
+                              labels)
+        hit = demo_cache.load(disk)
+        if hit is not None:
+            _DEMO_CACHE[key] = hit
+            return hit
     try:
         res = optimizer.optimize(plan, roster, weather, budget_s=req.budget_s, seed=req.seed,
                                  n_ensemble=req.n_ensemble, step_min=req.step_min, extra_labels=labels,
-                                 settings=_settings(req), demo=demo, preset=preset)
+                                 settings=_settings(req), demo=demo_mode, preset=preset)
     except ValueError as e:
         raise HTTPException(422, str(e)) from e
     res = _guard(res)
     if key is not None:
         _DEMO_CACHE[key] = res
+        from engine import demo_cache
+        demo_cache.save(disk, res)
     return res
 
 
@@ -264,13 +324,14 @@ def live_start(req: LiveStart | None = None) -> dict[str, Any]:
     """v1.1: start a live session for /hr (defaults to fixtures). Resets calibration state."""
     from engine.calibrate import LiveSession
     req = req or LiveStart()
-    plan, roster, weather, labels = _inputs(req)
+    plan, roster, weather, labels = _inputs(req, node_scenario=True)   # Live mode: node demo scenario if running
     if req.start_now:
         from datetime import datetime
         plan = dict(plan, start=datetime.now().astimezone().replace(second=0, microsecond=0).isoformat())
         labels = [*labels, "plan clock set to now for a live HR session"]
         if req.weather is None:
-            weather = _forecast_for(plan, labels)
+            labels = [x for x in labels if x not in ("forecast is fixture", node_routes.DEMO_LABEL)]
+            weather = _forecast_for(plan, labels, node_scenario=True)
     _LIVE["session"] = LiveSession(plan, roster, weather, settings=_settings(req), seed=req.seed, extra_labels=labels)
     return {"ok": True, "plan_id": plan["id"], "start": plan["start"], "athletes": [a["id"] for a in roster],
             "labels": labels}
@@ -293,38 +354,219 @@ class WhatIfRequest(SimulateRequest):
     change: dict[str, Any]
 
 
+class AthleteStatusRequest(SimulateRequest):
+    athlete: str = Field(min_length=1, description="v1.3: athlete id or name on the roster")
+
+
+class VoiceIntentRequest(SimulateRequest):
+    text: Optional[str] = Field(default=None, max_length=2000)
+    audio_b64: Optional[str] = None
+    mime_type: str = "audio/wav"
+
+
+class VoiceAnswerRequest(SimulateRequest):
+    question: Optional[str] = Field(default=None, max_length=2000, description="v1.4: the coach's words")
+    intent: Literal["plan_summary", "optimize", "what_if", "athlete_status", "field_conditions", "unknown"]
+    slots: dict[str, Any] = Field(default_factory=dict)
+
+
+class TtsRequest(_Model):
+    text: str = Field(min_length=1, max_length=2000)
+
+
 @app.post("/what_if")
-def what_if(req: WhatIfRequest) -> dict[str, Any]:
+def what_if(req: WhatIfRequest, demo_mode: bool = Query(False, alias="demo", description="fixed seed (demo mode)")) -> dict[str, Any]:
     """v1.2 voice tool: one plan edit → before/after team summary (numbers only + a guarded sentence)."""
     from engine import voice_tools
-    plan, roster, weather, labels = _inputs(req)
+    req = _demo_req(req, demo_mode)
+    plan, roster, weather, labels = _inputs(req, demo_mode)
     try:
-        return voice_tools.what_if(roster, plan, weather, req.change, settings=_settings(req), seed=req.seed)
+        return voice_tools.what_if(roster, plan, weather, req.change, settings=_settings(req), seed=req.seed,
+                                   n_ensemble=req.n_ensemble, extra_labels=labels)
     except KeyError as e:
         raise HTTPException(404, str(e)) from e
+
+
+def _athlete_status(req: SimulateRequest, athlete: str, demo_mode: bool) -> dict[str, Any]:
+    from engine import voice_tools
+    req = _demo_req(req, demo_mode)
+    plan, roster, weather, labels = _inputs(req, demo_mode)
+    res = twonode.simulate_roster(roster, plan, weather, n_ensemble=req.n_ensemble, seed=req.seed, extra_labels=labels,
+                                  settings=_settings(req))
+    try:
+        return voice_tools.athlete_status(res, roster, athlete)
+    except KeyError as e:
+        raise HTTPException(404, str(e)) from e
+
+
+def _field_conditions(req: SimulateRequest, demo_mode: bool) -> dict[str, Any]:
+    from engine import voice_tools
+    req = _demo_req(req, demo_mode)
+    plan, roster, weather, labels = _inputs(req, demo_mode)
+    res = twonode.simulate_roster(roster[:1], plan, weather, n_ensemble=req.n_ensemble, seed=req.seed,
+                                  extra_labels=labels, settings=_settings(req))
+    return voice_tools.field_conditions(res)
 
 
 @app.get("/athlete_status")
-def athlete_status(athlete_id: str, demo: bool = Query(True)) -> dict[str, Any]:
-    """v1.2 voice tool: one athlete's estimate on the current (fixture) plan."""
-    from engine import voice_tools
-    req = SimulateRequest()
-    plan, roster, weather, labels = _inputs(req)
-    res = twonode.simulate_roster(roster, plan, weather, extra_labels=labels, settings=_settings(req))
-    try:
-        return voice_tools.athlete_status(res, roster, athlete_id)
-    except KeyError as e:
-        raise HTTPException(404, str(e)) from e
+def athlete_status(athlete_id: str, demo_mode: bool = Query(True, alias="demo")) -> dict[str, Any]:
+    """v1.2 voice tool: one athlete's estimate on the fixture plan (use POST to send the plan on screen)."""
+    return _athlete_status(SimulateRequest(), athlete_id, demo_mode)
+
+
+@app.post("/athlete_status")
+def athlete_status_post(req: AthleteStatusRequest, demo_mode: bool = Query(False, alias="demo")) -> dict[str, Any]:
+    """v1.3: one athlete's estimate on the plan sent (the plan on screen)."""
+    return _athlete_status(req, req.athlete, demo_mode)
 
 
 @app.get("/field_conditions")
-def field_conditions() -> dict[str, Any]:
-    """v1.2 voice tool: hourly WBGT / FHSAA zone over the practice window."""
-    from engine import voice_tools
-    req = SimulateRequest()
-    plan, roster, weather, labels = _inputs(req)
-    res = twonode.simulate_roster(roster[:1], plan, weather, n_ensemble=5, extra_labels=labels)
-    return voice_tools.field_conditions(res)
+def field_conditions(demo_mode: bool = Query(True, alias="demo")) -> dict[str, Any]:
+    """v1.2 voice tool: hourly WBGT / FHSAA zone over the fixture plan's window (use POST for the plan on screen)."""
+    return _field_conditions(SimulateRequest(), demo_mode)
+
+
+@app.post("/field_conditions")
+def field_conditions_post(req: SimulateRequest | None = None, demo_mode: bool = Query(False, alias="demo")) -> dict[str, Any]:
+    """v1.3: hourly WBGT / FHSAA zone over the window of the plan sent."""
+    return _field_conditions(req or SimulateRequest(), demo_mode)
+
+
+# ── voice Q&A (v1.3): Gemini routes, the engine answers ──
+
+@app.post("/voice/intent")
+def voice_intent(req: VoiceIntentRequest) -> dict[str, Any]:
+    """Gemini → {transcript, intent, slots} only (schema-validated); names resolved against the plan sent."""
+    import base64
+    import binascii
+    from engine import llm_plan, voice
+    plan, roster = _plan_roster(req)
+    audio = None
+    if req.audio_b64:
+        try:
+            audio = base64.b64decode(req.audio_b64, validate=True)
+        except (binascii.Error, ValueError) as e:
+            raise HTTPException(422, "audio_b64 is not valid base64") from e
+    try:
+        return voice.parse_intent(text=req.text, audio=audio, mime_type=req.mime_type, plan=plan, roster=roster)
+    except llm_plan.LLMNotConfigured as e:
+        raise HTTPException(503, str(e)) from e
+    except llm_plan.LLMError as e:
+        raise HTTPException(502, str(e)) from e
+    except ValueError as e:
+        raise HTTPException(422, str(e)) from e
+
+
+@app.post("/voice/answer")
+def voice_answer(req: VoiceAnswerRequest, demo_mode: bool = Query(False, alias="demo", description="fixed seed (demo mode)")
+                 ) -> dict[str, Any]:
+    """The engine runs the tool for an intent and writes the (guarded) sentence; `numbers` = every number in it."""
+    from engine import voice, voice_tools
+    s = req.slots or {}
+    base = SimulateRequest(**req.model_dump(include={"plan", "roster", "weather", "step_min", "n_ensemble", "seed",
+                                                     "settings"}, exclude_none=True))
+    if req.intent == "plan_summary":
+        out = voice_tools.plan_summary(simulate(base, demo_mode=demo_mode))
+    elif req.intent == "optimize":
+        preset = s.get("preset") if s.get("preset") in ("max_load", "fewest_changes") else "max_load"
+        out = voice_tools.optimize_summary(optimize(OptimizeRequest(**base.model_dump(exclude_none=True)), demo_mode=demo_mode,
+                                                    preset=preset))
+    elif req.intent == "athlete_status":
+        if not s.get("athlete_id"):
+            return voice.finish("athlete_status", voice.ask_back(["athlete_id"]), {}, [twonode.ESTIMATE_LABEL],
+                                req.question)
+        out = _athlete_status(base, s["athlete_id"], demo_mode)
+    elif req.intent == "field_conditions":
+        out = _field_conditions(base, demo_mode)
+    elif req.intent == "what_if":
+        missing = [k for k in ("drill_id", "change") if not s.get(k)]
+        try:
+            change = voice.change_from_slots(s) if not missing else None
+        except KeyError as e:
+            missing.append(str(e).strip("'"))
+            change = None
+        if change is None:
+            return voice.finish("what_if", voice.ask_back(missing), {}, [twonode.ESTIMATE_LABEL], req.question)
+        out = what_if(WhatIfRequest(**base.model_dump(exclude_none=True), change=change), demo_mode=demo_mode)
+    else:
+        return voice.finish("unknown", voice.UNKNOWN_SAY, {}, [twonode.ESTIMATE_LABEL], req.question)
+    data = {k: v for k, v in out.items() if k not in ("say", "labels")}
+    return voice.finish(req.intent, out["say"], data, out.get("labels", [twonode.ESTIMATE_LABEL]), req.question)
+
+
+@app.post("/voice/tts")
+def voice_tts(req: TtsRequest):
+    """ElevenLabs TTS for an approved sentence. Re-guarded here: 422 on a guard hit; 503 when TTS is unavailable."""
+    from fastapi.responses import Response
+    from engine import guard, voice
+    g = guard.check(req.text, source="voice.tts")
+    if not g["ok"]:
+        raise HTTPException(422, "text did not pass the language guard")
+    try:
+        return Response(content=voice.tts(req.text), media_type="audio/mpeg")
+    except voice.TTSUnavailable as e:
+        raise HTTPException(503, str(e)) from e
+
+
+@app.get("/demo/inputs")
+def demo_inputs() -> dict[str, Any]:
+    """v1.3: the plan, roster and weather that /simulate?demo=1 uses with no body (so the web shows the same ones)."""
+    plan, roster, weather, labels = _inputs(SimulateRequest(), demo_mode=True)
+    srcs = {h.get("source") for h in weather}
+    if "fixture" in srcs and "forecast is fixture" not in labels:
+        labels.append("forecast is fixture")
+    return {"plan": plan, "roster": roster, "weather": weather, "labels": [twonode.ESTIMATE_LABEL, *labels],
+            "synthetic": {"plan": fixtures.plan_is_synthetic(), "roster": fixtures.roster_is_synthetic(),
+                          "weather": "fixture" in srcs and bool(fixtures.forecast_meta().get("synthetic", False))}}
+
+
+@app.get("/demo/comparison")
+def demo_comparison() -> dict[str, Any]:
+    """v1.4: the same plan under three weather inputs — the stored snapshot written by scripts/demo_numbers.py."""
+    import json
+    from pathlib import Path
+    p = Path(__file__).resolve().parents[1] / "docs" / "demo_numbers.json"
+    if not p.exists():
+        raise HTTPException(404, "comparison not generated yet: run python scripts/demo_numbers.py")
+    snap = json.loads(p.read_text())
+    out = dict(snap["comparison"])
+    out["generated_at"], out["engine_commit"] = snap.get("generated_at"), snap.get("engine_commit")
+    return out
+
+
+_REPLAY_CACHE: dict[str, dict[str, Any]] = {}
+
+
+def demo_data_pick(name):
+    from engine import demo_data
+    return demo_data.pick_hr_file(name)
+
+
+@app.post("/live/replay")
+def live_replay(req: LiveReplayRequest | None = None, demo_mode: bool = Query(False, alias="demo", description="fixed seed (demo mode)")
+                ) -> dict[str, Any]:
+    """v1.3: replay a recorded (or the synthetic) HR file through live calibration → per-update frames (deterministic)."""
+    from engine import demo_data
+    req = _demo_req(req or LiveReplayRequest(), demo_mode)
+    try:
+        hr_file = demo_data_pick(req.file)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e)) from e
+    # the HR file is part of the key: a real recording that lands while the engine runs replaces the synthetic one
+    key = f"{demo_mode}|{req.model_dump_json()}|{hr_file.name}|{hr_file.stat().st_mtime_ns}"
+    if key in _REPLAY_CACHE:
+        return _REPLAY_CACHE[key]
+    plan, roster, weather, labels = _inputs(req, demo_mode)
+    try:
+        out = demo_data.run_replay(plan, roster, weather, settings=_settings(req), seed=req.seed,
+                                   n_ensemble=req.n_ensemble, extra_labels=labels, file=req.file)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e)) from e
+    out["plan_forecast"] = _guard(out["plan_forecast"])
+    from engine import guard
+    out["labels"] = guard.guard_strings(out["labels"], "replay")
+    _REPLAY_CACHE[key] = out
+    return out
 
 
 @app.post("/guard")
@@ -347,3 +589,29 @@ def sources() -> dict[str, Any]:
 # Coach plan entry by text/voice via Gemini (engine/llm_routes.py)
 from engine import llm_routes  # noqa: E402
 app.include_router(llm_routes.router)
+
+from engine import weather_routes  # noqa: E402 — live conditions for the web app (WS1 forecast)
+
+app.include_router(weather_routes.router)
+
+# Sideline node (engine/node_routes.py): POST /node, GET /node/latest, GET /node/history.
+app.include_router(node_routes.router)
+
+
+def _on_node_demo_update() -> dict | None:
+    """A node demo reading changed the scenario: refresh the live session's weather and re-forecast it."""
+    s = _LIVE.get("session")
+    if s is None:
+        return None
+    t0 = twonode.parse_time(s.plan["start"])
+    minutes = sum(float(d["duration_min"]) for d in s.plan["drills"])
+    scenario = node_routes.demo_weather(t0, t0 + timedelta(minutes=minutes))
+    if not scenario:
+        return None
+    s.weather = scenario
+    if node_routes.DEMO_LABEL not in s.extra_labels:
+        s.extra_labels = [*s.extra_labels, node_routes.DEMO_LABEL]
+    return _guard(s.reforecast())
+
+
+node_routes.on_demo_update = _on_node_demo_update

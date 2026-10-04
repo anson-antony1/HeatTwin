@@ -536,6 +536,151 @@ The model is therefore **kept disabled** (`constants.drill_duty_cycle.enabled: f
 full-text speed-zone data (DeMartini 2011, Gleason 2017), Hitchcock's per-drill %VO₂max, or the team's own HR or GPS from
 practice (WS3), which measures the same thing directly.
 
+## 12d. WBGT: our Liljegren vs NWS forecast WBGT (`validation/wbgt_gap.py`)
+
+**The gap is documented, not tuned.** `engine/wbgt.py` and `engine/weather.py` are unchanged. The swaps below are ablations
+run by `validation/wbgt_gap.py`. Their constants (`ndfd_wbgt`, `dimiceli_piltz_globe`, `wbgt_gap_ablation`) are marked
+ablation-only in `constants.yaml`, and a test checks the engine never reads them. Numbers: `validation/results.json["wbgt_gap"]`.
+
+**What is compared.**
+- **Ours:** `engine/wbgt.py`, the Liljegren 2008 port (it matches the compiled reference C code to < 0.1 °C WBGT, so the
+  port is not the issue). `engine/weather.py` feeds it NWS's own gridpoint layers:
+  - air temperature and RH;
+  - 10 m wind, reduced to 2 m with the stability-class power law;
+  - sky cover → irradiance (Haurwitz clear sky × Kasten–Czeplak cloud factor).
+- **NWS:** its `wetBulbGlobeTemperature` layer for the same grid cell (JAX/43,32), kept as `nws_wbgt_f`. It is published in
+  whole °F, which the script checks, so it carries ±0.5 °F of rounding.
+- **Forecasts:** cached, offline:
+  - the pinned saved forecast (NWS update 2026-10-03 12:07Z, lead 31–34 h into the demo window);
+  - a later cache (18:21Z) as context.
+- **Neither side is a measurement**, so this says where the two forecasts differ, not which one is right for the field.
+
+**What NWS does — read, not assumed** (Boyer, MDL, *NDFD WBGT Algorithm and Software Design*; Dimiceli & Piltz, *Estimation of
+Black Globe Temperature for Calculation of the WBGT Index*):
+- WBGT = 0.7 NWB + 0.2 T_g + 0.1 T_a, the same as ours.
+- **Globe:** Dimiceli–Piltz linearised globe equation (temperatures in °C, wind in m/h), with NDFD's convective coefficient
+  h = 0.228 by day.
+- **NWB:** a regression on the psychrometric wet bulb, T_nwb = T_w + 0.001651 S − 0.09555 u + 0.13235 (T_a − T_w) + 0.20249.
+- **Wind:** 10 m → 2 m by the log law, with z0 taken from MODIS land cover.
+- **Humidity:** from the dewpoint layer.
+- **Solar:**
+  - direct share = 1 − sky cover, capped at 0.75;
+  - cloud factor R₀(1 − 0.75 n^3.4), the same formula we use;
+  - clear-sky flux from a daily maximum at solar noon (a function of latitude and day of year), spread over the day by a
+    Gaussian. **This curve's parameters are not published** in anything we read, so it is the one NWS input we cannot reproduce.
+
+**Method.**
+- **Six swaps.** In each, one of our choices is replaced by NWS's documented choice:
+  - solar direct/diffuse split;
+  - wind height law (z0 = 0.03 m);
+  - ground albedo (0.45 → 0.2 — the value of NWS's Tulsa WBGT tool; NDFD's own AVHRR albedo for this cell is unknown);
+  - globe equation (applied only while the sun is up — see `ndfd_wbgt.assumptions` for why Boyer's "h = 0 at night" can't
+    be applied literally);
+  - NWB equation;
+  - RH vs dewpoint.
+- **Attribution.** The swaps interact, so each factor's Δ is its **Shapley value**: the WBGT change from that swap, averaged
+  over every order of applying all six (2⁶ runs per hour).
+  - Gap = ours − NWS = ΣΔ + residual, exactly. The residual is the all-swaps reconstruction minus NWS.
+  - Δ > 0 means our choice makes our WBGT higher than NWS's choice.
+  - One-at-a-time Δs are in `results.json` (`delta_alone_f`). They do NOT always agree with the Shapley Δs: the globe
+    equation's sign depends on the other swaps (alone, on our inputs, Dimiceli runs slightly cooler: window −0.14 °F,
+    daytime +0.22 °F; it runs hotter only together with NWS's more diffuse split and lower wind).
+- **Implied irradiance.** Bisection finds the scale k on our irradiance at which a model reproduces NWS's value.
+  - It is run with our model and with the all-swaps reconstruction.
+  - The k range across NWS ± 0.5 °F is stored.
+
+**Demo window, pinned forecast** (°F):
+
+| Hour | Ours | NWS | Gap | Solar split | Wind 10→2 m | Ground albedo | Globe eq. | NWB eq. | Humidity | Residual | k (ours / NWS-recon) |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 15:00 | 89.0 | 86 | +3.0 | −1.01 | −0.47 | +1.08 | −0.24 | −0.02 | −0.08 | +3.79 | 0.43 / 0.41 |
+| 16:00 | 87.4 | 83 | +4.4 | −0.71 | −0.45 | +0.99 | −0.62 | +0.30 | +0.07 | +4.83 | 0.24 / 0.19 |
+| 17:00 | 85.0 | 82 | +3.0 | −0.18 | −0.32 | +0.66 | −0.75 | +0.19 | −0.01 | +3.37 | 0.31 / 0.16 |
+| 18:00 | 83.0 | 81 | +2.0 | +0.01 | −0.10 | +0.39 | −0.72 | +0.06 | +0.08 | +2.27 | 0.33 / 0.05 |
+| **window mean** | | | **+3.10** | −0.47 | −0.33 | +0.78 | −0.58 | +0.13 | +0.01 | **+3.57** | 0.33 / 0.20 |
+| daytime (12 h) mean | | | +3.00 | −0.57 | −0.37 | +0.74 | −0.26 | +0.17 | +0.03 | +3.26 | 0.33 / 0.25 |
+| night (12 h) mean | | | −0.51 | 0 | −0.05 | 0 | 0 | −0.42 | +0.02 | −0.06 | — |
+
+**Cross-checks on the same window.**
+- **Context forecast (18:21Z):** gap +3.15 (+1.82 to +3.60), residual +3.89. The residual again dominates, but the largest
+  swapped factor there is the globe equation (−0.97 °F), not ground albedo.
+- **Whole-day table:** `python -m validation.wbgt_gap` prints it.
+
+**By input.**
+1. **Solar.**
+   - Cloud attenuation: identical on both sides (Δ 0).
+   - NWS's more diffuse split warms a sphere more while the sun is high (cos z > 0.5, 15–16 h); at 17–18 h direct beam warms
+     the Liljegren globe more. Window Shapley Δ for our split: −0.47 °F.
+   - Removing clouds altogether (clear sky) would raise ours by 1.2 °F. That is a sensitivity, not a swap.
+   - NWS's clear-sky curve can't be swapped; it is what the residual measures (below).
+2. **Wind.**
+   - By day NWS's log law gives a lower 2 m wind than our power law (at night our stable-class exponent gives the lower
+     wind), so our choice is −0.33 °F in the window.
+   - Using the 10 m wind directly would lower ours by 0.35 °F. Liljegren's urban exponents would raise it by 0.35 °F.
+   - NWS's z0 for this cell is unknown. Across Boyer's land classes it moves the reconstruction by −0.3 °F (z0 0.0024 m)
+     upward; the residual grows with z0, so no z0 closes the gap. (The z0 = 1.6 m end, +7 °F, is outside the log law's valid
+     range — 2 m is inside the roughness sublayer there — so treat it as direction only.)
+3. **MRT / globe.**
+   - **Ground albedo is the largest swapped factor in the window: +0.78 °F (+0.39 to +1.08)**, for the assumed swap value
+     0.2 (NWS's Tulsa tool; NDFD's AVHRR albedo for this cell is unknown, so the Δ scales with that assumption). Liljegren's
+     reference code uses 0.45; FAO-56 grass is 0.23 (`solarcal_ground`, which our physiology model already uses).
+   - Globe equation, Shapley Δ −0.58 °F in the window; its sign depends on the other swaps (see Method).
+   - Globe emissivity and albedo are the same on both sides (0.95 / 0.05).
+   - Net for MRT/globe: +0.20 °F.
+   - Flag for the human: `engine/wbgt.py` (0.45) and `engine/physio` (0.23 grass) assume different ground albedos. This is
+     not changed here.
+4. **Humidity.**
+   - Our RH input vs NWS's dewpoint: +0.01 °F.
+   - NWS's RH layer is its T and Td rounded to whole %: it agrees with RH computed from them to within ±0.5 %.
+   - **NWB equation:** +0.13 °F in the window. It explains the night gap (−0.42 of −0.51 °F).
+5. **Time alignment.**
+   - The window is 31–34 h ahead, inside NDFD's 36 h hourly range. So a `PT2H`/`PT3H`/`PT6H` validTime is one hourly value
+     repeated, which is what `weather._expand` assigns.
+   - Every layer is keyed in UTC and converted once (15:00 EDT = 19:00Z).
+   - Both sides evaluate the sun at the forecast hour, so there is no swap here.
+   - Evaluating the sun 30 min later lowers ours by 0.8 °F in the window; 30 min earlier raises it by 0.6 °F.
+   - Shifting our hourly series ±1 h doesn't line it up better: daytime RMS 3.30 °F at 0 h, 3.37 at −1 h, 4.48 at +1 h.
+     There is no misalignment.
+
+**Top contributor: the residual, +3.57 °F mean (+2.27 to +4.83) over the demo window** (daytime +3.26, range +0.37 to +4.83).
+- **What it is.** The residual is what is left after every documented swap. It is larger than the gap itself, because the
+  documented swaps net to −0.47 °F: they widen the gap rather than close it.
+- **Unexplained residual. Hypothesis (not established): NWS's effective sunlight is lower than ours.** Evidence for and
+  against:
+  - (a) The residual vanishes when the sun is down (night residual −0.06 °F); the night *gap* does not (−0.51 °F, explained
+    by the NWB regression).
+  - (b) NWS's value is reproduced only if our irradiance is scaled to **k ≈ 0.33** (our model) or **0.20** (NWS
+    reconstruction) in the window. NWS's solar response is 0.1–0.45 of ours at every daytime hour, **including solar noon**
+    (k ≈ 0.4 at 13–15 h), except 08:00 (our model k 0.56). A Gaussian clear-sky curve peaking at the daily maximum at noon
+    can't produce a ~60 % deficit at noon by being narrower: that would be an amplitude difference, or something that is not
+    irradiance at all. So the residual is NOT shown to be NWS's clear-sky curve.
+  - (c) None of the unpublished NWS choices we could vary (z0, albedo 0.11–0.23, sun ±30 min) closes the residual.
+- **Top swapped factor:** ground albedo, +0.78 °F.
+- **Unexplained:** the exact NWS irradiance, hence how much of the ~3.6 °F is the clear-sky curve and how much is something
+  else in NDFD we can't see:
+  - the software version;
+  - the NWB regression's units and inputs;
+  - AVHRR albedo;
+  - station pressure.
+- **Implication for the physiology model:** it uses the same Haurwitz × Kasten–Czeplak sunlight. If NWS's lower effective
+  sunlight were right, the solar load on the athletes would also be overstated, which errs hot.
+- **Context, not proof (UNVERIFIED — no source entry in constants.yaml yet):**
+  - Clark & Konrad (2020, CISA) found the NWS experimental WBGT about 4 °F cooler in daytime (5 °F at 08–10 h) than
+    Liljegren WBGT estimated from ASOS/AWOS observations across CONUS. It was also 4–6 °F cooler than measured WBGT in sun at
+    two North Carolina sites.
+  - Boyer says that analysis used an early NDFD version that had a cold bias, and lists later revisions.
+  - Our 2–5 °F has the same sign and diurnal shape.
+
+**What we use where.**
+- **Demo headline** (`?demo=1` and the default weather mode): the pinned saved forecast `fixtures/forecast_2026-10-04.json`.
+  Its `wbgt_f` *is* NWS's WBGT layer, not ours. So the demo's FHSAA zones and rules run on NWS's numbers, the lower of the two.
+- **Live** (`HEATTWIN_WEATHER=live`): `wbgt_f` is our Liljegren value, and `nws_wbgt_f` sits beside it.
+  - Settings shows both.
+  - The CONTRACTS v1.4 `DemoComparison` rows (`saved_forecast`, `live_nws_wbgt`, `live_liljegren`) show the plan under
+    each; the headline is `saved_forecast`.
+- **What the WBGT feeds:** FHSAA zones and rules. The core-temperature estimate reads air temperature, RH, wind and sunlight
+  directly, not WBGT.
+
 ## 12. How it is checked
 
 * `tests/test_twonode.py`: rises with met; falls at rest in shade; monotonic in heat-stress inputs (T_a, RH, solar)

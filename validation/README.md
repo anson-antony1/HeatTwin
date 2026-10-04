@@ -7,6 +7,7 @@ data never goes in `results.json`.
 |---|---|---|
 | `field_plausibility` | `field_plausibility.py` | Model p50/p95 peaks vs ingestible-pill core temperatures from 5 football-practice studies (NFL, college, high school), plus a sensitivity sweep naming the driver of the gap. |
 | `armstrong_2010` | `armstrong_2010.py` | WS7 item 1. Armstrong et al. 2010 (J Athl Train 45:117) reproduced in twonode-v1 (conservative, ISO-dynamic and Gagge-static clothing) and JOS-3, for control clothing and full uniform. |
+| `wbgt_gap` | `wbgt_gap.py` | Our Liljegren WBGT vs NWS's own WBGT forecast layer for the Gainesville cell, broken down by input (NWS's documented choices swapped in one at a time, Shapley-attributed; nothing tuned). Write-up: `engine/physio/MODEL.md` §12d. |
 
 Run with `python -m validation.armstrong_2010`; `--calibrate` recomputes the conservative mode's gear surcharge.
 
@@ -29,3 +30,9 @@ Run with `python -m validation.armstrong_2010`; `--calibrate` recomputes the con
 peaks at matched WBGT, and 0.15–1.4 °C above in the Godek scenarios, depending on sun. The driver is drill intensity (the
 Compendium "competitive football" MET applied to practice blocks): −1.5 °C if hard and max drills are run at the moderate MET.
 Practice structure and cloud cover are not reported in the studies; both are stated assumptions.
+
+**WBGT gap** (`python -m validation.wbgt_gap`; `--raw FILE` runs it on another raw gridpoint file, print only): over the
+demo window (Oct 4, 15–18 h) our WBGT is 2.0–4.4 °F above NWS's (mean 3.1). NWS's documented swaps (solar split, wind log
+law, ground albedo, Dimiceli globe, NWB regression, dewpoint) net to −0.5 °F, so the residual (+3.6 °F) is the top contributor.
+It vanishes at night, and NWS's values imply roughly a third of our irradiance; we attribute it, by elimination, to NWS's
+unpublished clear-sky curve. Ground albedo (0.45 vs 0.2) is the largest swapped factor (+0.8 °F).

@@ -8,7 +8,7 @@ strap that broadcasts standard BLE HR (Polar H10, Garmin "Broadcast HR", Coospo 
 
     python -m engine.hr_bridge --scan                                  # list nearby HR straps
     python -m engine.hr_bridge --map a07=Helio                          # name substring → athlete a07
-    python -m engine.hr_bridge --map a07=C8:12:34:56:78:9A --map a11=Polar --engine http://localhost:8000
+    python -m engine.hr_bridge --map a07=C8:12:34:56:78:9A --map a11=Polar --engine http://localhost:8010
     python -m engine.hr_bridge --replay fixtures/hr_a07_synthetic.csv --speed 10   # no BLE; replay → /hr
 
 macOS: run it from Terminal/iTerm and allow that app under System Settings → Privacy & Security → Bluetooth.
@@ -20,6 +20,7 @@ Real recordings are written with ``replay=false``; replays are always posted wit
 from __future__ import annotations
 
 import argparse
+import os
 import asyncio
 import csv
 import struct
@@ -308,7 +309,8 @@ def main(argv: Sequence[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description="BLE heart-rate straps → HeatTwin POST /hr")
     ap.add_argument("--scan", action="store_true", help="list nearby straps advertising the Heart Rate Service")
     ap.add_argument("--map", action="append", default=[], help="athlete_id=address_or_name_substring (repeatable)")
-    ap.add_argument("--engine", default="http://localhost:8000", help="engine base URL ('' = don't post)")
+    ap.add_argument("--engine", default=f"http://localhost:{os.environ.get('HEATTWIN_PORT', '8010')}",
+                    help="engine base URL ('' = don't post); default port HEATTWIN_PORT (8010)")
     ap.add_argument("--no-record", action="store_true", help="don't write fixtures/hr_<date>.csv")
     ap.add_argument("--dry-run", action="store_true", help="print readings instead of posting")
     ap.add_argument("--scan-timeout", type=float, default=8.0)
