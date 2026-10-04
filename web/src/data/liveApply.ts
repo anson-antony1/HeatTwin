@@ -12,7 +12,7 @@ export async function applyLiveSuggestion(athleteId: string, sug: LiveSuggestion
     await planStore.applyPlan(sug.plan)
     return
   }
-  const res = await postLiveApply(athleteId)
+  const res = await postLiveApply(athleteId, sug.computed_at)
   await planStore.applyPlan(res.plan)
   await liveStore.refresh()
 }

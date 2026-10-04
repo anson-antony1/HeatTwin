@@ -93,5 +93,6 @@ python -m engine.hr_bridge --replay fixtures/hr_a07_synthetic.csv --speed 1 --li
 | HR shows, gate says "not enough data" | Expected for the first minutes: calibration updates every `calibration.update_interval_s` and needs coverage before it flags. |
 
 ## Privacy
-Recordings hold a person's heart rate keyed by athlete id. Get consent before committing a `fixtures/hr_<date>.csv`. The
+Recordings hold a person's heart rate keyed by athlete id. New `fixtures/hr_<date>.csv` files are git-ignored: committing
+one is a deliberate `git add -f` after the wearer's consent. The
 engine never shows a real recording without labelling its date and device.

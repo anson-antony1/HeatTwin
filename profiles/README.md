@@ -1,6 +1,6 @@
 # Live-demo profiles
 
-`profiles/local/*.json` holds a **real person's** profile for the laptop live demo (strap → "Anson (live)"). The whole
+`profiles/local/*.json` holds a **real person's** profile for the laptop live demo (strap → "<your name> (live)"). The whole
 `profiles/local/` folder is git-ignored: it never goes into the repo. Fill in every `null`; the engine refuses an
 incomplete profile and falls back to the fictional one.
 

@@ -199,6 +199,8 @@ export interface LiveSuggestion {
   before: { peak_core_c_p95: number; first_cross_min: number | null }
   after: { peak_core_c_p95: number; first_cross_min: number | null; under_line: boolean }
   at_minute: number
+  /** Live only: the reading time it was computed at; Apply sends it back (409 if a newer one replaced it). */
+  computed_at?: string
   labels: string[]
   /** Replay only: the changed plan (a live session sends it with POST /live/apply instead). */
   plan?: PracticePlan
@@ -511,9 +513,9 @@ export function liveReplay(plan: PracticePlan, signal?: AbortSignal) {
 
 /** v1.5: the live HR session (strap → engine/hr_bridge.py → POST /hr). */
 /** v1.7: apply the live suggestion for one athlete; returns the plan the live session now runs. */
-export function postLiveApply(athleteId: string) {
+export function postLiveApply(athleteId: string, computedAt?: string) {
   return request<{ ok: boolean; plan: PracticePlan; applied: Pick<LiveSuggestion, 'text' | 'changes' | 'before' | 'after'>; labels: string[] }>(
-    'POST', '/live/apply', { athlete_id: athleteId })
+    'POST', '/live/apply', { athlete_id: athleteId, computed_at: computedAt })
 }
 
 export function getLiveState(signal?: AbortSignal) {

@@ -379,7 +379,7 @@ live_suggest:   # engine/suggest.py: the fast re-plan offered when a live athlet
 live_demo:   # engine/calibrate.py LiveSession(observe=…): the strap wearer's HR read against the drill they are doing
   status: DESIGN
   justification: "Owner decision (polish 4, Oct 4): in a live demo the strap wearer does burpees, which match the plan's conditioning intensity, so their HR is read against that drill, not the plan drill at the clock. A wearer also stands or recovers between sets; reading those minutes as conditioning drives met_scale far below 1 with no way back (the filter has no process noise), so the re-forecast would err cool. Rule (no new number): a window whose mean HR is nearer the model's HR for resting (non_participant.intensity) than for the mapped drill, both at the current ensemble, is skipped and labelled — never assimilated as rest, because the linear MET model is weakest at rest."
-  rule: "skip window when HR_obs < (mean HR_pred(rest MET·θ) + mean HR_pred(drill MET·θ)) / 2"
+  rule: "midpoint = (mean HR_pred(rest MET·θ) + mean HR_pred(drill MET·θ)) / 2; assimilate the mean of the window's readings ≥ midpoint when they cover ≥ min_coverage_fraction of the window, else skip the window as rest"
   source: "HeatTwin design (polish 4); observation model = constants.hr_model / hr_met (Swain & Leutholtz 1997)"
 
 non_participant:
@@ -623,7 +623,8 @@ calibration:
   n_ensemble: 64
   expected_reading_interval_s: 1  # BLE Heart Rate Service notifies about once per second
   min_coverage_fraction: 0.5      # gate (c): share of expected readings present in the window
-  min_updates_before_flag: 2
+  min_updates_before_flag: 2      # gate (c): windows with readings evaluated (assimilated, skipped as rest, or held at the HR ceiling)
+  min_informative_windows: 1      # gate (c): of those, at least this many assimilated or ceiling-held (live response ≈ one update)
   persistence_min: 3              # gate (b): p95 must stay at/above the limit this many consecutive minutes
   plausible_hr_bpm: [30, 230]     # readings outside are dropped as artefacts
   replay_speed: 10

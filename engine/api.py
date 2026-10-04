@@ -474,26 +474,41 @@ def _maybe_suggest(reading: "HrReading", out: dict[str, Any]) -> None:
 
 class LiveApply(_Model):
     athlete_id: str
+    computed_at: Optional[str] = Field(default=None, description="the suggestion's computed_at, as shown to the coach")
 
 
 @app.post("/live/apply")
 def live_apply(req: LiveApply) -> dict[str, Any]:
     """v1.7: the coach applies the live suggestion for one athlete: the session keeps every calibration, runs the
     changed plan, and returns it so the web's plan view shows the same plan."""
+    from datetime import datetime
     s = _LIVE.get("session")
     sug = (_LIVE.get("suggestions") or {}).get(req.athlete_id)
     if s is None or sug is None:
         raise HTTPException(404, f"no live suggestion for {req.athlete_id}")
-    s.replace_plan(sug["plan"])
+    if req.computed_at is not None and req.computed_at != sug.get("computed_at"):
+        raise HTTPException(409, "the suggestion was updated since it was shown — review the new one")
+    starts, t = {}, 0.0                      # a changed block that has already started can't be re-planned
+    for d in s.plan["drills"]:
+        starts[d["id"]] = t
+        t += float(d["duration_min"])
+    now_min = (datetime.now().astimezone() - twonode.parse_time(s.plan["start"])).total_seconds() / 60.0
+    if any(starts.get(c["drill_id"], 0.0) < now_min for c in sug["changes"]):
+        raise HTTPException(409, "a block in this suggestion has already started — wait for the next suggestion")
+    new = sug["plan"]
+    if new["start"] != s.plan["start"] or abs(sum(float(d["duration_min"]) for d in new["drills"]) - t) > 1e-6:
+        raise HTTPException(409, "the suggestion no longer matches the session's plan")
+    s.replace_plan(new)
     rf = _guard(s.reforecast())
     _LIVE["reforecast"] = rf
+    s._last_refc = rf                        # gates can be re-said on held windows right after Apply
     for aid, v in _LIVE.get("last", {}).items():
         a = next((x for x in rf["athletes"] if x["id"] == aid), None)
         if a is not None:
             v["athlete"] = {k: a.get(k) for k in ("core_c_p50", "core_c_p95", "peak_core_c_p95", "status",
                                                   "first_cross_min")}
             v["gates"] = s.gates(aid, rf)
-    _LIVE["suggestions"].pop(req.athlete_id, None)
+    _LIVE["suggestions"] = {}                # every other suggestion was built on the old plan: recompute them
     from engine import guard
     # The web's plan view keeps the plan's own start (the session runs it on today's clock).
     plan_out = {**s.plan, "start": _LIVE.get("plan_start_as_given", s.plan["start"])}

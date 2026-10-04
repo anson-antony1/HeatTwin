@@ -3841,7 +3841,7 @@
   },
   "helio_recording": {
     "computed_by": "validation/helio_recording.py",
-    "computed_at": "2026-10-04T04:54:04+00:00",
+    "computed_at": "2026-10-04T06:39:44+00:00",
     "synthetic": false,
     "replay": true,
     "file": "fixtures/hr_2026-10-03.csv",
@@ -4012,104 +4012,104 @@
       "profile_synthetic": true,
       "prior_met_scale": 1.0226,
       "prior_met_scale_sd": 0.2066,
-      "final_met_scale": 0.6918,
-      "final_met_scale_sd": 0.0143,
-      "sd_reduction_pct": 93.1,
+      "final_met_scale": 0.6892,
+      "final_met_scale_sd": 0.0146,
+      "sd_reduction_pct": 92.9,
       "last5_met_scale_range": [
-        0.6918,
-        0.7696
+        0.6892,
+        0.7756
       ],
       "seed": 0,
       "trajectory": [
         {
           "minute": 12.0,
           "athlete_id": "a07",
-          "met_scale": 0.6135,
+          "met_scale": 0.7496,
           "met_scale_sd": 0.1882
         },
         {
           "minute": 13.0,
           "athlete_id": "a07",
-          "met_scale": 0.7341,
-          "met_scale_sd": 0.0626
+          "met_scale": 0.7549,
+          "met_scale_sd": 0.0875
         },
         {
           "minute": 14.0,
           "athlete_id": "a07",
-          "met_scale": 0.7269,
-          "met_scale_sd": 0.047
+          "met_scale": 0.7339,
+          "met_scale_sd": 0.0595
         },
         {
           "minute": 15.0,
           "athlete_id": "a07",
-          "met_scale": 0.7356,
-          "met_scale_sd": 0.0358
+          "met_scale": 0.7422,
+          "met_scale_sd": 0.0444
         },
         {
           "minute": 16.0,
           "athlete_id": "a07",
-          "met_scale": 0.7438,
-          "met_scale_sd": 0.0295
+          "met_scale": 0.7507,
+          "met_scale_sd": 0.0348
         },
         {
           "minute": 17.0,
           "athlete_id": "a07",
-          "met_scale": 0.752,
-          "met_scale_sd": 0.024
+          "met_scale": 0.7593,
+          "met_scale_sd": 0.0276
         },
         {
           "minute": 18.0,
           "athlete_id": "a07",
-          "met_scale": 0.7376,
-          "met_scale_sd": 0.0225
+          "met_scale": 0.7398,
+          "met_scale_sd": 0.0252
         },
         {
           "minute": 19.0,
           "athlete_id": "a07",
-          "met_scale": 0.7525,
-          "met_scale_sd": 0.0201
+          "met_scale": 0.7576,
+          "met_scale_sd": 0.0221
         },
         {
           "minute": 20.0,
           "athlete_id": "a07",
-          "met_scale": 0.766,
-          "met_scale_sd": 0.0188
+          "met_scale": 0.773,
+          "met_scale_sd": 0.0203
         },
         {
           "minute": 21.0,
           "athlete_id": "a07",
-          "met_scale": 0.7779,
-          "met_scale_sd": 0.0185
+          "met_scale": 0.7858,
+          "met_scale_sd": 0.0197
         },
         {
           "minute": 22.0,
           "athlete_id": "a07",
-          "met_scale": 0.7696,
-          "met_scale_sd": 0.0178
+          "met_scale": 0.7756,
+          "met_scale_sd": 0.0189
         },
         {
           "minute": 23.0,
           "athlete_id": "a07",
-          "met_scale": 0.7477,
-          "met_scale_sd": 0.0181
+          "met_scale": 0.7506,
+          "met_scale_sd": 0.0191
         },
         {
           "minute": 24.0,
           "athlete_id": "a07",
-          "met_scale": 0.7265,
-          "met_scale_sd": 0.0169
+          "met_scale": 0.7268,
+          "met_scale_sd": 0.0177
         },
         {
           "minute": 25.0,
           "athlete_id": "a07",
-          "met_scale": 0.7056,
-          "met_scale_sd": 0.0155
+          "met_scale": 0.7039,
+          "met_scale_sd": 0.0161
         },
         {
           "minute": 26.0,
           "athlete_id": "a07",
-          "met_scale": 0.6918,
-          "met_scale_sd": 0.0143
+          "met_scale": 0.6892,
+          "met_scale_sd": 0.0146
         }
       ]
     },
