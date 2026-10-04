@@ -1,5 +1,6 @@
 import { useSession } from '../data/engine'
 import { useEngineMeta } from '../data/engineMeta'
+import { nodeDemoActive } from '../data/engineApi'
 import { zoneColor } from '../data/constants'
 import { FHSAA_CITATION, fieldSensorNote, fieldSourceChip, isFieldSensorHour, SNAPSHOT_LABEL, weatherSourceLabel, zoneRule, zoneRuleText, zoneShortText } from '../data/selectors'
 import { NumberTicker } from './NumberTicker'
@@ -16,15 +17,17 @@ export function FieldCard() {
   const s = useSession()
   const meta = useEngineMeta()
   const weather = useWeather()
-  const hour = fieldHour(weather, s.weather, s.plan?.start ?? null, s.minute)
+  // The sensor demo (heated globe) wins over a location saved in Settings: show the plan's sensor-weather hour.
+  const sensor = nodeDemoActive(meta.node)
+  const hour = sensor ? s.weather : fieldHour(weather, s.weather, s.plan?.start ?? null, s.minute)
   const rules = meta.sources?.fhsaa_wbgt_zones?.zones
   const zones = rules?.length ? rules.map((r) => r.zone) : ZONE_NUMBERS
   const rule = zoneRule(rules, hour?.fhsaa_zone)
   const offline = s.source === 'offline' || meta.link === 'offline'
-  const where = weather.location ? `${weather.location.name} · ` : ''
-  const coverNote = weather.location ? undefined : s.labels.find((l) => /nearest hours/i.test(l))
+  const where = weather.location && !sensor ? `${weather.location.name} · ` : ''
+  const coverNote = weather.location && !sensor ? undefined : s.labels.find((l) => /nearest hours/i.test(l))
   // v1.7: the Arduino field sensor — the active source and the last reading's age (a place picked in Settings is not the field).
-  const sensorNote = weather.location ? null : fieldSensorNote(hour, meta.node?.source)
+  const sensorNote = weather.location && !sensor ? null : fieldSensorNote(hour, meta.node?.source)
   const sensorHour = isFieldSensorHour(hour)
   const sourceTitle = hour
     ? `${where}${sensorHour ? (sensorNote ?? 'Field sensor (Arduino) + NWS') : hour.time_shifted_min != null ? `${SNAPSHOT_LABEL}: the pinned NWS forecast, shifted ${hour.time_shifted_min} min to this session` : hour.source === 'fixture' ? 'cached NWS forecast (fixture)' : weatherSourceLabel(hour.source)} · WBGT and FHSAA zone from the HeatTwin engine${coverNote ? ` · ${coverNote}` : ''}${sensorNote && !sensorHour ? ` · ${sensorNote}` : ''}`
