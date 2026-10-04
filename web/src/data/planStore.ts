@@ -352,7 +352,9 @@ function watchNode() {
   engineMeta.startNodePolling()
   engineMeta.subscribe(() => {
     const v = engineMeta.get().node?.demo_version ?? 0
-    if (v === lastNodeVersion) return
+    // Re-run when the sensor's weather changed (version), or when what's on screen disagrees with whether the sensor
+    // demo is running (sensorWasOn) — self-correcting on every poll, so a missed transition can't leave a stale screen.
+    if (v === lastNodeVersion && sensorWeather() === sensorWasOn) return
     lastNodeVersion = v
     if (state.phase === 'simulating' || state.phase === 'optimizing') pendingNode = true
     else void planStore.resimulate()
