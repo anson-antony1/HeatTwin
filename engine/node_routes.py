@@ -4,8 +4,14 @@
     app.include_router(node_routes.router)
 
 POST /node            node reading (CONTRACTS.md shape; engine/node_bridge.py sends it with --post)  → {ok, field}
-GET  /node/latest     → {reading, field: WeatherHour (source "field_node"), assimilated: WeatherHour[], labels}
+GET  /node/latest     → {reading, field: WeatherHour (source "field_node"), assimilated: WeatherHour[], labels,
+                         source: {id, label, mode, sensor_fresh, reading_age_s, stale_after_s}}   (source: v1.7)
 GET  /node/history    ?minutes=60 → {readings: [{ts, globe_temp_c, air_temp_c, rh_pct, wbgt_f, fhsaa_zone}], labels}
+GET  /node/status     → the built-in bridge's state (engine/node_autostart.py) + the same ``source``
+
+Field mode (v1.7, the default; engine/field_sensor.py): a reading with ``mode: "field"`` carries only the Arduino's air
+temperature; the engine adds NWS humidity / wind / sunlight (or the time-shifted pinned forecast) and computes WBGT.
+``source`` says what a live session would use right now and how old the last Arduino reading is.
 
 The web app's field card reads ``field.wbgt_f`` / ``field.fhsaa_zone`` (and ``labels``) from /node/latest; the
 remaining forecast corrected by the field readings is ``assimilated`` (weather.assimilate_env), which /simulate can
@@ -21,7 +27,7 @@ from typing import Any, Callable, Optional
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
 
-from engine import consts, weather
+from engine import consts, field_sensor, weather
 
 router = APIRouter(tags=["sideline node"])
 
@@ -37,6 +43,15 @@ _demo: dict[str, Any] = {"reading": None, "received": 0.0, "solar": [], "version
 
 # Set by engine/api.py: called after a demo reading changes the scenario enough; returns a re-forecast or None.
 on_demo_update: Optional[Callable[[], Optional[dict[str, Any]]]] = None
+
+# Field mode (engine/field_sensor.py): the latest Arduino air-temperature reading. ``received`` is wall-clock arrival, kept
+# after an unplug so the age can still be shown; ``ended`` marks the board gone. ``version`` bumps when what a live session
+# should use changes (sensor appeared / went away, NWS vs snapshot, air temperature moved).
+_field: dict[str, Any] = {"reading": None, "received": 0.0, "ended": False, "version": 0, "air_at_version": None,
+                          "from_at_version": None}
+
+# Set by engine/api.py: called when that happens; re-runs a live session's weather chain and returns a re-forecast or None.
+on_field_update: Optional[Callable[[], Optional[dict[str, Any]]]] = None
 
 
 class NodeReading(BaseModel):
@@ -58,7 +73,18 @@ def _forecast_hours() -> list[dict[str, Any]]:
     return _forecast["hours"]
 
 
+def _field_labels(reading: dict[str, Any]) -> list[str]:
+    f = reading["_field"]
+    nws = f["weather_from"] == "nws"
+    return [field_sensor.label_for(f["weather_from"]), field_sensor.THERMISTOR_LABEL,
+            ("humidity, wind and sunlight from live NWS" if nws else
+             "NWS unreachable: humidity, wind and sunlight from the pinned forecast shifted to now") +
+            "; WBGT computed by engine/wbgt.py — not a certified WBGT meter"]
+
+
 def _labels(reading: dict[str, Any]) -> list[str]:
+    if reading.get("mode") == "field":
+        return _field_labels(reading)
     out = ["field WBGT from a 40 mm black-globe node — not a certified WBGT meter"]
     if reading.get("demo"):
         out.insert(0, DEMO_LABEL)
@@ -84,12 +110,108 @@ def post_node(r: NodeReading) -> dict[str, Any]:
         raise HTTPException(422, "ts must be ISO 8601 with offset") from e
     if reading.get("demo"):
         return _post_demo(reading)
+    if reading.get("mode") == "field":
+        return _post_field(reading)
     field = weather.node_hour(reading, _forecast_hours(), SITE["lat"], SITE["lon"])
     if field is None:
         raise HTTPException(422, "reading needs air_temp_c, rh_pct and globe_temp_c inside the forecast window")
     reading["_field"] = field
     _readings.append(reading)
     return {"ok": True, "field": field}
+
+
+def _post_field(reading: dict[str, Any]) -> dict[str, Any]:
+    """Field reading: the Arduino's air temperature + NWS humidity / wind / sunlight (field_sensor.fuse)."""
+    if not field_sensor.plausible(reading.get("air_temp_c")):
+        raise HTTPException(422, "field reading needs air_temp_c within constants.field_node.air_c_min..air_c_max")
+    t = datetime.fromisoformat(reading["ts"])
+    if t.tzinfo is None:
+        raise HTTPException(422, "ts must be ISO 8601 with offset")
+    f = field_sensor.fuse(float(reading["air_temp_c"]), t, SITE["lat"], SITE["lon"])
+    reading.update(rh_pct=f["rh_pct"], wind_m_s=f["wind_m_s"], weather_from=f["weather_from"],
+                   air_source=reading.get("air_source") or "arduino_a0", globe_calibrated=False)
+    reading["_field"] = {**f, "node_id": reading.get("node_id")}
+    _readings.append(reading)
+    changed = _note_field(reading)
+    out: dict[str, Any] = {"ok": True, "field": reading["_field"], "labels": _labels(reading), "source": source_info()}
+    if changed:
+        ref = _run_field_hook()
+        if ref is not None:
+            out["reforecast"] = ref
+    return out
+
+
+def _note_field(reading: dict[str, Any]) -> bool:
+    """Remember the latest field reading; True when a live session should refresh its weather."""
+    was_active = field_active()
+    f = reading["_field"]
+    moved = (_field["air_at_version"] is None
+             or abs(f["air_temp_c"] - _field["air_at_version"]) >= consts.get("field_node.reforecast_min_change_c"))
+    changed = (not was_active) or moved or f["weather_from"] != _field["from_at_version"]
+    _field.update(reading=reading, received=time.time(), ended=False)
+    if changed:
+        _field.update(version=_field["version"] + 1, air_at_version=f["air_temp_c"], from_at_version=f["weather_from"])
+    return changed
+
+
+def _run_field_hook() -> Optional[dict[str, Any]]:
+    if on_field_update is None:
+        return None
+    try:
+        return on_field_update()
+    except Exception as e:  # noqa: BLE001 — a failed re-forecast must never stop the serial reader
+        print(f"[node] live-session weather refresh failed: {type(e).__name__}: {e}", flush=True)
+        return None
+
+
+def end_field() -> None:
+    """The Arduino went away (unplugged, port lost, silent): stop using its reading now instead of after stale_after_s,
+    and let a running live session fall back to live NWS / the snapshot."""
+    if _field["reading"] is None or _field["ended"]:
+        return
+    _field.update(ended=True, version=_field["version"] + 1)
+    _run_field_hook()
+
+
+def field_age_s() -> Optional[float]:
+    """Seconds since the last field (Arduino) reading arrived; None if none has."""
+    return None if _field["reading"] is None else round(max(0.0, time.time() - _field["received"]), 1)
+
+
+def field_active() -> bool:
+    """A field reading arrived within constants.field_node.stale_after_s and the board has not been unplugged."""
+    age = field_age_s()
+    return age is not None and not _field["ended"] and age < consts.get("field_node.stale_after_s")
+
+
+def field_reading() -> Optional[dict[str, Any]]:
+    """The fresh field reading (raw fields + ``_field``), else None — what a live session's weather chain asks for."""
+    return _field["reading"] if field_active() else None
+
+
+def source_info() -> dict[str, Any]:
+    """Which weather a live session would use right now and how old the Arduino's last reading is (v1.7).
+
+    id: "field_sensor_nws" | "field_sensor_snapshot" (fresh Arduino reading) | "demo_scenario" | "nws" | "snapshot"
+    (no fresh reading: live NWS if reachable, else the pinned forecast shifted to now) | "none" (no sensor path)."""
+    from engine import node_autostart
+
+    mode, stale = field_sensor.node_mode(), consts.get("field_node.stale_after_s")
+    base = {"mode": mode, "stale_after_s": stale}
+    if demo_active():
+        return {**base, "id": "demo_scenario", "label": DEMO_LABEL, "sensor_fresh": True,
+                "reading_age_s": round(max(0.0, time.time() - _demo["received"]), 1)}
+    fresh, age = field_active(), field_age_s()
+    if fresh:
+        src = _field["reading"]["_field"]["weather_from"]
+        return {**base, "id": f"field_sensor_{src}", "label": field_sensor.label_for(src), "sensor_fresh": True,
+                "reading_age_s": age}
+    if age is None and not node_autostart.status()["enabled"]:
+        return {**base, "id": "none", "label": None, "sensor_fresh": False, "reading_age_s": None}
+    ok = field_sensor.nws_status(SITE["lat"], SITE["lon"]) == "ok"
+    return {**base, "id": "nws" if ok else "snapshot",
+            "label": field_sensor.LIVE_NWS_LABEL if ok else field_sensor.SNAPSHOT_LABEL,
+            "sensor_fresh": False, "reading_age_s": age}
 
 
 def _post_demo(reading: dict[str, Any]) -> dict[str, Any]:
@@ -133,7 +255,7 @@ def node_status() -> dict[str, Any]:
     """What the engine's built-in bridge is doing (engine/node_autostart.py): waiting / connected / port_unavailable."""
     from engine import node_autostart
 
-    return {**node_autostart.status(), "demo_active": demo_active()}
+    return {**node_autostart.status(), "demo_active": demo_active(), "source": source_info()}
 
 
 def demo_active() -> bool:
@@ -168,6 +290,10 @@ def demo_weather(t0: datetime, t1: datetime) -> Optional[list[dict[str, Any]]]:
 def _v13(x: dict[str, Any]) -> dict[str, Any]:
     """CONTRACTS v1.3 NodeLatest.reading fields (what the web reads), added to the raw reading."""
     f = x["_field"]
+    if x.get("mode") == "field":       # air temperature + NWS: the reference is the same model on NWS's own air temperature
+        return {"globe_c": None, "air_c": f["air_temp_c"], "node_wbgt_f": f["wbgt_f"],
+                "forecast_wbgt_f": f["forecast_wbgt_f"], "field_minus_forecast_f": round(f["wbgt_f"] - f["forecast_wbgt_f"], 1),
+                "fhsaa_zone": f["fhsaa_zone"], "globe_calibrated": False, "tub_temp_c": x.get("tub_temp_c")}
     fc = None
     if not x.get("demo") and _forecast["hours"]:
         hours = sorted(_forecast["hours"], key=lambda h: datetime.fromisoformat(h["time"]))
@@ -192,7 +318,23 @@ def node_latest() -> dict[str, Any]:
     """Latest reading (raw fields + CONTRACTS v1.3 fields), field WeatherHour, assimilated forecast and labels.
 
     With no readings in this engine run: the newest data/node_<date>.csv (engine/demo_data.py), else
-    {reading: null, labels: ["no field recording yet"]} — never placeholder numbers."""
+    {reading: null, labels: ["no field recording yet"]} — never placeholder numbers.
+    v1.7: every answer also carries ``source`` (see source_info)."""
+    return {**_node_latest(), "source": source_info()}
+
+
+def _field_assimilated(last: dict[str, Any]) -> list[dict[str, Any]]:
+    """Field mode: the next 3 h of hourly weather with the Arduino air temperature held (what a live session would use)."""
+    now = field_sensor.now()
+    f = last["_field"]
+    base = field_sensor.nws_hours(SITE["lat"], SITE["lon"]) if f["weather_from"] == "nws" else None
+    src = "nws" if base else "snapshot"
+    hours = field_sensor.apply_air_temp(base or field_sensor.snapshot_hours(now), f["air_temp_c"], SITE["lat"], SITE["lon"],
+                                        now, now + timedelta(hours=3), src)
+    return [h for h in hours if h.get("field_mode")]
+
+
+def _node_latest() -> dict[str, Any]:
     if not _readings:
         from engine import demo_data
         return demo_data.node_latest()
@@ -204,10 +346,15 @@ def node_latest() -> dict[str, Any]:
         return {"reading": reading, "field": last["_field"], "assimilated": hours, "labels": _labels(last),
                 "demo_version": demo_version(), "series": _series([x for x in _readings if x.get("demo")]),
                 "file": None}
-    recent = [{k: v for k, v in x.items() if k != "_field"} for x in _readings if not x.get("demo")]
+    if last.get("mode") == "field":
+        return {"reading": reading, "field": last["_field"], "assimilated": _field_assimilated(last),
+                "labels": _labels(last), "series": _series([x for x in _readings if x.get("mode") == "field"]),
+                "file": None}
+    globe = [x for x in _readings if not x.get("demo") and x.get("mode") != "field"]
+    recent = [{k: v for k, v in x.items() if k != "_field"} for x in globe]
     return {"reading": reading, "field": last["_field"],
             "assimilated": weather.assimilate_env(_forecast_hours(), recent, SITE["lat"], SITE["lon"]),
-            "labels": _labels(last), "series": _series([x for x in _readings if not x.get("demo")]), "file": None}
+            "labels": _labels(last), "series": _series(globe), "file": None}
 
 
 @router.get("/node/history")
@@ -225,6 +372,7 @@ def reset() -> None:
     """Clear stored readings and demo state (tests)."""
     _readings.clear()
     _demo.update({"reading": None, "received": 0.0, "solar": [], "version": 0, "solar_at_version": None})
+    _field.update(reading=None, received=0.0, ended=False, version=0, air_at_version=None, from_at_version=None)
 
 
 def standalone_app():

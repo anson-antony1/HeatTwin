@@ -144,6 +144,7 @@ def test_node_latest_without_recording_has_no_numbers(monkeypatch, tmp_path):
     from engine import node_routes
     node_routes.reset()
     j = client.get("/node/latest").json()
+    assert j.pop("source")["id"] == "none"                          # v1.7 additive: no sensor path, no reading
     assert j == {"reading": None, "series": [], "file": None, "labels": ["no field recording yet"]}
 
 

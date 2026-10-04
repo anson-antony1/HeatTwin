@@ -27,7 +27,9 @@ def reading(t, globe):
 def test_post_latest_history(client):
     c, hours = client
     # no readings and no data/node_*.csv: 200 with no numbers (the web says "no field recording yet")
-    assert c.get("/node/latest").json() == {"reading": None, "series": [], "file": None, "labels": ["no field recording yet"]}
+    empty = c.get("/node/latest").json()
+    assert empty.pop("source")["reading_age_s"] is None                 # v1.7 additive: no Arduino reading yet
+    assert empty == {"reading": None, "series": [], "file": None, "labels": ["no field recording yet"]}
     t0 = datetime.fromisoformat(hours[3]["time"])
     for i, g in enumerate([35.0, 45.0, 50.0]):
         r = c.post("/node", json=reading(t0 + timedelta(minutes=i), g))
