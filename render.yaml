@@ -1,0 +1,55 @@
+# Render Blueprint for HeatTwin: PREPARED, NOT DEPLOYED. Exact commands and reasons: docs/DEPLOY.md.
+#
+#   heattwin-engine : FastAPI engine, free web service (512 MB), health check /health
+#   heattwin-web    : React + Vite static site (web/dist), calls the engine at VITE_ENGINE_URL
+#
+# Every value below is a demo choice, not a secret. There are no API keys in this file: the engine runs with the paid-API
+# kill switch ON (no Gemini, no ElevenLabs), no USB sensor bridge, the pinned demo forecast and the labelled synthetic
+# HR replay. Estimates are "estimate — planning only".
+services:
+  - type: web
+    name: heattwin-engine
+    runtime: python
+    plan: free
+    autoDeploy: false            # manual deploys: every build re-runs the optimizer search (a few minutes, once)
+    healthCheckPath: /health
+    buildCommand: >-
+      pip install --upgrade pip
+      && pip install -r requirements.txt
+      && python scripts/fetch_fastembed_model.py
+      && python scripts/warm_build.py
+    startCommand: uvicorn engine.api:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION          # full x.y.z; the engine and the pins in requirements.txt are tested on 3.11
+        value: 3.11.11
+      - key: HEATTWIN_DISABLE_PAID_APIS   # kill switch ON: engine/paid_api.py raises before any Gemini/ElevenLabs request
+        value: "1"
+      - key: HEATTWIN_NODE                # no USB on Render: skip the Arduino sensor bridge
+        value: "off"
+      - key: HEATTWIN_CORS_ORIGINS        # the static site's origin (scheme + host, no path, no trailing slash)
+        value: https://heattwin-web.onrender.com
+      - key: HEATTWIN_PROFILE             # placeholder: the committed fictional "Demo athlete (live)" profile (the lead
+        value: demo                       # implements profiles; the engine ignores this variable until then)
+      - key: HEATTWIN_INTEGRATOR          # "auto" = numba kernel (measured ~230 MB peak, 320 MB with the embedding model).
+        value: auto                       # "numpy" never imports numba (77 MB) but a cold search is 6x slower and lands on
+                                          # a different plan; the build's warm-up ignores it (docs/DEPLOY.md, Memory)
+      - key: FASTEMBED_MODEL              # engine/decide.py embedding model; scripts/fetch_fastembed_model.py downloads it
+        value: BAAI/bge-small-en-v1.5
+      - key: FASTEMBED_CACHE_DIR          # inside the project dir so the build's download survives to run time
+        value: .cache/fastembed
+
+  - type: web
+    name: heattwin-web
+    runtime: static
+    autoDeploy: false
+    buildCommand: cd web && npm ci && npm run build     # tsc -b && vite build; fixtures are imported from ../fixtures
+    staticPublishPath: web/dist
+    routes:
+      - type: rewrite                  # single-page app: every path serves index.html
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: NODE_VERSION
+        value: 22.21.0
+      - key: VITE_ENGINE_URL              # baked in at build time; no trailing slash. Change it, then redeploy this site
+        value: https://heattwin-engine.onrender.com

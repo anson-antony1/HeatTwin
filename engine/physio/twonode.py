@@ -14,6 +14,7 @@ Output: estimate — planning only.
 """
 from __future__ import annotations
 
+import os
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -26,6 +27,9 @@ from engine import consts
 from engine.physio import clothing, metabolic, radiation
 
 MODEL_NAME = "twonode-v1"
+# Optional env flag: "numpy" selects the numpy reference integrator (same equations and update order as the numba kernel,
+# engine/physio/_kernel.py) and never imports numba; unset / "auto" keeps today's behaviour (numba when importable).
+INTEGRATOR_ENV = "HEATTWIN_INTEGRATOR"
 PARAMS_REF = "engine/physio/MODEL.md; engine/constants.yaml#gagge_1986"
 ESTIMATE_LABEL = "estimate — planning only"
 
@@ -256,6 +260,8 @@ def integrate(
     pythermalcomfort agreement test. ``iso=IsoClothing(...)`` → ISO 7933 dynamic clothing (MODEL.md §5).
     """
     P = P or gagge_params()
+    if backend == "auto" and os.environ.get(INTEGRATOR_ENV, "auto").strip().lower() == "numpy":
+        backend = "numpy"      # HEATTWIN_INTEGRATOR=numpy: never import numba (low-memory hosts, e.g. a 512 MB free tier)
     if backend in ("auto", "numba") and _numba_kernel() is not None:
         return _integrate_numba(met_wm2, met_scale, ta, pa, v, tr, r_cl, r_ecl, f_cl, clothed, mass_kg, bsa_m2, dt_s,
                                 theta_sw, theta_dil, setpoint_shift, tcr0, met_cap_wm2, record_every, cap_mode, iso,

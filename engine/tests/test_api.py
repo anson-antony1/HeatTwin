@@ -26,6 +26,17 @@ def test_health():
     assert r.status_code == 200 and r.json()["ok"] is True
 
 
+def test_cors_origins_default_and_env(monkeypatch):
+    """Default = the local Vite dev server; HEATTWIN_CORS_ORIGINS (hosted static site) replaces it."""
+    from engine import api
+    monkeypatch.delenv("HEATTWIN_CORS_ORIGINS", raising=False)
+    assert api.cors_origins() == ["http://localhost:5173", "http://127.0.0.1:5173"]
+    monkeypatch.setenv("HEATTWIN_CORS_ORIGINS", " https://heattwin-web.onrender.com/ , https://other.example ")
+    assert api.cors_origins() == ["https://heattwin-web.onrender.com", "https://other.example"]
+    monkeypatch.setenv("HEATTWIN_CORS_ORIGINS", "  ")
+    assert api.cors_origins() == ["http://localhost:5173", "http://127.0.0.1:5173"]
+
+
 def test_simulate_defaults_to_fixtures_and_labels_them():
     r = client.post("/simulate", json={})
     assert r.status_code == 200

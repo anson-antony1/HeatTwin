@@ -1,0 +1,48 @@
+# HeatTwin engine: runtime dependencies for the Render web service (docs/DEPLOY.md).
+# Pinned from the project venv (uv pip freeze, 2026-10-04, CPython 3.11); fastembed and its closure added for engine/decide.py.
+# Not needed on the server, so not listed: pytest, pythermalcomfort (only the JOS-3 cross-check in tests/validation),
+# scipy (the engine never imports it), bleak (BLE heart-rate bridge, laptop only), pyserial (Arduino bridge; the engine
+# starts without it and HEATTWIN_NODE=off skips it). `make setup` installs those for local development.
+# Install: pip install -r requirements.txt
+# direct
+fastapi==0.142.2
+fastembed==0.8.1
+httpx==0.28.1
+numba==0.68.0
+numpy==2.4.6
+pydantic==2.13.5
+pyyaml==6.0.3
+requests==2.34.2
+uvicorn==0.54.0
+
+# transitive (pinned for reproducible builds)
+annotated-doc==0.0.5
+annotated-types==0.8.0
+anyio==4.15.1
+certifi==2026.7.22
+charset-normalizer==3.5.2
+click==8.5.0
+filelock==4.0.10
+flatbuffers==25.12.19
+fsspec==2026.9.0
+h11==0.16.0
+hf-xet==1.6.0
+httpcore==1.0.9
+huggingface-hub==1.33.0
+idna==3.20
+llvmlite==0.50.0
+loguru==0.7.3
+mmh3==5.3.1
+onnxruntime==1.30.0
+opentelemetry-api==1.45.0
+packaging==26.3
+pillow==12.3.0
+protobuf==7.36.2
+py-rust-stemmers==0.1.8
+pydantic-core==2.46.5
+starlette==1.7.0
+tokenizers==0.23.2
+tqdm==4.70.1
+typing-extensions==4.16.0
+typing-inspection==0.4.4
+urllib3==2.8.0

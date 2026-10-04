@@ -194,6 +194,34 @@ def test_numba_kernel_matches_numpy(mode, monkeypatch):
     assert np.max(np.abs(fast - ref)) < 2e-3
 
 
+@pytest.mark.parametrize("mode", ["conservative", "iso7933_dynamic", "gagge_static"])
+def test_integrator_env_flag_numpy_matches_numba(mode, monkeypatch):
+    """HEATTWIN_INTEGRATOR=numpy (hosted, low-memory) selects the numpy integrator without touching numba, and gives the
+    same core temperatures as the default (numba) path: ≤ 1e-5 °C raw, same public result."""
+    from engine.physio import twonode
+    if twonode._numba_kernel() is None:
+        pytest.skip("numba unavailable")
+    roster, plan, w = fixtures.roster(), fixtures.plan(), fixtures.forecast()
+    R = twonode.build_roster(roster)
+    tl = twonode.build_timeline(plan["drills"], R.ids, 1.0)
+    env = twonode.build_environment(w, plan["site"], twonode.parse_time(plan["start"]), 1.0, tl.n_steps)
+    D = twonode.make_draws(8, len(R.ids), 0)
+    monkeypatch.delenv(twonode.INTEGRATOR_ENV, raising=False)
+    fast = twonode.simulate_arrays(tl, env, R, D, clothing_mode=mode).core
+    pub_fast = twonode.simulate_roster(roster, plan, w, n_ensemble=10, seed=0)
+    monkeypatch.setenv(twonode.INTEGRATOR_ENV, "numpy")
+
+    def boom():
+        raise AssertionError("HEATTWIN_INTEGRATOR=numpy must not touch numba")
+    monkeypatch.setattr(twonode, "_numba_kernel", boom)
+    ref = twonode.simulate_arrays(tl, env, R, D, clothing_mode=mode).core
+    pub_ref = twonode.simulate_roster(roster, plan, w, n_ensemble=10, seed=0)
+    assert np.max(np.abs(fast - ref)) < 1e-5
+    assert [a["status"] for a in pub_fast["athletes"]] == [a["status"] for a in pub_ref["athletes"]]
+    assert max(abs(a["peak_core_c_p95"] - b["peak_core_c_p95"])
+               for a, b in zip(pub_fast["athletes"], pub_ref["athletes"])) <= 0.011   # 2-decimal rounding
+
+
 def test_surcharge_weights_per_gear_level():
     """Reviewer bug 2: helmet-only (which borrows P2 clothing values) gets no extra surcharge; full pads get δ."""
     from engine.physio import twonode

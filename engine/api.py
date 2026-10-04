@@ -28,9 +28,20 @@ from engine.physio import twonode
 
 app = FastAPI(title="HeatTwin engine", version="0.1.0",
               description="Per-athlete heat-strain estimates for practice planning. Estimate — planning only.")
+
+
+def cors_origins() -> list[str]:
+    """Browser origins allowed to call the engine. Default: the local Vite dev server (today's behaviour).
+    ``HEATTWIN_CORS_ORIGINS`` = comma-separated origins (e.g. the Render static site's https URL) replaces the default;
+    ``*`` allows any origin (no credentials are ever sent)."""
+    raw = os.environ.get("HEATTWIN_CORS_ORIGINS", "").strip()
+    listed = [o.strip().rstrip("/") for o in raw.split(",") if o.strip()]
+    return listed or ["http://localhost:5173", "http://127.0.0.1:5173"]
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=cors_origins(),
     allow_methods=["*"],
     allow_headers=["*"],
 )
