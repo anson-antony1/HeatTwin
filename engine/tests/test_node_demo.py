@@ -137,7 +137,7 @@ def test_sun_gain_makes_a_fingertip_reach_red():
     assert sc.gain == consts.get("demo_node.sun_gain") > 1
     for _ in range(consts.get("demo_node.baseline_samples")):
         feed(sc, 24.0)
-    r = feed(sc, 24.0 + 6.0)                                # ~fingertip
+    r = feed(sc, 24.0 + 12.0)                               # ~hair dryer (sun_gain 1.5)
     assert r["field"]["fhsaa_zone"] >= 4
     assert any("demo sensitivity" in x for x in r["labels"])
 

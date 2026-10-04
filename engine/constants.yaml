@@ -771,7 +771,7 @@ demo_node:
   reforecast_min_change_w_m2: 25.0   # re-run the live session when inferred sunlight moves at least this much
   air_mode_default: scenario  # 'scenario': the fixed hot day above (predictable on stage); 'station': live NWS KGNV
                               # air temperature, RH and wind (real, airport not field), only the sun from the globe
-  sun_gain: 3.0               # DESIGN (demo only): the globe's rise above the room is multiplied by this before it becomes
+  sun_gain: 1.5               # DESIGN (demo only): the globe's rise above the room is multiplied by this before it becomes
                               # "sun", so a fingertip (~+5-8 °C) spans the zones a real midday sun would (~+16-20 °C).
                               # 1.0 = physical scale (hair dryer / heat gun). Labelled on every demo reading.
 
