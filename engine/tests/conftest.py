@@ -28,13 +28,15 @@ def _no_network(monkeypatch, tmp_path_factory):
 
 
 @pytest.fixture(autouse=True)
-def _no_paid_apis(monkeypatch):
+def _no_paid_apis(monkeypatch, tmp_path_factory):
     """Tests never reach Gemini or ElevenLabs: no key from the shell or .env (tests that need one set a fake key and
     stub the call)."""
-    from engine import llm_plan
+    from engine import llm_plan, paid_api
     for k in ("GEMINI_API_KEY", "GOOGLE_API_KEY", "ELEVENLABS_API_KEY", "ELEVENLABS_VOICE_ID"):
         monkeypatch.delenv(k, raising=False)
     monkeypatch.setattr(llm_plan, "_load_dotenv", lambda: None)
+    # tests that exercise the kill switch's refusal log to a temp file: engine/logs/paid_api.jsonl records real runs only
+    monkeypatch.setattr(paid_api, "LOG_PATH", tmp_path_factory.mktemp("paid_api") / "paid_api.jsonl")
 
 
 @pytest.fixture(autouse=True)
