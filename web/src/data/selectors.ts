@@ -6,6 +6,7 @@ import type {
   FhsaaZoneRule,
   Gates,
   LiveAthlete,
+  LiveSuggestion,
   LiveReplay,
   NataPhase,
   ReplayFrame,
@@ -409,6 +410,8 @@ export interface AthleteLive {
   forecast: number[]
   /** p95 − p50 per minute 0…total. */
   band: number[]
+  /** v1.7: the engine's athlete-only re-plan on offer while live HR flags a crossing. */
+  suggestion?: LiveSuggestion | null
 }
 
 /** Per-minute arrays for one engine curve (cached by the caller — they don't change with the clock). */
@@ -556,6 +559,7 @@ export function athleteFromLive(args: {
     gates: live ? (entry?.gates ?? null) : null,
     device: receiving ? entry!.device : null,
     liveSource: receiving ? `${entry!.replay ? 'replay' : 'live'} · ${entry!.device}` : null,
+    suggestion: receiving ? (entry!.suggestion ?? null) : null,
     history: c.p50.slice(0, k + 1),
     forecast: c.p50,
     band: c.band,

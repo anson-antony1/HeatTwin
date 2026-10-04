@@ -12,3 +12,6 @@ engine/logs/
 !.env.example
 .claude/worktrees/
 .cache/
+
+# personal live-demo profiles (height, weight, age, resting HR) — never commit
+profiles/local/

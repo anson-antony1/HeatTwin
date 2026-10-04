@@ -3,6 +3,7 @@
 Freeze at M0. Additive changes only after that.
 **v1.1 (additive, Oct 3):** fields marked `// v1.1` are new and optional; every v1 field keeps its meaning.
 **v1.2 (additive, Oct 3 night):** `// v1.2` — Drill.drill_type, OptimizeResult.top_changes/top_changes_text, voice-tool endpoints. Units are in field names. Times are ISO 8601 with offset; durations are in minutes.
+**v1.7 (additive, live demo):** `POST /live/start` optional `profile` (adds the live-demo athlete from git-ignored `profiles/local/*.json`, else the fictional "Demo athlete (live)"; maps it to the conditioning drill) and `plan_preset: "optimized"`; `LiveState.roster_extra`; `LiveState.athletes[id].suggestion` (`LiveSuggestion`); `POST /live/apply`; gate field `n_windows`; `GET /health` → `paid_api` (kill-switch counter).
 **v1.6 (additive, polish):** `POST /live/start` optional `live_demo` (athlete → drill their HR is read against) and response `live_demo`; `LiveState.athletes[id].live_demo`; `WeatherHour.time_shifted_min` (a live session on the pinned forecast shifted to now, labelled "forecast snapshot (time-shifted)"); `GET /validation/hr_recording`; `/live/replay` defaults to the synthetic file; guard rule "suspected/possible <heat illness>" with one exception scoped to the Collapse 911 script.
 **v1.5 (additive, final-ui):** `GET /live/state` (the web polls the live HR session), `LiveReplay.source.{date, device, label}`.
 **v1.4 (additive, Oct 3 night):** `?source=node` (node demo scenario weather; never with ?demo=1), `OptimizeResult.fewest_changes` (minimum compliant edit), `GET /demo/comparison` (same plan, three weather inputs), `/voice/answer` optional `question`, `first_cross_min: number | null`. GET /weather is implemented (engine/weather_routes.py, display only).
@@ -278,6 +279,7 @@ type DemoComparison = {                // GET /demo/comparison — a stored snap
 | POST | `/voice/answer` | v1.4 optional `question` (the coach's words): when it asks whether someone is "safe/fine/OK/cleared", `say` starts with the boundary sentence (no clearance is given) |
 | GET | `/demo/comparison` | v1.4 → `DemoComparison` (snapshot; 404 until scripts/demo_numbers.py has run) |
 | GET | `/live/state` | v1.5 → `LiveState` (poll every few seconds). Start with `POST /live/start {"start_now": true}`; readings arrive from `engine/hr_bridge.py` (`POST /hr`) |
+| POST | `/live/apply` | v1.7 `{athlete_id}` → `{ok, plan, applied: {text, changes, before, after}, labels}`: the live session switches to the suggested plan (calibrations kept); 404 when no suggestion is on offer |
 | GET | `/validation/hr_recording` | v1.6 → `validation/results.json["helio_recording"]`: the real strap recording as calibration evidence `{file, device, date, athlete_ids, n_readings, duration_min, hr_bpm: {min, mean, max}, per_minute_mean_hr_bpm, calibration: {mapped_drill, n_updates, prior_met_scale(_sd), final_met_scale(_sd), sd_reduction_pct, last5_met_scale_range, trajectory} \| null, labels, synthetic: false, replay: true}`; 404 when none |
 
 ```ts
@@ -294,10 +296,21 @@ type LiveState = {
     gates: LiveReplay["frames"][number]["gates"] | null;
     athlete: { core_c_p50: number[]; core_c_p95: number[]; peak_core_c_p95: number; status: string; first_cross_min: number | null } | null;
     live_demo?: { drill_id: string; drill: string; intensity: string };   // v1.6: HR read against this drill
+    suggestion?: LiveSuggestion;   // v1.7: while the gate flags a crossing (the plan comes with POST /live/apply)
   }>;
+  roster_extra?: Athlete[];        // v1.7: live-only athletes (the live-demo profile)
   reforecast?: SimulationResult;   // whole roster, latest calibration (plan forecast for athletes without HR)
   labels: string[];                // "live · Amazfit Helio Strap" (or "replay (hr_bridge) · …") + plan labels;
                                    // v1.6: "live demo · conditioning" first with a live-demo mapping
+};
+// v1.7 engine/suggest.py — athlete-only, ≤ constants.live_suggest.max_changes, ≤ budget_s; sentences guarded
+type LiveSuggestion = {
+  athlete_id: string;
+  changes: { kind: "rest_start" | "rotate_out" | "gear_down"; drill_id: string; detail: string }[];
+  text: string; outcome: string; guard_ok: boolean;
+  before: { peak_core_c_p95: number; first_cross_min: number | null };
+  after: { peak_core_c_p95: number; first_cross_min: number | null; under_line: boolean };   // whole-roster re-forecast
+  searched: number; elapsed_s: number; at_minute: number; computed_at: string; labels: string[];
 };
 // LiveReplay.source (v1.5 additive): date: string | null; device: string | null;
 //   label: "replay · <date> · <device>" | "replay · synthetic HR file (not a real athlete)"

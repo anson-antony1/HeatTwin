@@ -195,6 +195,13 @@ class LiveSession:
             "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         }
 
+    def replace_plan(self, plan: Mapping[str, Any]) -> None:
+        """The coach applied a change to the rest of the session (same start): keep every athlete's calibration."""
+        self.plan = dict(plan)
+        self.tl = twonode.build_timeline(self.plan["drills"], self.R.ids, 1.0, rest_shade=self.S.non_participant_shade,
+                                         gear_cap=twonode.gear_caps(self.roster))
+        self._last_refc = None
+
     def roster_with_calib(self) -> list[dict[str, Any]]:
         out = []
         for a in self.roster:
@@ -220,12 +227,19 @@ class LiveSession:
         for o in over:
             run = run + 1 if o else 0
             best = max(best, run)
+        # gate (c): enough windows with readings were evaluated (assimilated, skipped as rest, or held at the HR
+        # ceiling — all are data), and at least one was informative (assimilated or at the ceiling). A rested-then-
+        # working athlete is then judged on the first informative window, not two (live response ≈ one update).
+        evaluated = st.n_updates + st.skipped_rest + st.ceiling_held
         g = {
             "crossing": bool(over.any()),
             "persistent": best >= int(_c("persistence_min")),
-            "coverage_ok": st.last_coverage >= _c("min_coverage_fraction") and st.n_updates >= int(_c("min_updates_before_flag")),
+            "coverage_ok": (st.last_coverage >= _c("min_coverage_fraction")
+                            and evaluated >= int(_c("min_updates_before_flag"))
+                            and st.n_updates + st.ceiling_held >= 1),
             "coverage_fraction": round(st.last_coverage, 2),
             "n_updates": st.n_updates,
+            "n_windows": evaluated,
         }
         held = [k for k in ("coverage_ok", "crossing", "persistent") if not g[k]]
         g["flag"] = not held

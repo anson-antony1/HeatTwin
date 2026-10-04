@@ -183,6 +183,21 @@ export interface LiveAthlete {
   athlete: CalibratedCurve | null
   /** v1.6 live demo: the plan drill this athlete's HR is read against (e.g. the conditioning drill). */
   live_demo?: { drill_id: string; drill: string; intensity: string }
+  /** v1.7: the engine's athlete-only re-plan while the gate flags a crossing (the plan itself comes with /live/apply). */
+  suggestion?: LiveSuggestion
+}
+
+/** v1.7 engine/suggest.py: ≤ 2 changes for one athlete, rest of session; every sentence already passed the guard. */
+export interface LiveSuggestion {
+  athlete_id: string
+  changes: { kind: 'rest_start' | 'rotate_out' | 'gear_down'; drill_id: string; detail: string }[]
+  text: string
+  /** The guarded result sentence: "Re-forecast peak 39.42 → 38.79 °C (p95), under the planning line. …" */
+  outcome: string
+  before: { peak_core_c_p95: number; first_cross_min: number | null }
+  after: { peak_core_c_p95: number; first_cross_min: number | null; under_line: boolean }
+  at_minute: number
+  labels: string[]
 }
 
 export interface LiveState {
@@ -196,6 +211,8 @@ export interface LiveState {
   athletes: Record<string, LiveAthlete>
   /** Whole roster, latest calibration (plan forecast for athletes without HR). */
   reforecast?: SimulationResult
+  /** v1.7: athletes only in the live session (the live-demo profile), shown in the roster while it runs. */
+  roster_extra?: RosterAthlete[]
   labels: string[]
 }
 
@@ -489,6 +506,12 @@ export function liveReplay(plan: PracticePlan, signal?: AbortSignal) {
 }
 
 /** v1.5: the live HR session (strap → engine/hr_bridge.py → POST /hr). */
+/** v1.7: apply the live suggestion for one athlete; returns the plan the live session now runs. */
+export function postLiveApply(athleteId: string) {
+  return request<{ ok: boolean; plan: PracticePlan; applied: Pick<LiveSuggestion, 'text' | 'changes' | 'before' | 'after'>; labels: string[] }>(
+    'POST', '/live/apply', { athlete_id: athleteId })
+}
+
 export function getLiveState(signal?: AbortSignal) {
   return request<LiveState>('GET', '/live/state', undefined, signal, 10_000)
 }

@@ -285,6 +285,18 @@
 
 /* ---------- Guidance ---------- */
 
+/* v1.7: live heads-up with the engine's suggested change: session header + suggestion card. */
+.coach__top.has-suggestion {
+  grid-template-columns: minmax(0, 1.4fr) minmax(260px, 1fr);
+}
+
+.guide__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
 .guide {
   padding: 20px 22px;
 }
@@ -594,7 +606,8 @@
   .session__inner {
     flex-direction: column;
   }
-  .coach__top.has-alert {
+  .coach__top.has-alert,
+  .coach__top.has-suggestion {
     grid-template-columns: 1fr;
   }
   .roster__head {
