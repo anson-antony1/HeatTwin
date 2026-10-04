@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { searchWeatherLocations, useWeather, weatherStore, type WeatherLocation } from '../data/weather'
+import { weatherSourceLabel } from '../data/selectors'
 import './SettingsView.css'
 
 export function SettingsView() {
@@ -68,7 +69,11 @@ export function SettingsView() {
         <div className="settings__current">
           <span className="eyebrow">Selected location</span>
           <strong>{weather.location?.name ?? 'Gainesville demo forecast'}</strong>
-          {weather.forecastDate && <span className="muted num">Forecast for {weather.forecastDate}</span>}
+          {weather.forecastDate && (
+            <span className="muted num" title={weather.forecast?.labels.join(' · ')}>
+              Forecast for {weather.forecastDate} · {weatherSourceLabel(weather.forecast?.source)}
+            </span>
+          )}
         </div>
         <button className="btn btn--ink pressable" onClick={useCurrentLocation} disabled={locating || weather.phase === 'loading'}>
           {locating ? 'Finding location…' : 'Use current location'}
@@ -89,7 +94,7 @@ export function SettingsView() {
         </form>
         {weather.phase === 'loading' && <p className="muted" role="status">Loading NWS WBGT forecast…</p>}
         {(searchError || weather.error) && <p className="settings__error" role="alert">{searchError ?? weather.error}</p>}
-        <p className="settings__source faint">WBGT forecast: National Weather Service. Location search: Open-Meteo.</p>
+        <p className="settings__source faint">WBGT forecast: NWS, through the HeatTwin engine. Location search: Open-Meteo.</p>
       </section>
     </div>
   )

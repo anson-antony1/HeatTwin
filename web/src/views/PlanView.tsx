@@ -1,25 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'motion/react'
 import type { ContractDrill } from '../data/llmPlan'
-import { PRACTICE_START_HOUR, ROSTER, contractToUi } from '../data/fixtures'
-import { THRESHOLDS, zoneFor, ZONE_COLOR } from '../data/constants'
-import { peakOf, wbgtAt } from '../data/model'
-import { checkRules, forecastRoster } from '../data/optimizer'
-import { perMinute, type SimulationResult } from '../data/engineApi'
+import { zoneColor } from '../data/constants'
+import type { SimulationResult } from '../data/engineApi'
 import { planStore, usePlanState } from '../data/planStore'
+import { SYNTHETIC_ROSTER_LABEL, useRoster } from '../data/roster'
+import { hottestPeakP95, hourOf, maxBetween, overCount, peakZone, valueAtMinute, weatherHourAt } from '../data/selectors'
 import { PlanEditor } from '../components/PlanEditor'
 import { NumberTicker } from '../components/NumberTicker'
+import { OfflineBadge } from '../components/OfflineBadge'
 import { IconCheck, IconClose, IconSpark } from '../components/Icons'
 import { clockLabel, heatColor } from '../lib/heat'
 import { AI_NAME } from '../lib/brand'
-import { useWeather } from '../data/weather'
-import type { WeatherHour } from '../data/types'
+import { coreValue, fmtCore, fmtLimit, PEAK_DECIMALS } from '../lib/format'
 import { ease, spring } from '../lib/motion'
 import './PlanView.css'
 
 // Today's plan — the same plan the live roster and every athlete page use
-// (voice, edited, optimized, or the default). Heat comes from the engine's
-// /simulate result when there is one, else the browser-side stand-in model.
+// (voice, edited, optimized, or the engine's demo plan). Every heat number is
+// the engine's /simulate (or /optimize) result for this plan; with the engine
+// unreachable the plan structure stays and every number reads "—".
 // Click a block for its details; Edit opens the timeline editor.
 
 const CELL_MIN = 2
@@ -28,26 +28,38 @@ const INTENSITY: Record<string, string> = { rest: 'Rest', light: 'Light', modera
 const PRIORITY: Record<number, string> = { 1: 'Must keep', 2: 'Normal', 3: 'Optional' }
 
 interface Forecasts {
-  /** athleteId → p95 core temp per minute */
-  series: Record<string, number[]>
-  limit: number
+  sim: SimulationResult | null
+  limit: number | null
   violations: { drill_id: string; text: string }[]
-  fromEngine: boolean
+  /** Athletes estimated over the line (engine status), hottest p95 peak, FHSAA issues — null without a result. */
+  over: number | null
+  hottest: number | null
+  issues: number | null
 }
 
-function fromSim(sim: SimulationResult, minutes: number): Forecasts {
+function fromSim(sim: SimulationResult | null): Forecasts {
   return {
-    series: Object.fromEntries(sim.athletes.map((a) => [a.id, perMinute(a.core_c_p95, sim.step_min, minutes)])),
-    limit: sim.limit_core_c,
-    violations: sim.fhsaa_violations.map((v) => ({ drill_id: v.drill_id, text: v.detail })),
-    fromEngine: true,
+    sim,
+    limit: sim?.limit_core_c ?? null,
+    violations: sim ? sim.fhsaa_violations.map((v) => ({ drill_id: v.drill_id, text: v.detail })) : [],
+    over: overCount(sim),
+    hottest: hottestPeakP95(sim),
+    issues: sim ? sim.fhsaa_violations.length : null,
   }
 }
 
+/** One athlete's p95 at a practice minute, from the engine result. */
+function p95At(f: Forecasts, id: string, m: number): number | null {
+  const a = f.sim?.athletes.find((x) => x.id === id)
+  return a && f.sim ? valueAtMinute(a.core_c_p95, f.sim.step_min, m) : null
+}
+
+/** Peak p95 shown with the 2-decimal formatter (rounded like the engine), as a NumberTicker value. */
+const peakValue = (v: number | null, limit: number | null) => (v == null ? Number.NaN : coreValue(v, limit, PEAK_DECIMALS))
+
 export function PlanView() {
   const p = usePlanState()
-  const weather = useWeather()
-  const forecast = weather.forecast
+  const roster = useRoster()
   const reduce = useReducedMotion()
   const [editing, setEditing] = useState(false)
   const [editFrom, setEditFrom] = useState<string | null>(null)
@@ -56,22 +68,9 @@ export function PlanView() {
 
   const drills = p.plan.drills
   const minutes = Math.round(drills.reduce((s, d) => s + d.duration_min, 0))
-  const uiPlan = useMemo(() => contractToUi(p.plan), [p.plan])
 
-  const now: Forecasts = useMemo(() => {
-    if (p.sim && !weather.location) return fromSim(p.sim, minutes)
-    return {
-      series: forecastRoster(ROSTER, uiPlan, forecast, PRACTICE_START_HOUR),
-      limit: THRESHOLDS.alertC,
-      violations: checkRules(uiPlan, forecast, PRACTICE_START_HOUR).map((v) => ({ drill_id: 'plan', text: v.text })),
-      fromEngine: false,
-    }
-  }, [p.sim, minutes, uiPlan, forecast, weather.location])
-
-  const before = p.opt ? fromSim(p.opt.original, Math.max(1, p.opt.original.times.length - 1)) : null
-
-  const over = (f: Forecasts) => ROSTER.filter((a) => f.series[a.id] && peakOf(f.series[a.id]).value >= f.limit).length
-  const hottest = (f: Forecasts) => Math.max(...ROSTER.map((a) => (f.series[a.id] ? peakOf(f.series[a.id]).value : 0)))
+  const now: Forecasts = useMemo(() => fromSim(p.sim), [p.sim])
+  const before = p.opt ? fromSim(p.opt.original) : null
 
   // Leave edit mode once the edited plan has been modeled.
   useEffect(() => {
@@ -82,8 +81,9 @@ export function PlanView() {
   }, [p.phase, p.source])
 
   const cols = Math.ceil(minutes / CELL_MIN)
-  const startHour = hourOf(p.plan.start)
+  const startHour = hourOf(p.plan.start) ?? 0
   const busy = p.phase === 'simulating' || p.phase === 'optimizing'
+  const zoneNow = p.sim ? peakZone(p.sim.weather, p.plan.start, minutes) : null
 
   const startEdit = (from: string | null = null) => {
     setOpenDrill(null)
@@ -97,6 +97,7 @@ export function PlanView() {
         <div>
           <div className="eyebrow">
             Today · {clockLabel(startHour, 0)} – {clockLabel(startHour, minutes)} · <SourceLabel source={p.source} />
+            {p.offline && <> <OfflineBadge /></>}
           </div>
           <h1 className="display-lg">Practice plan</h1>
         </div>
@@ -143,10 +144,22 @@ export function PlanView() {
       )}
 
       <div className="plan__summary">
-        <Metric label="Forecast over the line" value={over(now)} was={before ? over(before) : null} unit="athletes" />
-        <Metric label="Hottest forecast (p95)" value={hottest(now)} was={before ? hottest(before) : null} unit="°" decimals={1} />
-        <Metric label="FHSAA issues" value={now.violations.length} was={before ? before.violations.length : null} />
-        <Metric label="Training load kept" value={p.opt ? Math.round(p.opt.load_kept_pct) : 100} was={p.opt ? 100 : null} unit="%" neutral />
+        <Metric label="Forecast over the line" value={now.over} was={before ? before.over : null} unit="athletes" />
+        <Metric
+          label="Hottest forecast (p95)"
+          value={peakValue(now.hottest, now.limit)}
+          was={before ? peakValue(before.hottest, before.limit) : null}
+          unit="°"
+          decimals={PEAK_DECIMALS}
+        />
+        <Metric label="FHSAA issues" value={now.issues} was={before ? before.issues : null} />
+        <Metric
+          label="Training load kept"
+          value={p.opt ? Math.round(p.opt.load_kept_pct) : p.sim ? 100 : null}
+          was={p.opt ? 100 : null}
+          unit="%"
+          neutral
+        />
       </div>
 
       <section className="glass plan__board">
@@ -185,7 +198,11 @@ export function PlanView() {
             >
               <div className="plan__rules">
                 <AnimatePresence mode="popLayout" initial={false}>
-                  {now.violations.length === 0 ? (
+                  {!now.sim ? (
+                    <motion.span key="none" className="rule" initial={false}>
+                      FHSAA rules: —
+                    </motion.span>
+                  ) : now.violations.length === 0 ? (
                     <motion.span
                       key="ok"
                       className="rule rule--ok"
@@ -194,7 +211,7 @@ export function PlanView() {
                       exit={{ opacity: 0, transform: 'scale(0.95)' }}
                       transition={{ duration: 0.2, ease: ease.out }}
                     >
-                      <IconCheck width={14} height={14} /> Meets FHSAA {zoneFor(peakWbgt(forecast, startHour, minutes)).id} zone rules
+                      <IconCheck width={14} height={14} /> Meets FHSAA zone {zoneNow ?? '—'} rules
                     </motion.span>
                   ) : (
                     now.violations.slice(0, 4).map((v, i) => (
@@ -252,36 +269,37 @@ export function PlanView() {
                 <div className="plan__label">WBGT</div>
                 <div className="wbgt">
                   {Array.from({ length: cols }, (_, c) => {
-                    const z = zoneFor(wbgtAt(forecast, startHour + (c * CELL_MIN) / 60))
-                    return <span key={c} style={{ background: ZONE_COLOR[z.id] }} />
+                    const h = weatherHourAt(p.sim?.weather, p.plan.start, c * CELL_MIN)
+                    return <span key={c} style={{ background: zoneColor(h?.fhsaa_zone) }} title={h ? `${h.wbgt_f.toFixed(1)} °F · zone ${h.fhsaa_zone}` : undefined} />
                   })}
                 </div>
                 <div />
 
-                {ROSTER.map((a) => {
-                  const f = now.series[a.id] ?? []
-                  const peak = f.length ? peakOf(f).value : 0
+                {roster.athletes.map((a) => {
+                  const simA = now.sim?.athletes.find((x) => x.id === a.id)
+                  const peak = simA ? simA.peak_core_c_p95 : null
+                  const over = (v: number | null) => v != null && now.limit != null && v >= now.limit
                   return (
                     <div className="strip-row" key={a.id}>
                       <div className="plan__label">
-                        <span className="num plan__num">{a.number}</span>
-                        <span className="plan__name">{a.name}</span>
+                        <span className="num plan__num">{a.position ?? '—'}</span>
+                        <span className="plan__name">{roster.name(a.id)}</span>
                       </div>
                       <div className="strip">
                         {Array.from({ length: cols }, (_, c) => {
-                          const v = f[Math.min(f.length - 1, c * CELL_MIN)] ?? THRESHOLDS.baselineC
+                          const v = p95At(now, a.id, c * CELL_MIN)
                           return (
                             <span
                               key={c}
-                              className={v >= now.limit ? 'is-over' : ''}
+                              className={over(v) ? 'is-over' : ''}
                               // Column-wise sweep, 6ms apart — the change reads as one wave through the session.
-                              style={{ background: heatColor(v), transitionDelay: reduce ? '0ms' : `${c * 6}ms` }}
+                              style={{ background: v != null ? heatColor(v) : 'var(--ink-4)', transitionDelay: reduce ? '0ms' : `${c * 6}ms` }}
                             />
                           )
                         })}
                       </div>
-                      <div className={`plan__peak num ${peak >= now.limit ? 'is-over' : ''}`}>
-                        <NumberTicker value={peak} decimals={1} suffix="°" />
+                      <div className={`plan__peak num ${over(peak) ? 'is-over' : ''}`}>
+                        <NumberTicker value={peakValue(peak, now.limit)} decimals={PEAK_DECIMALS} suffix="°" />
                       </div>
                     </div>
                   )
@@ -298,9 +316,11 @@ export function PlanView() {
                 <div />
               </div>
               <p className="faint plan__note">
-                {now.fromEngine
-                  ? 'Heat strip: engine p95 core-temperature estimate per athlete — planning only. Click any block for details.'
-                  : `Heat strip: browser stand-in model. Ask ${AI_NAME} or save an edit to model it on the engine.`}
+                {now.sim
+                  ? `Heat strip: engine p95 core-temperature estimate per athlete — planning only.${roster.synthetic ? ` ${SYNTHETIC_ROSTER_LABEL[0].toUpperCase()}${SYNTHETIC_ROSTER_LABEL.slice(1)}.` : ''} Click any block for details.`
+                  : p.offline
+                    ? 'Heat strip: offline fallback — the engine is unreachable, so no estimates are shown.'
+                    : 'Heat strip: waiting for the engine…'}
               </p>
             </motion.div>
           )}
@@ -348,16 +368,6 @@ function SourceLabel({ source }: { source: string }) {
   return <span className={`plan__src plan__src--${source}`}>{label[source]}</span>
 }
 
-function hourOf(iso: string) {
-  const m = /T(\d{2}):(\d{2})/.exec(iso)
-  return m ? Number(m[1]) + Number(m[2]) / 60 : PRACTICE_START_HOUR
-}
-
-function peakWbgt(forecast: WeatherHour[], startHour: number, minutes: number) {
-  let p = 0
-  for (let m = 0; m <= minutes; m += 5) p = Math.max(p, wbgtAt(forecast, startHour + m / 60))
-  return p
-}
 
 /** Engine violation details are long; turn "Hour 2026-10-04T15:00:00-04:00: …" into "3 PM hour: …" and trim. */
 function shorten(t: string) {
@@ -425,6 +435,7 @@ function DrillPopover({
   onClose: () => void
   onEdit: () => void
 }) {
+  const roster = useRoster()
   const ref = useRef<HTMLDivElement>(null)
   const i = drills.findIndex((d) => d.id === id)
   const d = drills[i]
@@ -451,12 +462,14 @@ function DrillPopover({
 
   if (!d) return null
 
-  const inBlock = ROSTER.map((a) => {
-    const s = f.series[a.id] ?? []
-    const seg = s.slice(Math.round(start), Math.round(end) + 1)
-    return { a, peak: seg.length ? Math.max(...seg) : 0 }
-  }).sort((x, y) => y.peak - x.peak)
-  const overCount = inBlock.filter((x) => x.peak >= f.limit).length
+  const inBlock = roster.athletes
+    .map((a) => {
+      const simA = f.sim?.athletes.find((x) => x.id === a.id)
+      return { a, peak: simA && f.sim ? maxBetween(simA.core_c_p95, f.sim.step_min, start, end) : null }
+    })
+    .sort((x, y) => (y.peak ?? -Infinity) - (x.peak ?? -Infinity))
+  const isOver = (v: number | null) => v != null && f.limit != null && v >= f.limit
+  const overInBlock = inBlock.filter((x) => isOver(x.peak)).length
   const lighter = d.gear_by_athlete ? Object.keys(d.gear_by_athlete).length : 0
   const issues = f.violations.filter((v) => v.drill_id === d.id)
   // Origin-aware: grow from the block's centre even when the panel is nudged to stay on screen.
@@ -498,14 +511,15 @@ function DrillPopover({
       {!d.is_break && (
         <div className="pop__heat">
           <div className="eyebrow">
-            Hottest in this block · {overCount > 0 ? `${overCount} over ${f.limit.toFixed(1)}°` : `all under ${f.limit.toFixed(1)}°`}
+            Hottest in this block ·{' '}
+            {!f.sim ? '—' : overInBlock > 0 ? `${overInBlock} over ${fmtLimit(f.limit)}°` : `all under ${fmtLimit(f.limit)}°`}
           </div>
           <ul>
             {inBlock.slice(0, 3).map(({ a, peak }) => (
               <li key={a.id}>
-                <span className="pop__dot" style={{ background: heatColor(peak) }} />
-                <span>{a.name}</span>
-                <span className={`num ${peak >= f.limit ? 'is-over' : ''}`}>{peak.toFixed(1)}°</span>
+                <span className="pop__dot" style={{ background: peak != null ? heatColor(peak) : 'var(--ink-4)' }} />
+                <span>{roster.name(a.id)}</span>
+                <span className={`num ${isOver(peak) ? 'is-over' : ''}`}>{fmtCore(peak, f.limit)}°</span>
               </li>
             ))}
           </ul>
@@ -538,22 +552,26 @@ function Metric({
   neutral = false,
 }: {
   label: string
-  value: number
+  /** Engine number; null / NaN prints "—". */
+  value: number | null
   was: number | null
   unit?: string
   decimals?: number
   neutral?: boolean
 }) {
-  const better = was != null && value < was
+  const shown = value ?? Number.NaN
+  const better = was != null && value != null && value < was
   const word = unit === 'athletes'
   return (
     <div className={`glass metric ${!neutral && better ? 'is-better' : ''}`}>
       <div className="eyebrow">{label}</div>
       <div className="metric__value display-md">
-        <NumberTicker value={value} decimals={decimals} suffix={word ? '' : unit} />
+        <NumberTicker value={shown} decimals={decimals} suffix={word ? '' : unit} />
         {word && <span className="metric__unit">athletes</span>}
       </div>
-      <div className="metric__was faint num">{was != null ? `was ${was.toFixed(decimals)}${word ? '' : unit}` : 'current plan'}</div>
+      <div className="metric__was faint num">
+        {was != null && Number.isFinite(was) ? `was ${was.toFixed(decimals)}${word ? '' : unit}` : 'current plan'}
+      </div>
     </div>
   )
 }

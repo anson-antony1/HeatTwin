@@ -1,7 +1,14 @@
 import { useSyncExternalStore } from 'react'
-import { engine } from './engine'
-import { FORECAST, PRACTICE_START_HOUR } from './fixtures'
-import type { WeatherHour } from './types'
+import { getWeather, type WeatherHour, type WeatherResponse } from './engineApi'
+import { planStore } from './planStore'
+import { weatherHourAt } from './selectors'
+
+// Field conditions for a practice location the coach picks in Settings. The
+// browser never fetches NWS or computes WBGT: the engine's GET /weather does
+// (NWS hourly forecast + Liljegren WBGT + FHSAA zone per hour; the cached
+// fixture, labelled, when NWS is unreachable). The place-name search below uses
+// Open-Meteo's geocoder and shows no heat numbers.
+// With no location picked, the field card shows the plan's own engine weather.
 
 export interface WeatherLocation {
   name: string
@@ -11,19 +18,16 @@ export interface WeatherLocation {
 
 interface WeatherState {
   location: WeatherLocation | null
-  forecast: WeatherHour[]
+  /** The engine's answer for `location`. */
+  forecast: WeatherResponse | null
+  /** Local date of the hours in `forecast.day` (the plan's date). */
   forecastDate: string | null
   phase: 'demo' | 'loading' | 'ready' | 'error'
   error: string | null
 }
 
-interface GridSeries {
-  uom?: string
-  values?: { validTime: string; value: number | null }[]
-}
-
 const STORAGE_KEY = 'heattwin.weather.v1'
-let state: WeatherState = { location: null, forecast: FORECAST, forecastDate: null, phase: 'demo', error: null }
+let state: WeatherState = { location: null, forecast: null, forecastDate: null, phase: 'demo', error: null }
 const listeners = new Set<() => void>()
 let request: AbortController | null = null
 
@@ -33,99 +37,12 @@ function set(patch: Partial<WeatherState>) {
 }
 
 async function json<T>(url: string, signal: AbortSignal): Promise<T> {
-  const response = await fetch(url, { signal, headers: { Accept: 'application/geo+json, application/json' } })
-  if (!response.ok) throw new Error(`Weather service returned ${response.status}.`)
+  const response = await fetch(url, { signal, headers: { Accept: 'application/json' } })
+  if (!response.ok) throw new Error(`Location search returned ${response.status}.`)
   return response.json() as Promise<T>
 }
 
-function localKey(date: Date, timeZone: string) {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23',
-  }).formatToParts(date)
-  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? '00'
-  return `${part('year')}-${part('month')}-${part('day')}:${part('hour')}`
-}
-
-function hourly(series: GridSeries | undefined, timeZone: string) {
-  const values = new Map<string, number>()
-  for (const item of series?.values ?? []) {
-    if (item.value == null || !Number.isFinite(item.value)) continue
-    const [startText, duration = 'PT1H'] = item.validTime.split('/')
-    const start = Date.parse(startText)
-    if (!Number.isFinite(start)) continue
-    const days = Number(duration.match(/(\d+)D/)?.[1] ?? 0)
-    const hours = Number(duration.match(/(\d+)H/)?.[1] ?? 0)
-    const count = Math.max(1, Math.min(168, days * 24 + hours))
-    for (let i = 0; i < count; i++) values.set(localKey(new Date(start + i * 3_600_000), timeZone), item.value)
-  }
-  return values
-}
-
-function nearest(values: Map<string, number>, date: string, hour: number): number | null {
-  const exact = values.get(`${date}:${String(hour).padStart(2, '0')}`)
-  if (exact != null) return exact
-  for (let distance = 1; distance < 24; distance++) {
-    for (const h of [hour - distance, hour + distance]) {
-      if (h < 0 || h > 23) continue
-      const value = values.get(`${date}:${String(h).padStart(2, '0')}`)
-      if (value != null) return value
-    }
-  }
-  return null
-}
-
-function fahrenheit(value: number, uom?: string) {
-  return uom?.includes('degF') ? value : value * 9 / 5 + 32
-}
-
-function mph(value: number, uom?: string) {
-  if (uom?.includes('mph')) return value
-  if (uom?.includes('km_h-1')) return value / 1.609344
-  return value * 2.236936 // NWS default m/s
-}
-
-async function fetchForecast(location: WeatherLocation, signal: AbortSignal) {
-  const point = await json<{ properties?: { forecastGridData?: string; timeZone?: string } }>(
-    `https://api.weather.gov/points/${location.latitude.toFixed(4)},${location.longitude.toFixed(4)}`, signal,
-  )
-  const gridUrl = point.properties?.forecastGridData
-  const timeZone = point.properties?.timeZone
-  if (!gridUrl || !timeZone) throw new Error('No NWS forecast grid is available for this location.')
-  const grid = await json<{ properties?: Record<string, unknown> }>(gridUrl, signal)
-  const properties = grid.properties ?? {}
-  const get = (key: string) => properties[key] as GridSeries | undefined
-  const wbgtSeries = get('wetBulbGlobeTemperature')
-  const wbgt = hourly(wbgtSeries, timeZone)
-  const dates = [...new Set([...wbgt.keys()].filter((key) => key.endsWith(':15')).map((key) => key.slice(0, 10)))].sort()
-  const localNow = localKey(new Date(), timeZone)
-  const today = localNow.slice(0, 10)
-  // The fixed replay starts at 3:30 PM. Once that start has passed, use the
-  // next practice day's forecast instead of replaying weather from this morning.
-  const practiceStarted = Number(localNow.slice(-2)) >= Math.ceil(PRACTICE_START_HOUR)
-  const date = dates.find((candidate) => candidate > today || (candidate === today && !practiceStarted))
-  if (!date) throw new Error('The NWS has no upcoming WBGT forecast for this location.')
-  const tempSeries = get('temperature')
-  const windSeries = get('windSpeed')
-  const temp = hourly(tempSeries, timeZone)
-  const humidity = hourly(get('relativeHumidity'), timeZone)
-  const wind = hourly(windSeries, timeZone)
-  const forecast: WeatherHour[] = Array.from({ length: 24 }, (_, hour) => {
-    const wbgtC = nearest(wbgt, date, hour)
-    if (wbgtC == null) throw new Error('The NWS WBGT forecast has gaps for this practice day.')
-    const tempC = nearest(temp, date, hour)
-    const windValue = nearest(wind, date, hour)
-    return {
-      hour,
-      wbgtF: fahrenheit(wbgtC, wbgtSeries?.uom),
-      tempF: tempC == null ? fahrenheit(wbgtC, wbgtSeries?.uom) : fahrenheit(tempC, tempSeries?.uom),
-      rh: nearest(humidity, date, hour) ?? 50,
-      windMph: windValue == null ? 0 : mph(windValue, windSeries?.uom),
-      source: 'nws_forecast',
-    }
-  })
-  return { forecast, date }
-}
-
+/** Place-name search (Open-Meteo geocoder). Names and coordinates only. */
 export async function searchWeatherLocations(query: string, signal?: AbortSignal): Promise<WeatherLocation[]> {
   const term = query.trim()
   if (term.length < 2) return []
@@ -141,6 +58,12 @@ export async function searchWeatherLocations(query: string, signal?: AbortSignal
   }))
 }
 
+/** The plan's local date ("2026-10-04"), so the engine returns that day's hours. */
+function planDate(): string | null {
+  const m = /^(\d{4}-\d{2}-\d{2})/.exec(planStore.get().plan.start)
+  return m ? m[1] : null
+}
+
 export const weatherStore = {
   subscribe(listener: () => void) {
     listeners.add(listener)
@@ -152,9 +75,10 @@ export const weatherStore = {
     request = new AbortController()
     set({ phase: 'loading', error: null })
     try {
-      const { forecast, date } = await fetchForecast(location, request.signal)
-      set({ location, forecast, forecastDate: date, phase: 'ready', error: null })
-      engine.setWeather(forecast)
+      const date = planDate()
+      const forecast = await getWeather(location.latitude, location.longitude, date, request.signal)
+      if (!forecast.now && !forecast.day.length) throw new Error('The engine has no forecast for this location.')
+      set({ location, forecast, forecastDate: forecast.day[0]?.time.slice(0, 10) ?? null, phase: 'ready', error: null })
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(location)) } catch { /* private storage */ }
     } catch (error) {
       if ((error as Error).name !== 'AbortError') set({ phase: 'error', error: (error as Error).message })
@@ -164,10 +88,26 @@ export const weatherStore = {
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null') as WeatherLocation | null
       if (saved && typeof saved.latitude === 'number' && typeof saved.longitude === 'number') void this.select(saved)
-    } catch { /* use demo forecast */ }
+    } catch { /* plan weather */ }
   },
 }
 
 export function useWeather() {
   return useSyncExternalStore(weatherStore.subscribe, weatherStore.get)
+}
+
+/**
+ * The engine hour the field card shows: for a location picked in Settings, the engine /weather hour at the practice
+ * clock on the plan's date (else its current hour); otherwise the plan's own engine weather hour (`planHour`).
+ */
+export function fieldHour(
+  w: Pick<WeatherState, 'location' | 'forecast'>,
+  planHour: WeatherHour | null,
+  startIso: string | null,
+  minute: number,
+): WeatherHour | null {
+  if (w.location && w.forecast) {
+    return (startIso ? weatherHourAt(w.forecast.day, startIso, minute) : null) ?? w.forecast.now
+  }
+  return planHour
 }

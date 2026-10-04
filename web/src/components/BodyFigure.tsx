@@ -57,7 +57,7 @@ export function BodyFigure({ coreC, hr }: { coreC: number; hr: number | null }) 
   return (
     <div className="body">
       <div className="body__aura" style={{ background: `radial-gradient(closest-side, ${heatColor(coreC, 0.42)}, transparent)` }} />
-      <svg viewBox="0 0 200 500" className="body__svg" role="img" aria-label={`Thermal figure, estimated core ${coreC.toFixed(1)} °C`}>
+      <svg viewBox="0 0 200 500" className="body__svg" role="img" aria-label={`Thermal figure, estimated core ${Number.isFinite(coreC) ? coreC.toFixed(1) : '—'} °C`}>
         <defs>
           <radialGradient id={`thermal-${uid}`} gradientUnits="userSpaceOnUse" cx="100" cy="170" r="300">
             <stop offset="0" stopColor={heatColor(coreC)} />

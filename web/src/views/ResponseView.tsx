@@ -1,24 +1,43 @@
 import { motion, useReducedMotion } from 'motion/react'
 import { IconCheck, IconResponse } from '../components/Icons'
+import { useEngineMeta } from '../data/engineMeta'
+import { cwiTargets, fmtRange, tubLimitF, tubReadingF } from '../data/cwi'
 import { ease } from '../lib/motion'
 import './ResponseView.css'
 
 // Pre-practice readiness: the Zachary Martin Act wants a cold-water tub and an
 // emergency plan on site. This page is the checklist, plus the one-tap entry
-// into Collapse mode.
-
-const CHECKS = [
-  { label: 'Tub filled, ice on hand', detail: 'Probe reads 48.9 °F', ok: true },
-  { label: 'Tub within 1 minute of the field', detail: 'East sideline, by the gate', ok: true },
-  { label: 'EMS access route clear', detail: 'Gate 3 unlocked · runner assigned', ok: true },
-  { label: 'AED on the sideline', detail: 'Checked 3:05 PM', ok: true },
-  { label: 'Rectal thermometer', detail: 'None on site — cool 10–15 min before removing', ok: false },
-]
+// into Collapse mode. Numbers come from the engine (GET /sources: KSI; GET
+// /node/latest: the tub probe). HeatTwin can only tick what it can read: the
+// tub probe. Everything else is the coach's to check (shown with "!").
 
 const PROTOCOL = ['Call 911', 'Into the tub', 'Stir the water', 'Keep cooling', 'Hand off to EMS']
 
 export function ResponseView({ onStart }: { onStart: () => void }) {
   const reduce = useReducedMotion()
+  const meta = useEngineMeta()
+  const t = cwiTargets(meta.sources)
+  const tubF = tubReadingF(meta.node)
+  const limitF = tubLimitF(t)
+  const CHECKS = [
+    {
+      label: 'Tub filled, ice on hand',
+      detail: tubF != null ? `Probe reads ${tubF.toFixed(1)} °F` : 'Probe reads — (no tub probe reading)',
+      ok: tubF != null && limitF != null && tubF < limitF,
+    },
+    {
+      label: `Tub within ${fmtRange(t.tubWithinMin)} minutes of the field`,
+      detail: 'KSI Cold Water Immersion Guide · check on site',
+      ok: false,
+    },
+    { label: 'EMS access route clear', detail: 'Per your emergency action plan · check on site', ok: false },
+    { label: 'AED on the sideline', detail: 'Per your emergency action plan · check on site', ok: false },
+    {
+      label: 'Rectal thermometer',
+      detail: `None on site — cool ${fmtRange(t.noRectalCoolMin)} min before removing`,
+      ok: false,
+    },
+  ]
   return (
     <div className="resp">
       <header>

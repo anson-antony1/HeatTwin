@@ -13,7 +13,11 @@ const SPEEDS = [1, 4, 10]
 // nobody mistakes it for a live feed.
 export function DemoBar() {
   const s = useSession()
-  const progress = s.minute / s.totalMinutes
+  const progress = s.totalMinutes > 0 ? s.minute / s.totalMinutes : 0
+  // "Skip to heat": the earliest minute the engine forecasts anyone over the line (else its first gates flag).
+  const skipTo = s.skipTo
+  const tag = s.source === 'offline' ? 'Offline' : 'Replay'
+  const tagTitle = s.source === 'offline' ? 'HeatTwin engine unreachable — offline fallback, no estimates' : (s.replay.label ?? 'Demo playback of the plan forecast')
   const scrub = useReplayScrub(s.totalMinutes, s.minute)
   return (
     <div className="demobar glass glass--strong" role="toolbar" aria-label="Demo playback">
@@ -49,14 +53,18 @@ export function DemoBar() {
         ))}
       </div>
 
-      <button className="demobar__btn pressable" onClick={() => engine.seek(Math.max(s.minute, 50))} title="Skip ahead to minute 50">
+      <button
+        className="demobar__btn pressable"
+        onClick={() => skipTo != null && engine.seek(Math.max(s.minute, skipTo))}
+        title={skipTo != null ? `Skip ahead to minute ${Math.round(skipTo)}` : 'No crossing in the engine forecast'}
+      >
         <IconSkip width={16} height={16} />
         <span>Skip to heat</span>
       </button>
       <button className="demobar__icon pressable" onClick={() => engine.reset()} aria-label="Reset replay">
         <IconReset width={18} height={18} />
       </button>
-      <span className="demobar__tag">Replay</span>
+      <span className="demobar__tag" title={tagTitle}>{tag}</span>
     </div>
   )
 }

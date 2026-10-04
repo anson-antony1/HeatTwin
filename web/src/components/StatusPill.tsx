@@ -3,10 +3,12 @@ import type { Status } from '../data/types'
 import { ease } from '../lib/motion'
 import './StatusPill.css'
 
+// Tone of the engine's status: below_limit → steady, near_limit → watch, over_limit → alert ("none": no estimate).
 const LABEL: Record<Status, string> = {
   steady: 'Steady',
   watch: 'Watch',
   alert: 'Over line',
+  none: '—',
 }
 
 // State change is the point here, so the label rolls (up when worsening,

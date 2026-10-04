@@ -5,7 +5,8 @@ import { useMicLevels } from '../lib/useMicLevels'
 import { liveCaptionsSupported, useLiveCaptions } from '../lib/useLiveCaptions'
 import { planStore, usePlanState, type PlanState } from '../data/planStore'
 import type { PlanDraft } from '../data/llmPlan'
-import { ROSTER } from '../data/fixtures'
+import { useRoster } from '../data/roster'
+import { fmtCore, fmtLimit } from '../lib/format'
 import { mmss } from '../lib/heat'
 import { ease, spring } from '../lib/motion'
 import { NumberTicker } from './NumberTicker'
@@ -42,6 +43,7 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
   // jacks at the end" edits it instead of starting over.
   const v = useVoicePlan({ current_plan: p.plan })
   const reduce = useReducedMotion()
+  const roster = useRoster()
   const [opened, setOpened] = useState<'result' | 'typing' | null>(null)
   const [flash, setFlash] = useState(false)
   const [text, setText] = useState('')
@@ -117,7 +119,7 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
       ? ['Thinking', `${AI_NAME} · ${p.source === 'fixture' ? 'new plan' : 'editing plan'}`]
       : p.phase === 'optimizing'
         ? ['Optimizing', AI_NAME]
-        : ['Modeling', `${ROSTER.length} athletes`]
+        : ['Modeling', `${roster.athletes.length} athletes`]
 
   return (
     <div className="dock" data-bar={bar}>
@@ -426,7 +428,8 @@ function Result({
   const near = sim.athletes.filter((a) => a.status === 'near_limit').length
   const wasOver = p.original ? p.original.athletes.filter((a) => a.status === 'over_limit').length : over
   const hottest = [...sim.athletes].sort((a, b) => b.peak_core_c_p95 - a.peak_core_c_p95).slice(0, 3)
-  const name = (id: string) => ROSTER.find((r) => r.id === id)?.name ?? id
+  const roster = useRoster()
+  const name = (id: string) => roster.name(id)
   const optimizing = p.phase === 'optimizing'
   const canOptimize = p.source !== 'optimized' && (over > 0 || near > 0 || sim.fhsaa_violations.length > 0)
 
@@ -442,7 +445,7 @@ function Result({
           <NumberTicker value={over} />
         </span>
         <span className="result__big-text">
-          {over === 1 ? 'athlete' : 'athletes'} forecast over {limit.toFixed(1)}°
+          {over === 1 ? 'athlete' : 'athletes'} forecast over {fmtLimit(limit)}°
           {p.source === 'optimized' && wasOver !== over && <span className="faint"> · was {wasOver}</span>}
           <br />
           <span className="faint num">
@@ -480,7 +483,7 @@ function Result({
           >
             <span className={`result__dot result__dot--${a.status}`} />
             <span className="result__name">{name(a.id)}</span>
-            <span className="num result__peak">{a.peak_core_c_p95.toFixed(1)}°</span>
+            <span className="num result__peak">{fmtCore(a.peak_core_c_p95, limit)}°</span>
             <span className="faint num result__cross">
               {a.first_cross_min != null ? `crosses at ${Math.round(a.first_cross_min)}′` : 'stays under'}
             </span>

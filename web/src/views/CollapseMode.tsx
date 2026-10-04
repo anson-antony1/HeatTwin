@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { ROSTER } from '../data/fixtures'
-import { useSession } from '../data/engine'
+import { athleteOf, useSession } from '../data/engine'
+import { engineMeta, useEngineMeta } from '../data/engineMeta'
+import { useRoster } from '../data/roster'
+import { cwiTargets, fmtRange, minutesClock, tubLimitF, tubReadingF, type CwiTargets } from '../data/cwi'
+import { fmtCore } from '../lib/format'
 import { HoldButton } from '../components/HoldButton'
 import { IconCheck, IconPhone, IconVolume } from '../components/Icons'
 import { mmss } from '../lib/heat'
@@ -11,7 +14,12 @@ import './CollapseMode.css'
 // Collapse mode: cool first, transport second. Runs on wall-clock time, not
 // demo time. Voice uses the browser's speech engine as a stand-in for the
 // pre-generated ElevenLabs clips (swap `speak` for <audio> playback).
-// Nothing here decides when to stop cooling — that's rectal temperature only.
+// Nothing here decides when cooling ends — that's rectal temperature only.
+// Numbers: KSI / NATA values from GET /sources, the tub probe from GET
+// /node/latest ("—" until a probe is wired), the estimate from the engine.
+
+/** How often Collapse mode re-reads /node/latest (UI refresh rate, not a physiological value). */
+const NODE_POLL_MS = 5000
 
 interface Step {
   id: string
@@ -20,7 +28,9 @@ interface Step {
   say: string
 }
 
-const STEPS: Step[] = [
+function steps(t: CwiTargets): Step[] {
+  const r = t.noRectalCoolMin
+  return [
   {
     id: 'call',
     title: 'Call 911',
@@ -42,8 +52,10 @@ const STEPS: Step[] = [
   {
     id: 'cool',
     title: 'Keep cooling',
-    detail: 'Without a rectal thermometer, cool 10–15 minutes before removing.',
-    say: 'Keep cooling. Without a rectal thermometer, cool for ten to fifteen minutes.',
+    detail: `Without a rectal thermometer, cool ${fmtRange(r)} minutes before removing.`,
+    say: r
+      ? `Keep cooling. Without a rectal thermometer, cool for ${r[0]} to ${r[1]} minutes.`
+      : 'Keep cooling. Without a rectal thermometer, follow the cooling time in the KSI guide.',
   },
   {
     id: 'handoff',
@@ -51,7 +63,8 @@ const STEPS: Step[] = [
     detail: 'Remove from the tub, then transport. Share the timeline below.',
     say: 'Now remove the athlete from the tub and hand off to E M S. Share the timeline.',
   },
-]
+  ]
+}
 
 interface LogEntry {
   t: number
@@ -69,15 +82,21 @@ function speak(text: string) {
 export function CollapseMode({ athleteId, onClose }: { athleteId: string; onClose: () => void }) {
   const reduce = useReducedMotion()
   const s = useSession()
-  const athlete = ROSTER.find((a) => a.id === athleteId)!
-  const live = s.athletes[athleteId]
+  const meta = useEngineMeta()
+  const roster = useRoster()
+  const targets = cwiTargets(meta.sources)
+  const STEPS = steps(targets)
+  const athlete = roster.byId(athleteId)
+  const name = roster.name(athleteId)
+  const position = athlete?.position ?? '—'
+  const live = athleteOf(s, athleteId)
   const [startedAt] = useState(() => Date.now())
   const [now, setNow] = useState(startedAt)
   const [done, setDone] = useState<Record<string, number>>({})
   const [voice, setVoice] = useState(true)
   const [log, setLog] = useState<LogEntry[]>(() => [
-    { t: 0, text: `Collapse mode started — ${athlete.name} #${athlete.number}` },
-    { t: 0, text: `Last est. core ${live.coreC.toFixed(1)} °C (estimate, not a measurement)` },
+    { t: 0, text: `Collapse mode started — ${name} · ${position}` },
+    { t: 0, text: `Last est. core ${fmtCore(live.coreC, s.limitC, 1)} °C (estimate, not a measurement)` },
   ])
   const [copied, setCopied] = useState(false)
 
@@ -86,13 +105,22 @@ export function CollapseMode({ athleteId, onClose }: { athleteId: string; onClos
     return () => clearInterval(id)
   }, [])
 
+  // The tub probe arrives through the field node (GET /node/latest).
+  useEffect(() => {
+    void engineMeta.refreshNode()
+    const id = setInterval(() => void engineMeta.refreshNode(), NODE_POLL_MS)
+    return () => clearInterval(id)
+  }, [])
+
   const elapsed = (now - startedAt) / 1000
   const current = STEPS.find((st) => done[st.id] == null) ?? null
   const immersedAt = done.tub
   const immersion = immersedAt != null ? elapsed - immersedAt : null
 
-  // Tub probe stand-in: starts near 49 °F and drifts up as the body warms it.
-  const tubF = 48.6 + (immersion != null ? Math.min(7, immersion * 0.012) : 0) + Math.sin(elapsed / 3) * 0.15
+  // Tub probe: the node's reading, or none (no stand-in).
+  const tubF = tubReadingF(meta.node)
+  const limitF = tubLimitF(targets)
+  const tubLine = tubF != null ? `Tub water ${tubF.toFixed(1)} °F` : 'Tub water — (no tub probe reading)'
 
   useEffect(() => {
     if (voice && current) speak(current.say)
@@ -116,9 +144,9 @@ export function CollapseMode({ athleteId, onClose }: { athleteId: string; onClos
 
   const copy = async () => {
     const text = [
-      `HeatTwin — EMS handoff · ${athlete.name} #${athlete.number} (${athlete.position}, ${athlete.massKg} kg)`,
+      `HeatTwin — EMS handoff · ${roster.fullName(athleteId)} (${position}, ${athlete?.mass_kg ?? '—'} kg)`,
       ...log.map((e) => `+${mmss(e.t)}  ${e.text}`),
-      `Tub water ${tubF.toFixed(1)} °F`,
+      tubLine,
       'Core temperatures above are model estimates, not measurements.',
     ].join('\n')
     try {
@@ -130,8 +158,10 @@ export function CollapseMode({ athleteId, onClose }: { athleteId: string; onClos
     }
   }
 
-  const target = 30 * 60
-  const ring = Math.min(1, elapsed / target)
+  // NATA cooling-goal window from /sources (nata_ehs.goal_below_f_within_<N>min).
+  const target = targets.nataGoalWindowMin != null ? targets.nataGoalWindowMin * 60 : null
+  const ring = target ? Math.min(1, elapsed / target) : 0
+  const coolFor = targets.noRectalCoolMin
   const R = 120
   const C = 2 * Math.PI * R
 
@@ -140,7 +170,7 @@ export function CollapseMode({ athleteId, onClose }: { athleteId: string; onClos
       className="collapse"
       role="dialog"
       aria-modal="true"
-      aria-label={`Collapse response for ${athlete.name}`}
+      aria-label={`Collapse response for ${name}`}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, transition: { duration: 0.2 } }}
@@ -158,7 +188,7 @@ export function CollapseMode({ athleteId, onClose }: { athleteId: string; onClos
             <span className="collapse__live" aria-hidden="true" />
             <span className="eyebrow">Collapse response</span>
             <span className="collapse__who">
-              {athlete.name} · #{athlete.number}
+              {name} · {position}
             </span>
           </div>
           <div className="collapse__bar-actions">
@@ -196,7 +226,7 @@ export function CollapseMode({ athleteId, onClose }: { athleteId: string; onClos
             <div className="collapse__time">
               <div className="eyebrow">Since collapse</div>
               <div className="collapse__digits num">{mmss(elapsed)}</div>
-              <div className="collapse__target">Cool within 30:00</div>
+              <div className="collapse__target">Cool within {minutesClock(targets.nataGoalWindowMin)}</div>
             </div>
           </section>
 
@@ -263,9 +293,13 @@ export function CollapseMode({ athleteId, onClose }: { athleteId: string; onClos
           <section className="collapse__side">
             <div className="ccard">
               <div className="eyebrow">Tub water · probe</div>
-              <div className="ccard__big num">{tubF.toFixed(1)}°F</div>
-              <div className={`ccard__ok ${tubF < 60 ? 'is-ok' : ''}`}>
-                {tubF < 60 ? 'Under 60 °F — cold enough' : 'Add ice — over 60 °F'}
+              <div className="ccard__big num">{tubF != null ? tubF.toFixed(1) : '—'}°F</div>
+              <div className={`ccard__ok ${tubF != null && limitF != null && tubF < limitF ? 'is-ok' : ''}`}>
+                {tubF == null || limitF == null
+                  ? `No probe reading · KSI: under ${limitF ?? '—'} °F`
+                  : tubF < limitF
+                    ? `Under ${limitF} °F — cold enough`
+                    : `Add ice — over ${limitF} °F`}
               </div>
             </div>
             <div className="ccard">
@@ -275,10 +309,10 @@ export function CollapseMode({ athleteId, onClose }: { athleteId: string; onClos
                 <span className="ccard__bar-band" />
                 <span
                   className="ccard__bar-fill"
-                  style={{ transform: `scaleX(${immersion == null ? 0 : Math.min(1, immersion / (15 * 60))})` }}
+                  style={{ transform: `scaleX(${immersion == null || !coolFor ? 0 : Math.min(1, immersion / (coolFor[1] * 60))})` }}
                 />
               </div>
-              <div className="ccard__note">10–15 min without a rectal reading</div>
+              <div className="ccard__note">{fmtRange(coolFor)} min without a rectal reading</div>
             </div>
           </section>
 
@@ -309,8 +343,8 @@ export function CollapseMode({ athleteId, onClose }: { athleteId: string; onClos
         </div>
 
         <footer className="collapse__foot">
-          Only a rectal temperature can tell you when to stop cooling. Estimates on this screen are never a reason to
-          stop.
+          Only a rectal temperature can tell you when cooling can end. Estimates on this screen are never a reason to end
+          it.
         </footer>
       </motion.div>
     </motion.div>

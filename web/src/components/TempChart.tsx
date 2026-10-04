@@ -1,9 +1,9 @@
 import { useId, useMemo, useRef, type KeyboardEvent, type PointerEvent } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
-import type { Drill } from '../data/types'
-import { THRESHOLDS } from '../data/constants'
+import type { ChartDrill } from '../data/types'
 import { bandPath, downsample, splinePath, type Pt } from '../lib/spline'
 import { clockLabel, HEAT_STOPS, heatColor } from '../lib/heat'
+import { fmtCore, fmtLimit } from '../lib/format'
 import { ease } from '../lib/motion'
 import { useSize } from '../lib/useSize'
 import './TempChart.css'
@@ -23,10 +23,13 @@ interface Props {
   band: number[]
   total: number
   now: number
+  /** Estimate at `now` (NaN when there is none). */
   live: number
+  /** The engine's planning line (`limit_core_c`); no line when unknown. */
+  limit: number | null
   compact?: boolean
   reveal?: boolean
-  drills?: Drill[]
+  drills?: ChartDrill[]
   domain?: [number, number]
   /** Optional comparison series (e.g. original plan) drawn faint. */
   ghost?: number[]
@@ -45,6 +48,7 @@ export function TempChart({
   total,
   now,
   live,
+  limit,
   compact = false,
   reveal = false,
   drills,
@@ -69,10 +73,12 @@ export function TempChart({
   const x = (m: number) => pad.l + ((m - v0) / span) * w
   const minuteAt = (px: number) => Math.max(0, Math.min(total, Math.round(v0 + ((px - pad.l) / (w || 1)) * span)))
   const pressed = useRef(false)
-  const dataTop = Math.max(domain[1], THRESHOLDS.alertC, live,
+  const hasLive = Number.isFinite(live)
+  const hasLimit = limit != null && Number.isFinite(limit)
+  const dataTop = Math.max(domain[1], ...(hasLimit ? [limit] : []), ...(hasLive ? [live] : []),
     ...history.filter(Number.isFinite), ...forecast.map((value, i) => value + (band[i] ?? 0)).filter(Number.isFinite),
     ...(ghost ?? []).filter(Number.isFinite))
-  const dataBottom = Math.min(domain[0], live, ...history.filter(Number.isFinite),
+  const dataBottom = Math.min(domain[0], ...(hasLive ? [live] : []), ...history.filter(Number.isFinite),
     ...forecast.map((value, i) => value - (band[i] ?? 0)).filter(Number.isFinite))
   const floor = Math.min(domain[0], Math.floor((dataBottom - 0.15) * 2) / 2)
   const ceiling = Math.max(domain[1], Math.ceil((dataTop + 0.15) * 2) / 2)
@@ -84,7 +90,7 @@ export function TempChart({
     // More samples when zoomed, so the curve keeps its detail.
     const target = compact ? 36 : Math.min(400, Math.round((90 * (total || 1)) / span))
     const histPts: Pt[] = downsample(history, target).map(({ value, index }) => [x(index), y(value)])
-    if (now > k) histPts.push([x(now), y(live)])
+    if (now > k && hasLive) histPts.push([x(now), y(live)])
 
     const fut = forecast.slice(k)
     const futSampled = downsample(fut, Math.max(2, Math.round((target * fut.length) / (total || 1))))
@@ -126,7 +132,7 @@ export function TempChart({
     const k = Math.floor(now)
     if (m <= k) return { c: history[m] ?? live, band: 0, measured: true }
     if (m <= now) return { c: live, band: 0, measured: true }
-    return { c: forecast[m] ?? forecast[forecast.length - 1], band: band[m] ?? 0, measured: false }
+    return { c: forecast[m] ?? forecast[forecast.length - 1] ?? Number.NaN, band: band[m] ?? 0, measured: false }
   }
 
   const handleMove = (e: PointerEvent<SVGRectElement>) => {
@@ -150,7 +156,8 @@ export function TempChart({
     e.preventDefault()
   }
 
-  const scrubRead = scrub != null ? read(scrub) : null
+  const scrubRaw = scrub != null ? read(scrub) : null
+  const scrubRead = scrubRaw && Number.isFinite(scrubRaw.c) ? scrubRaw : null
   const drillAtScrub = (() => {
     if (scrub == null || !drills) return null
     let t = 0
@@ -229,14 +236,16 @@ export function TempChart({
 
       <g clipPath={`url(#plot-${uid})`}>
 
-      {/* Alert line */}
-      <line
-        className="chart__threshold"
-        x1={pad.l}
-        x2={pad.l + w}
-        y1={y(THRESHOLDS.alertC)}
-        y2={y(THRESHOLDS.alertC)}
-      />
+      {/* Alert line: the engine's planning line */}
+      {hasLimit && (
+        <line
+          className="chart__threshold"
+          x1={pad.l}
+          x2={pad.l + w}
+          y1={y(limit)}
+          y2={y(limit)}
+        />
+      )}
 
       {paths.ghost && <path className="chart__ghost" d={paths.ghost} />}
       {paths.band && <path className="chart__band" d={paths.band} />}
@@ -253,14 +262,14 @@ export function TempChart({
       <path className="chart__history" d={paths.hist} stroke={`url(#heat-${uid})`} />
 
       </g>
-      {!compact && (
-        <text className="chart__threshold-label" x={pad.l + w} y={y(THRESHOLDS.alertC) - 7} textAnchor="end">
-          {THRESHOLDS.alertC.toFixed(1)}° alert line
+      {!compact && hasLimit && (
+        <text className="chart__threshold-label" x={pad.l + w} y={y(limit) - 7} textAnchor="end">
+          {fmtLimit(limit)}° alert line
         </text>
       )}
 
       {/* Now marker + live head */}
-      {now > 0 && now < total && now >= v0 && now <= v1 && (
+      {now > 0 && now < total && now >= v0 && now <= v1 && hasLive && (
         <>
           {!compact && <line className="chart__now" x1={x(now)} x2={x(now)} y1={pad.t} y2={pad.t + h} />}
           <circle className="chart__head-glow" cx={x(now)} cy={y(live)} r={compact ? 6 : 10} fill={heatColor(live, 0.28)} />
@@ -329,7 +338,7 @@ export function TempChart({
       aria-label={onScrub ? 'Core temperature chart. Use arrow keys to scrub through practice.' : undefined}
     >
       {width > 0 && (
-        <svg width={width} height={height} role="img" aria-label={`Estimated core temperature ${live.toFixed(1)} degrees Celsius`}>
+        <svg width={width} height={height} role="img" aria-label={`Estimated core temperature ${fmtCore(live, limit, 1)} degrees Celsius`}>
           {reveal && !reduce ? (
             <motion.g
               initial={{ clipPath: 'inset(0 100% 0 0)' }}
@@ -353,7 +362,7 @@ export function TempChart({
             {startHour != null ? clockLabel(startHour, scrub) : ''} · {scrub}′
           </div>
           <div className="chart__tip-temp num" style={{ color: heatColor(scrubRead.c) }}>
-            {scrubRead.c.toFixed(2)}°C
+            {fmtCore(scrubRead.c, limit)}°C
             {scrubRead.band > 0 && <span className="chart__tip-band"> ±{scrubRead.band.toFixed(2)}</span>}
           </div>
           <div className="chart__tip-meta">

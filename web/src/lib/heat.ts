@@ -1,3 +1,6 @@
+import type { ContractGear } from '../data/llmPlan'
+import { GEAR_LABEL } from '../data/selectors'
+
 // Thermal palette. Cool lavender at baseline → amber at the watch line →
 // coral red at the alert line. Kept in sync with --heat-* in tokens.css.
 
@@ -10,7 +13,8 @@ const STOPS: [number, [number, number, number]][] = [
 ]
 
 export function heatRgb(c: number): [number, number, number] {
-  if (c <= STOPS[0][0]) return STOPS[0][1]
+  // No number (engine offline / not loaded): the resting colour, never a heat colour.
+  if (!Number.isFinite(c) || c <= STOPS[0][0]) return STOPS[0][1]
   for (let i = 0; i < STOPS.length - 1; i++) {
     const [t0, a] = STOPS[i]
     const [t1, b] = STOPS[i + 1]
@@ -46,8 +50,6 @@ export function mmss(totalSeconds: number) {
   return `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`
 }
 
-const GEAR_LABEL = { none: 'No pads', helmet: 'Helmet', shells: 'Shells', full: 'Full pads' } as const
-
-export function gearLabel(g: keyof typeof GEAR_LABEL) {
+export function gearLabel(g: ContractGear) {
   return GEAR_LABEL[g]
 }

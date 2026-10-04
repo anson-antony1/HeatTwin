@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { engine, useSession } from './data/engine'
-import { ROSTER } from './data/fixtures'
+import { useRoster } from './data/roster'
 import { Background, type Tone } from './components/Background'
 import { Sidebar, type View } from './components/Sidebar'
 import { DemoBar } from './components/DemoBar'
@@ -19,15 +19,17 @@ import './App.css'
 
 export default function App() {
   const s = useSession()
+  const roster = useRoster()
   const reduce = useReducedMotion()
   const [view, setView] = useState<View>('live')
-  const [athleteId, setAthleteId] = useState(ROSTER[0].id)
+  const [picked, setAthleteId] = useState<string | null>(null)
+  const athleteId = picked ?? roster.athletes[0]?.id ?? ''
   // Acknowledgements belong to one replay run; a reset starts clean.
   const [ackState, setAckState] = useState<{ session: number; ids: Set<string> }>({ session: 0, ids: new Set() })
   const [collapseFor, setCollapseFor] = useState<string | null>(null)
 
   useEffect(() => {
-    planStore.restore()
+    void planStore.boot()
     weatherStore.restore()
     engine.play()
     return () => engine.pause()
@@ -35,9 +37,11 @@ export default function App() {
 
   const acked = ackState.session === s.session ? ackState.ids : new Set<string>()
 
-  const alertIds = ROSTER.filter((a) => s.athletes[a.id].status === 'alert').map((a) => a.id)
+  // Alerts are the engine's HR-calibration gate flags (gates.flag), nothing computed here.
+  const alertIds = roster.athletes.filter((a) => s.athletes[a.id]?.flag).map((a) => a.id)
   const unacked = alertIds.filter((id) => !acked.has(id))
-  const hottest = [...ROSTER].sort((a, b) => s.athletes[b.id].coreC - s.athletes[a.id].coreC)[0].id
+  // Hottest by the engine's estimate at this minute (first athlete when there are no numbers).
+  const hottest = [...roster.athletes].sort((a, b) => (s.athletes[b.id]?.coreC ?? -Infinity) - (s.athletes[a.id]?.coreC ?? -Infinity))[0]?.id ?? athleteId
 
   const tone: Tone = unacked.length && view === 'live' ? 'alert' : view === 'athlete' ? 'athlete' : 'coach'
 
