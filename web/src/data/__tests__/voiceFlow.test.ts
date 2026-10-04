@@ -197,3 +197,30 @@ describe('provenance labels next to an answer', () => {
     expect(provenanceLabels(labels)).toEqual(['synthetic roster', 'forecast is fixture'])
   })
 })
+
+describe('Gemini reads the words first when it is on', () => {
+  it('a plan change becomes a draft without the local router', async () => {
+    const d = deps({ geminiFirst: async () => true, parsePlan: vi.fn(async () => ({ ...DRAFT, about_plan: true })) })
+    const out = await runVoiceFlow('twenty more on team period this time', PLAN, {}, d)
+    expect(out.kind).toBe('draft')
+    expect(d.parsePlan).toHaveBeenCalledWith('twenty more on team period this time', { current_plan: PLAN }, undefined)
+    expect(d.decide).not.toHaveBeenCalled()
+  })
+  it('a question (about_plan false) goes on to the local router and the engine answer', async () => {
+    const d = deps({ geminiFirst: async () => true, parsePlan: vi.fn(async () => ({ ...DRAFT, about_plan: false })) })
+    const out = await runVoiceFlow('how hot is it at four', PLAN, {}, d)
+    expect(out.kind).toBe('answer')
+    expect(d.decide).toHaveBeenCalled()
+  })
+  it('a Gemini failure falls back to the local path', async () => {
+    const d = deps({ geminiFirst: async () => true, parsePlan: vi.fn(async () => { throw new Error('502 Gemini') }) })
+    const out = await runVoiceFlow('how hot is it at four', PLAN, {}, d)
+    expect(out.kind).toBe('answer')
+  })
+  it('Gemini off: the local router runs as before', async () => {
+    const d = deps({ geminiFirst: async () => false })
+    await runVoiceFlow('how hot is it at four', PLAN, {}, d)
+    expect(d.parsePlan).not.toHaveBeenCalled()
+    expect(d.decide).toHaveBeenCalled()
+  })
+})

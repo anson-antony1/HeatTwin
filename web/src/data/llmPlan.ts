@@ -45,6 +45,8 @@ export interface PlanDraft {
   total_min: number
   /** Always true: the coach must confirm before simulating. */
   needs_confirmation: true
+  /** Gemini only: false when the coach asked a question instead of describing or changing the plan. */
+  about_plan?: boolean
   /** e.g. "parsed by AI from the coach's description — coach must confirm". Display it. */
   labels: string[]
   model: string

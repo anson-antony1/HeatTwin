@@ -36,6 +36,8 @@ export interface FlowDeps {
   answer: (req: VoiceAnswerRequest, signal?: AbortSignal) => Promise<VoiceAnswer>
   guard: (text: string) => Promise<GuardResult>
   parsePlan: (text: string, ctx: PlanContext, signal?: AbortSignal) => Promise<PlanDraft>
+  /** When this says yes (Gemini is configured), Gemini reads every utterance first — see runVoiceFlow. */
+  geminiFirst?: () => Promise<boolean>
 }
 
 let geminiCache: { at: number; configured: boolean } | null = null
@@ -59,7 +61,9 @@ export async function parsePlanAuto(text: string, ctx: PlanContext, signal?: Abo
   return (await geminiConfigured()) ? parsePlanText(text, ctx, signal) : parsePlanLocal(text, ctx, signal)
 }
 
-export const defaultFlowDeps: FlowDeps = { decide: voiceDecide, answer: voiceAnswer, guard: guardText, parsePlan: parsePlanAuto }
+export const defaultFlowDeps: FlowDeps = {
+  decide: voiceDecide, answer: voiceAnswer, guard: guardText, parsePlan: parsePlanAuto, geminiFirst: geminiConfigured,
+}
 
 /** Shown instead of a sentence the checks refused. Fixed text: no number, no judgement. */
 export const HELD_MESSAGE = 'That answer did not pass the language checks, so it is not shown or spoken. Try asking another way.'
@@ -72,6 +76,20 @@ export async function runVoiceFlow(
   signal?: AbortSignal,
 ): Promise<VoiceOutcome> {
   const transcript = text.trim()
+
+  // Gemini on (key + paid APIs enabled): it reads the coach's words first, however they are phrased ("twenty more on
+  // team period this time"), with the plan on screen. A plan change comes back as a draft for Confirm; a question
+  // (about_plan: false) goes on to the local router below. If Gemini fails, the local path runs as before.
+  if (deps.geminiFirst && Object.keys(choices).length === 0 && (await deps.geminiFirst())) {
+    try {
+      const draft = await deps.parsePlan(transcript, { current_plan: plan }, signal)
+      if (draft.about_plan !== false) return { kind: 'draft', transcript, draft }
+    } catch (e) {
+      if ((e as Error).name === 'AbortError') throw e
+      console.warn(`Gemini plan reading failed (${(e as Error).message}); using the local path.`)
+    }
+  }
+
   const routed = await deps.decide({ text: transcript, plan, choices }, signal)
 
   if (routed.abstain) {

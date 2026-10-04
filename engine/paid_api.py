@@ -25,6 +25,10 @@ class PaidAPIDisabled(RuntimeError):
 
 
 def disabled() -> bool:
+    # A local .env (git-ignored) may set HEATTWIN_DISABLE_PAID_APIS=0 for a real demo; real env vars still win, and
+    # engine/tests/conftest.py forces "1" before anything is imported.
+    from engine.llm_plan import _load_dotenv
+    _load_dotenv()
     return os.environ.get("HEATTWIN_DISABLE_PAID_APIS", "1").strip().lower() not in ("0", "false", "no", "off")
 
 

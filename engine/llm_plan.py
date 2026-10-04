@@ -97,6 +97,8 @@ GEARS = ["none", "helmet", "helmet_shoulder_pads", "full_pads"]
 RESPONSE_SCHEMA = {
     "type": "OBJECT",
     "properties": {
+        "about_plan": {"type": "BOOLEAN", "description": "true when the coach describes or changes the practice plan; false "
+                       "when they ask a question (how hot is it, how is an athlete, what if…, optimize, summarize the plan)."},
         "transcript": {"type": "STRING", "description": "What the coach said, verbatim (for typed input: the text)."},
         "start_time_local": {"type": "STRING", "nullable": True, "description": "Practice start as HH:MM 24 h if stated, else null."},
         "drills": {
@@ -124,8 +126,8 @@ RESPONSE_SCHEMA = {
         "changes": {"type": "ARRAY", "items": {"type": "STRING"},
                     "description": "Editing an existing plan only: each change you made, one short sentence each."},
     },
-    "required": ["transcript", "drills", "assumptions", "unclear"],
-    "propertyOrdering": ["transcript", "start_time_local", "drills", "assumptions", "unclear", "changes"],
+    "required": ["about_plan", "transcript", "drills", "assumptions", "unclear"],
+    "propertyOrdering": ["about_plan", "transcript", "start_time_local", "drills", "assumptions", "unclear", "changes"],
 }
 
 INSTRUCTIONS = """You turn a high school football coach's description of today's practice into a list of drills.
@@ -157,7 +159,11 @@ For each drill, in the order the coach said them:
 Put in "assumptions" only what a coach would want to double-check (one short sentence each, at most 4): gear carried
 over or inferred, how you read the start time, durations you inferred. Do not list intensity, priority or movable values
 that follow from the rules above.
-"transcript": verbatim words of the coach. "start_time_local": start time if stated, 24 h HH:MM, else null."""
+"transcript": verbatim words of the coach. "start_time_local": start time if stated, 24 h HH:MM, else null.
+The words come from speech recognition: numbers may be spelled out ("twenty"), split ("twenty five"), misheard
+("for tea" for "forty"), and the coach talks naturally, not in a fixed order. Work out what they mean.
+"about_plan": false if the coach is asking a question instead of describing or changing the plan (then return the
+current plan unchanged, or no drills if there is none, and no assumptions)."""
 
 # Appended when the coach is changing a plan that already exists (memory of the last session).
 EDIT_INSTRUCTIONS = """EDITING AN EXISTING PLAN. The current plan is given below as JSON. The coach is now describing changes
@@ -171,7 +177,15 @@ conditioning to the start"). Return the FULL updated drill list in order:
   replace the plan with it.
 - "changes": one short sentence per change you made. "assumptions": only values you filled in for new or changed
   drills. Do not list the unchanged drills anywhere.
-- "start_time_local": the current plan's start unless the coach changes it."""
+- "start_time_local": the current plan's start unless the coach changes it.
+- RELATIVE changes apply to the drill's CURRENT duration in the plan: "20 more minutes", "add another 10", "give it 20
+  extra", "make it 20 minutes longer this time" → current + 20; "cut 5 minutes", "5 less", "shave off 5" → current − 5;
+  "double it" → × 2, "half as long" → ÷ 2. "Make it 20" / "set it to 20" / "20 minutes this time" (no more/less) → 20.
+  Words like "this time", "today", "for now" do not change the meaning. The number can be anywhere in the sentence
+  ("twenty more on team period", "team period, add twenty").
+- Which drill: match the coach's words to the plan's drill names loosely ("team" → "Team period", "the sprints" →
+  "Conditioning (gassers)" if that is the only running drill). If the coach names no drill and the change could apply to
+  more than one, change nothing and say so in "unclear" (e.g. "Which drill gets 20 more minutes?")."""
 
 
 class ParsedDrill(BaseModel):
@@ -186,6 +200,7 @@ class ParsedDrill(BaseModel):
 
 
 class Parsed(BaseModel):
+    about_plan: bool = True
     transcript: str = ""
     start_time_local: Optional[str] = None
     drills: list[ParsedDrill]
@@ -327,6 +342,7 @@ def draft_plan(p: Parsed, site: Optional[dict[str, Any]] = None, date: Optional[
         "edited": bool(current_plan),
         "total_min": round(sum(d["duration_min"] for d in drills), 1),
         "needs_confirmation": True,
+        "about_plan": p.about_plan,
         "labels": [LABEL],
         "model": model_name(),
     }
