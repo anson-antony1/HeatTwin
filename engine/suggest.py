@@ -56,6 +56,14 @@ def candidates(plan: Mapping[str, Any], aid: str, now_min: float, rest_min: int)
     return out
 
 
+def _new_id(drills: Sequence[Mapping[str, Any]], base: str) -> str:
+    taken = {d["id"] for d in drills}
+    n = 1
+    while f"{base}r{n}" in taken:
+        n += 1
+    return f"{base}r{n}"
+
+
 def apply_changes(plan: Mapping[str, Any], aid: str, changes: Sequence[tuple[str, str]], roster_ids: Sequence[str],
                   rest_min: int) -> dict[str, Any]:
     p = copy.deepcopy(dict(plan))
@@ -73,17 +81,18 @@ def apply_changes(plan: Mapping[str, Any], aid: str, changes: Sequence[tuple[str
         if kind == "rotate_out":
             p["drills"][i] = {**d, "participants": others}
         else:
-            first = {**d, "id": f"{did}r", "duration_min": rest_min, "participants": others}
+            first = {**d, "id": _new_id(p["drills"], did), "duration_min": rest_min, "participants": others}
             rest = {**d, "duration_min": float(d["duration_min"]) - rest_min}
             p["drills"][i:i + 1] = [first, rest]
     return p
 
 
-def _phrase(kind: str, d: Mapping[str, Any], aid: str, rest_min: int) -> str:
+def _phrase(kind: str, d: Mapping[str, Any], aid: str, rest_min: int, shade: bool) -> str:
+    """Wording follows the AT setting for where rotated-out athletes rest (settings.non_participant_shade)."""
     if kind == "rest_start":
-        return f"rest in the shade for the first {rest_min} min of '{d['name']}'"
+        return f"rest {'in the shade ' if shade else ''}for the first {rest_min} min of '{d['name']}'"
     if kind == "rotate_out":
-        return f"rotate out of '{d['name']}' (rest in the shaded cooling area)"
+        return f"rotate out of '{d['name']}' ({'rest in the shaded cooling area' if shade else 'rest out of the drill'})"
     return f"{GEAR_LABEL[GEAR_DOWN[_gear(d, aid)]]} for '{d['name']}'"
 
 
@@ -166,7 +175,10 @@ def suggest(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weathe
         return None                                   # nothing helps: say nothing rather than suggest a no-op
     new_plan = apply_changes(plan, aid, best["changes"], ids, rest_min)
     by_id = {d["id"]: d for d in plan["drills"]}
-    phrases = [_phrase(k, by_id[d], aid, rest_min) for k, d in best["changes"]]
+    if settings is None:
+        from engine import settings as at_settings
+        settings = at_settings.resolve()
+    phrases = [_phrase(k, by_id[d], aid, rest_min, bool(settings.non_participant_shade)) for k, d in best["changes"]]
     b_peak = (before or {}).get("peak_core_c_p95", base["peak_core_c_p95"])
     name = str(ath.get("name", aid)).replace(" (fictional)", "")
     outcome = ("under the planning line" if best["under"] else

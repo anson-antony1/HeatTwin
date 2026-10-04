@@ -10,9 +10,11 @@ Every ``update_interval_s`` the mean HR of the last ``window_s`` updates an ense
 with perturbed observations, seeded → deterministic). The rest of the plan is then re-forecast with the new calibration.
 
 Gates (Relay): the re-forecast only says it "shows a crossing" when (a) p95 core reaches the planning limit, (b) stays
-there ≥ persistence_min consecutive minutes, and (c) HR coverage in the last window is adequate and at least
-min_updates_before_flag updates have run. Otherwise it says "not enough data" or "no crossing in re-forecast" and names
-the gate that held it back. Replayed or synthetic HR is labelled ``replay: true`` everywhere.
+there ≥ persistence_min consecutive minutes, and (c) HR coverage in the last window is adequate, at least
+min_updates_before_flag windows with readings were evaluated (assimilated, skipped as rest under the live-demo mapping,
+or held at the modelled HR ceiling) and at least min_informative_windows of them were assimilated or ceiling-held.
+Otherwise it says "not enough data" or "no crossing in re-forecast" and names the gate that held it back. Live-demo
+windows assimilate only the readings above the rest/drill midpoint, so a ramp's rest part isn't read as the drill. Replayed or synthetic HR is labelled ``replay: true`` everywhere.
 """
 from __future__ import annotations
 
@@ -143,7 +145,8 @@ class LiveSession:
             held = st.last_window in ("rest", "ceiling")
         out = {"athlete_id": aid, "calib": self.calib(aid), "updated": updated, "replay": replay,
                "labels": self._labels(aid)}
-        if reforecast and (updated or st.n_updates == 0):
+        first = st.n_updates == 0 and st.skipped_rest + st.ceiling_held == 0   # before any window was evaluated
+        if reforecast and (updated or first):
             out["reforecast"] = self._last_refc = self.reforecast()
             out["gates"] = self.gates(aid, out["reforecast"])
         elif reforecast and held and self._last_refc is not None:   # say why nothing was learnt from this window
@@ -163,12 +166,15 @@ class LiveSession:
         if y_e is None:
             return False
         y = float(np.mean(win))
-        if aid in self.observe:   # live demo: a window that looks like rest is not read against the drill
+        if aid in self.observe:   # live demo: only the readings on the drill are read against it
             y_rest = self._predict(aid, minute, st.ens, resting=True)
-            if y < 0.5 * (float(np.mean(y_rest)) + float(np.mean(y_e))):
+            mid = 0.5 * (float(np.mean(y_rest)) + float(np.mean(y_e)))
+            active = [hr for hr in win if hr >= mid]
+            if len(active) / expected < _c("min_coverage_fraction"):   # mostly rest: not evidence of the drill
                 st.skipped_rest += 1
                 st.last_window = "rest"
                 return False
+            y = float(np.mean(active))
         if np.var(y_e) == 0:      # every member at the modelled HR ceiling (aerobic cap): HR cannot tell them apart
             if y >= float(y_e.max()):
                 st.ceiling_held += 1
@@ -236,7 +242,7 @@ class LiveSession:
             "persistent": best >= int(_c("persistence_min")),
             "coverage_ok": (st.last_coverage >= _c("min_coverage_fraction")
                             and evaluated >= int(_c("min_updates_before_flag"))
-                            and st.n_updates + st.ceiling_held >= 1),
+                            and st.n_updates + st.ceiling_held >= int(_c("min_informative_windows"))),
             "coverage_fraction": round(st.last_coverage, 2),
             "n_updates": st.n_updates,
             "n_windows": evaluated,

@@ -98,6 +98,7 @@ def run_replay(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], wea
     session = calibrate.LiveSession(plan, roster, weather, settings=settings, seed=seed, extra_labels=extra_labels)
     t0 = twonode.parse_time(plan["start"])
     frames: list[dict[str, Any]] = []
+    suggestions: dict[str, dict[str, Any]] = {}   # v1.7: athlete-only re-plan at each athlete's first flagged frame
     series: dict[str, list[list[float]]] = {}
     every = consts.get("live_replay.hr_series_every_s")
     last_kept: dict[str, float] = {}
@@ -113,6 +114,12 @@ def run_replay(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], wea
         if not o["updated"] or "reforecast" not in o:
             continue
         a = next(x for x in o["reforecast"]["athletes"] if x["id"] == aid)
+        if o.get("gates", {}).get("flag") and aid not in suggestions:
+            from engine import suggest
+            sg = suggest.suggest(plan, session.roster_with_calib(), weather, aid, minute, settings=settings, seed=seed,
+                                 before=a)
+            if sg is not None:
+                suggestions[aid] = {**sg, "at_minute": round(minute, 3), "labels": [*sg["labels"], "replay"]}
         frames.append({"minute": round(minute, 3), "athlete_id": aid, "hr_bpm": r["hr_bpm"],
                        "calib": {k: o["calib"][k] for k in ("met_scale", "met_scale_sd")},
                        "gates": o.get("gates", {}),
@@ -130,6 +137,7 @@ def run_replay(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], wea
         "plan_forecast": prior,
         "frames": frames,
         "hr_series": series,
+        "suggestions": suggestions,
         "labels": labels,
     }
 

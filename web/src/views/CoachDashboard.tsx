@@ -56,8 +56,8 @@ export function CoachDashboard({ acked, onAck, onOpenAthlete, onCollapse }: Prop
   // voice-plan's red alert card: only when the estimate itself is over the line now (the engine's early warning is amber).
   const alerts = order.filter((a) => overLineNow(athleteOf(s, a.id), s.limitC) && !acked.has(a.id))
   const lead = alerts[0]
-  // v1.7: on a live session, the engine's athlete-only re-plan for an amber heads-up (never alongside the red alert).
-  const suggested = lead || s.clock !== 'live' ? null : order.find((a) => athleteOf(s, a.id).suggestion)
+  // v1.7: the engine's athlete-only re-plan for an amber heads-up (live or HR replay; never alongside the red alert).
+  const suggested = lead ? null : order.find((a) => athleteOf(s, a.id).suggestion)
 
   const counts = roster.athletes.reduce(
     (c, a) => {
@@ -108,7 +108,7 @@ export function CoachDashboard({ acked, onAck, onOpenAthlete, onCollapse }: Prop
                 key={`suggest-${suggested.id}`}
                 name={roster.name(suggested.id)}
                 sug={athleteOf(s, suggested.id).suggestion!}
-                onApply={() => applyLiveSuggestion(suggested.id)}
+                onApply={() => applyLiveSuggestion(suggested.id, athleteOf(s, suggested.id).suggestion!)}
               />
             )}
           </AnimatePresence>

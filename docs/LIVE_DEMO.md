@@ -38,7 +38,7 @@ The engine is on :8010 and the web app on http://localhost:5173. No API keys are
    curl -s -X POST localhost:8010/live/start -H 'content-type: application/json' -d '{"profile": true, "start_now": true}'
    ```
    - The plan clock starts now.
-   - You join the roster as `live1` ("Anson (live)").
+   - You join the roster as `live1`, with the name in your local profile.
    - Your HR is read against "Conditioning (gassers)".
    - Weather is live NWS when reachable. Otherwise it's the pinned demo forecast shifted to now, labelled "forecast
      snapshot (time-shifted)". The field sensor joins this chain once the Arduino work is on main.
@@ -55,7 +55,7 @@ The engine is on :8010 and the web app on http://localhost:5173. No API keys are
 - **Jumping jacks:** calibration updates once a minute on the last minute of HR. The first update after your HR rises is
   the first informative one, and the gate then judges the re-forecast.
 - **Re-forecast crosses the line:** your row turns amber ("Re-forecast crosses the planning line at N′"). The Live roster
-  shows **Heads-up · suggested for Anson**, with the change, the engine's before → after peak, and **Apply**. The same
+  shows **Heads-up · suggested for <your name>**, with the change, the engine's before → after peak, and **Apply**. The same
   suggestion sits under the amber pill on your Athlete twin.
 - **Apply:** the live session keeps your calibration and runs the changed plan. The plan view lands it as an edit (Undo
   works). If the change brings you under the line, the heads-up clears.

@@ -15,3 +15,5 @@ engine/logs/
 
 # personal live-demo profiles (height, weight, age, resting HR) — never commit
 profiles/local/
+# strap recordings written by engine/hr_bridge.py hold a person's heart rate: commit one only with consent (git add -f)
+fixtures/hr_2*.csv

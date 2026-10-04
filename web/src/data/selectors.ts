@@ -512,6 +512,7 @@ export function athleteAtMinute(args: {
     history,
     forecast: cur.p50,
     band: cur.band,
+    suggestion: frame?.gates.flag && replay?.suggestions?.[id] && minute >= replay.suggestions[id].at_minute ? replay.suggestions[id] : null,
   }
 }
 

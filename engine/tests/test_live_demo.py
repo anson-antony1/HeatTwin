@@ -99,3 +99,42 @@ def test_suggestion_respects_cap_budget_and_only_changes_that_athlete():
                 assert g == (base.get("gear_by_athlete") or {}).get(aid, base["gear"])
     from engine import guard
     assert guard.check(res["text"], log=False)["ok"]
+
+
+def test_hr_replay_offers_the_suggestion_at_the_first_flag():
+    """Render has no strap: the synthetic HR replay offers the same athlete-only suggestion (with its plan)."""
+    r = client.post("/live/replay?demo=1", json={"file": "hr_a07_synthetic.csv"}).json()
+    sg = r["suggestions"]["a07"]
+    first_flag = next(f["minute"] for f in r["frames"] if f["athlete_id"] == "a07" and f["gates"].get("flag"))
+    assert sg["at_minute"] == first_flag and sg["plan"]["id"] == r["plan_forecast"]["plan_id"]
+    assert sg["guard_ok"] and 1 <= len(sg["changes"]) <= 2 and "replay" in sg["labels"]
+    assert sg["after"]["peak_core_c_p95"] < sg["before"]["peak_core_c_p95"]
+
+
+def test_apply_rejects_a_stale_card_and_clears_other_suggestions():
+    r = client.post("/live/start", json={"profile": True, "start_now": True}).json()
+    hr = lambda s: 82 if s < 120 else (82 + (s - 120) * 2 if s < 160 else 162)   # noqa: E731
+    _post(r["start"], range(0, 185), hr)
+    sg = client.get("/live/state").json()["athletes"]["live1"]["suggestion"]
+    assert client.post("/live/apply", json={"athlete_id": "live1", "computed_at": "2000-01-01T00:00:00+00:00"}).status_code == 409
+    api._LIVE["suggestions"]["zz"] = {"stale": True}
+    ok = client.post("/live/apply", json={"athlete_id": "live1", "computed_at": sg["computed_at"]})
+    assert ok.status_code == 200 and api._LIVE["suggestions"] == {}
+    assert api._LIVE["session"]._last_refc is not None
+
+
+def test_repeated_rest_splits_get_unique_ids():
+    from engine import fixtures
+    plan, roster = fixtures.plan(), fixtures.roster()
+    ids = [a["id"] for a in roster]
+    p1 = suggest.apply_changes(plan, "a07", [("rest_start", "d4")], ids, 4)
+    p2 = suggest.apply_changes(p1, "a07", [("rest_start", "d4")], ids, 4)
+    all_ids = [d["id"] for d in p2["drills"]]
+    assert len(all_ids) == len(set(all_ids))
+
+
+def test_wording_follows_the_shade_setting():
+    d = {"id": "d4", "name": "Team period", "gear": "full_pads"}
+    assert "shade" in suggest._phrase("rotate_out", d, "a07", 4, True)
+    assert "shade" not in suggest._phrase("rotate_out", d, "a07", 4, False)
+    assert "shade" not in suggest._phrase("rest_start", d, "a07", 4, False)
