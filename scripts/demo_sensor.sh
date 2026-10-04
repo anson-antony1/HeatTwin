@@ -8,6 +8,9 @@ if [ "${HEATTWIN_PGRP:-}" != "1" ] && command -v setsid >/dev/null; then HEATTWI
 cd "$(dirname "$0")/.."
 PORT="${HEATTWIN_PORT:-8010}"
 export HEATTWIN_PORT="$PORT"
+# The engine's built-in bridge defaults to FIELD mode (thermistor = air temperature, NWS for the rest). This script is the
+# indoor globe-as-sun demo, so it asks for DEMO mode; set HEATTWIN_NODE_MODE=field to run field mode through it instead.
+export HEATTWIN_NODE_MODE="${HEATTWIN_NODE_MODE:-demo}"
 
 # Node ≥ 20 for Vite; use ~/.local/node22 when the system node is older.
 if ! node -e 'process.exit(+process.versions.node.split(".")[0] >= 20 ? 0 : 1)' 2>/dev/null; then

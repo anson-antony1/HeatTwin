@@ -85,6 +85,11 @@ and wind come from the NWS forecast until we have an RH sensor. A 40 mm ball is 
 we report "our field vs. the forecast" and don't present it as a certified WBGT meter.
 
 ## Getting readings to the app
+**Default (field mode):** with one thermistor the engine's own bridge reads it as the field *air* temperature and adds NWS
+humidity, wind and sunlight — plug the Uno in and it is found (and re-found after an unplug, under any port name); see
+`firmware/SENSOR_DEMO.md`. Put the thermistor in the shade for that. The globe/`--demo` paths below are the older and
+indoor-demo ways of using the same serial output.
+
 `engine/node_routes.py` implements CONTRACTS.md's `POST /node` and `GET /node/latest` (+ `GET /node/history`).
 - Until `/integrate` adds it to `engine/api.py` (`from engine import node_routes; app.include_router(node_routes.router)`),
   run it on its own: `uvicorn engine.node_routes:standalone_app --factory --port 8000`
