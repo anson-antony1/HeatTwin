@@ -2,8 +2,9 @@
 # One command for the sensor demo: engine (with the built-in Arduino bridge) + web app, opens the browser.
 # Ctrl+C stops both. The Arduino can be plugged in before or after; the engine finds it (GET /node/status).
 set -euo pipefail
-# Own process group, so Ctrl+C / kill stops exactly what this script started.
-if [ "${HEATTWIN_PGRP:-}" != "1" ]; then HEATTWIN_PGRP=1 exec setsid --wait "$0" "$@"; fi
+# Own process group (Linux setsid), so Ctrl+C / kill stops exactly what this script started. macOS has no setsid;
+# there the cleanup below falls back to killing the children it started.
+if [ "${HEATTWIN_PGRP:-}" != "1" ] && command -v setsid >/dev/null; then HEATTWIN_PGRP=1 exec setsid --wait "$0" "$@"; fi
 cd "$(dirname "$0")/.."
 PORT="${HEATTWIN_PORT:-8010}"
 export HEATTWIN_PORT="$PORT"
@@ -16,7 +17,11 @@ fi
 [ -d web/node_modules ] || (cd web && npm install)
 
 # Stop everything this script started (engine, npm, vite) — the whole process group.
-cleanup() { trap - EXIT INT TERM; kill -- -$$ 2>/dev/null || kill 0 2>/dev/null || true; }
+cleanup() {
+  trap - EXIT INT TERM
+  if [ "${HEATTWIN_PGRP:-}" = "1" ]; then kill -- -$$ 2>/dev/null || true; return; fi
+  for pid in ${WEB_PID:-} ${ENGINE_PID:-}; do pkill -P "$pid" 2>/dev/null || true; kill "$pid" 2>/dev/null || true; done
+}
 trap cleanup EXIT INT TERM
 
 # ROS-style PYTHONPATH entries break the venv; the engine needs only the repo.
@@ -29,7 +34,8 @@ echo "engine up on :$PORT — sensor: $(curl -s http://127.0.0.1:$PORT/node/stat
 (cd web && npm run dev -- --strictPort) &
 WEB_PID=$!
 for _ in $(seq 1 60); do curl -sf http://localhost:5173 >/dev/null && break; sleep 0.5; done
-command -v xdg-open >/dev/null && xdg-open http://localhost:5173 >/dev/null 2>&1 || true
+if command -v xdg-open >/dev/null; then xdg-open http://localhost:5173 >/dev/null 2>&1 || true
+elif command -v open >/dev/null; then open http://localhost:5173 || true; fi
 echo
 echo "HeatTwin is running at http://localhost:5173  (Ctrl+C to stop)"
 echo "Keep your hands off the thermistor for ~5 s after the Arduino connects (it zeroes on the room)."

@@ -97,7 +97,7 @@ export const engineMeta = {
   startNodePolling(everyMs = NODE_POLL_MS) {
     if (nodeTimer != null) return
     nodeTimer = setInterval(() => {
-      if (state.link === 'online') void engineMeta.refreshNode()
+      if (state.link !== 'loading') void engineMeta.refreshNode()
     }, everyMs)
   },
   stopNodePolling() {

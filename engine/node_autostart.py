@@ -92,6 +92,12 @@ def start() -> None:
     if os.environ.get("HEATTWIN_NODE", "auto").lower() in ("off", "0", "false"):
         _set("off", detail="HEATTWIN_NODE=off")
         return
+    try:
+        import serial  # noqa: F401  (pyserial; `make setup` installs it)
+        from serial.tools import list_ports  # noqa: F401
+    except ImportError:
+        _set("off", detail="pyserial not installed (pip install pyserial) — sensor bridge disabled")
+        return
     if _thread is not None and _thread.is_alive():
         return
     _stop.clear()

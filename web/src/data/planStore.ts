@@ -130,6 +130,14 @@ function sensorWeather(): boolean {
   return nodeDemoActive(engineMeta.get().node)
 }
 
+/**
+ * /optimize is pinned to the saved forecast (deterministic, cached). While the sensor demo runs, re-simulate the result
+ * with the sensor's weather so the screen and the LEDs agree; otherwise it would wait for the next sensor change.
+ */
+function afterPinned() {
+  if (sensorWeather()) void planStore.resimulate()
+}
+
 function begin(phase: PlanPhase) {
   inflight?.abort()
   inflight = new AbortController()
@@ -159,10 +167,10 @@ export const planStore = {
   async boot() {
     planStore.restore()
     const inputs = await engineMeta.load()
+    watchNode()
     if (!inputs) return goOffline()
     if (state.source === 'fixture') set({ plan: inputs.plan })
     await planStore.refresh()
-    watchNode()
   },
 
   /** Re-run /simulate on the current plan (keeps its source); an optimized plan re-runs its optimization. */
@@ -174,6 +182,7 @@ export const planStore = {
         const opt = await optimizePlan(base, signal, state.preset ?? 'max_load')
         landed({ opt, plan: opt.plan, sim: opt.optimized, original: opt.original, previous: { ...state.previous, sim: opt.original } })
         apply(opt.plan, opt.optimized)
+        afterPinned()
       } catch (e) {
         fail(e)
       }
@@ -252,6 +261,7 @@ export const planStore = {
       landed({ opt, preset, plan: opt.plan, sim: opt.optimized, original: opt.original, source: 'optimized', previous })
       apply(opt.plan, opt.optimized)
       persist()
+      afterPinned()
     } catch (e) {
       fail(e)
     }
@@ -264,8 +274,10 @@ export const planStore = {
     set({ ...prev, phase: prev.sim ? 'ready' : 'idle', error: null, previous: null })
     if (prev.source === 'fixture') forget()
     else persist()
-    if (prev.sim) apply(prev.plan, prev.sim)
-    else void planStore.refresh()
+    if (prev.sim) {
+      apply(prev.plan, prev.sim)
+      afterPinned()
+    } else void planStore.refresh()
   },
 
   dismissError() {

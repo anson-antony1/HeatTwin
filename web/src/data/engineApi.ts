@@ -409,8 +409,8 @@ export function getDemoInputs(signal?: AbortSignal) {
   return request<DemoInputs>('GET', '/demo/inputs', undefined, signal)
 }
 
-/** Roster and weather fall back to the engine's labelled fixtures. */
 /**
+ * Roster and weather fall back to the engine's labelled fixtures.
  * `node`: the sensor demo is running → `/simulate?source=node` (its weather: the heated globe stands in for the sun).
  * Not with ?demo=1, which keeps the saved forecast pinned by design; the seed and ensemble size are the same defaults.
  */

@@ -5,6 +5,8 @@ Freeze at M0. Additive changes only after that.
 **v1.2 (additive, Oct 3 night):** `// v1.2` — Drill.drill_type, OptimizeResult.top_changes/top_changes_text, voice-tool endpoints. Units are in field names. Times are ISO 8601 with offset; durations are in minutes.
 **v1.5 (additive, final-ui):** `GET /live/state` (the web polls the live HR session), `LiveReplay.source.{date, device, label}`.
 **v1.4 (additive, Oct 3 night):** `?source=node` (node demo scenario weather; never with ?demo=1), `OptimizeResult.fewest_changes` (minimum compliant edit), `GET /demo/comparison` (same plan, three weather inputs), `/voice/answer` optional `question`, `first_cross_min: number | null`. GET /weather is implemented (engine/weather_routes.py, display only).
+**v1.4 (additive, Oct 4, sensor demo):** GET /node/status; `NodeLatest.demo_version`; demo node readings may carry `sun_gain`, `wind_10m_m_s`, `globe_rise_c` (labelled synthetic). `?source=node` on /simulate (already in v1.3 code) is what the web uses while the sensor demo runs; `?demo=1` stays pinned to the saved forecast.
+
 **v1.3 (additive, Oct 3 evening, audit-fixes):** `// v1.3` — /demo/inputs, POST /athlete_status and /field_conditions (act on the plan on screen), /live/replay, /node + /node/latest implemented, /plan/parse* (Gemini plan entry, already shipped), voice Q&A: /voice/intent → /voice/answer → /voice/tts. GET /weather is still not implemented (the engine reads the cached NWS fixture; live NWS only with HEATTWIN_WEATHER=live, never with ?demo=1).
 
 ## Athlete
@@ -194,6 +196,8 @@ type CollapseLog = {
 | POST | `/live/replay` | v1.3 `{plan?, roster?, settings?, file?}` (`?demo=1`) → `LiveReplay` (below). Newest non-synthetic `fixtures/hr_<date>.csv` wins; else `fixtures/hr_a07_synthetic.csv` (labelled synthetic). Deterministic; cached |
 | POST | `/node` | v1.3 implemented: node reading (`node_bridge.node_payload`) → `{ok, hour: WeatherHour (source "field_node")}` — kept in memory for this engine run |
 | GET | `/node/latest` | v1.3 → `NodeLatest` (below). Newest `data/node_<date>.csv` or the last POST /node; else `{reading: null, labels: ["no field recording yet"]}` — never placeholder numbers |
+| GET | `/node/latest` | v1.4 (additive): `demo_version?: number` — > 0 while the indoor sensor demo runs; bumps when its inferred sun changes enough to change results. The web then calls `/simulate?source=node` |
+| GET | `/node/status` | v1.4 → `{enabled, state: "off" \| "waiting" \| "connected" \| "port_unavailable" \| "disconnected", port, since, detail, readings, demo_active}` — the engine's built-in Arduino bridge (engine/node_autostart.py; `HEATTWIN_NODE=off` disables it) |
 | POST | `/plan/parse` · `/plan/parse_audio` · GET `/plan/llm_status` | v1.3 (shipped on llm-bridge) Gemini plan entry → `PlanDraft {plan, transcript, assumptions[], unclear[], total_min, needs_confirmation: true, labels, model}`. Coach must confirm before /simulate |
 | POST | `/voice/intent` | v1.3 `{text? \| audio_b64 + mime_type, plan?, roster?}` → `VoiceIntent` (below). Gemini returns only `{transcript, intent, slots}` against a JSON schema; the engine validates it and resolves names against the plan. 503 when no GEMINI_API_KEY (the web then routes typed text locally) |
 | POST | `/voice/answer` | v1.3 `{intent, slots, plan?, roster?, settings?}` (`?demo=1`) → `VoiceAnswer` (below). The engine runs the tool and writes the sentence; `say` already passed engine/guard.py |
