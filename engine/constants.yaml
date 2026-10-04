@@ -744,6 +744,11 @@ demo_node:
   baseline_samples: 5
   stale_after_s: 300          # scenario weather is used only while demo readings keep arriving
   reforecast_min_change_w_m2: 25.0   # re-run the live session when inferred sunlight moves at least this much
+  air_mode_default: scenario  # 'scenario': the fixed hot day above (predictable on stage); 'station': live NWS KGNV
+                              # air temperature, RH and wind (real, airport not field), only the sun from the globe
+  sun_gain: 3.0               # DESIGN (demo only): the globe's rise above the room is multiplied by this before it becomes
+                              # "sun", so a fingertip (~+5-8 °C) spans the zones a real midday sun would (~+16-20 °C).
+                              # 1.0 = physical scale (hair dryer / heat gun). Labelled on every demo reading.
 
 # ─────────────────────────────────────────────────────────────────────────────
 # WBGT gap analysis (validation/wbgt_gap.py). ABLATION ONLY: these blocks describe what NWS documents for its NDFD

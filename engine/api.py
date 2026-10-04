@@ -666,3 +666,18 @@ def _on_node_demo_update() -> dict | None:
 
 
 node_routes.on_demo_update = _on_node_demo_update
+
+
+# Built-in sensor bridge: find the Arduino on USB and stream it into /node (engine/node_autostart.py; HEATTWIN_NODE=off).
+def _start_node_bridge() -> None:
+    from engine import node_autostart
+    node_autostart.start()
+
+
+def _stop_node_bridge() -> None:
+    from engine import node_autostart
+    node_autostart.stop()
+
+
+app.router.on_startup.append(_start_node_bridge)
+app.router.on_shutdown.append(_stop_node_bridge)

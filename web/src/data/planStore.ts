@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import type { ContractGear, PlanDraft, PracticePlan } from './llmPlan'
-import { isUnreachable, optimizePlan, simulatePlan, type OptimizePreset, type OptimizeResult, type SimulationResult } from './engineApi'
+import { isUnreachable, nodeDemoActive, optimizePlan, simulatePlan, type OptimizePreset, type OptimizeResult, type SimulationResult } from './engineApi'
 import { DEFAULT_CONTRACT_PLAN, FIXTURE_ROSTER } from './fixtures'
 import { engineMeta } from './engineMeta'
 import { engine, type ReplayFor } from './engine'
@@ -100,6 +100,7 @@ function forget() {
 
 /** The HR file was recorded on the engine's demo plan: replay it only while that plan (same id and drills) is on screen. */
 function replayFor(plan: PracticePlan): ReplayFor {
+  if (sensorWeather()) return 'sensor'
   const inputs = engineMeta.get().inputs
   if (!inputs) return 'unknown'
   return isDemoPlan(plan, inputs) ? 'this_plan' : 'other_plan'
@@ -107,6 +108,7 @@ function replayFor(plan: PracticePlan): ReplayFor {
 
 /** Hand the plan and its engine result to the session, keeping play state. */
 function apply(plan: PracticePlan, sim: SimulationResult | null) {
+  sensorWasOn = sensorWeather()
   const wasRunning = engine.getSnapshot().running
   if (sim) engine.setPlan(plan, sim, replayFor(plan))
   else if (state.offline) engine.setOffline(plan, (engineMeta.get().inputs?.roster ?? FIXTURE_ROSTER).map((a) => a.id))
@@ -122,6 +124,11 @@ function goOffline(error: string | null = null) {
 }
 
 let inflight: AbortController | null = null
+
+/** The sensor demo is running: every simulation uses its weather (the heated globe stands in for the sun). */
+function sensorWeather(): boolean {
+  return nodeDemoActive(engineMeta.get().node)
+}
 
 function begin(phase: PlanPhase) {
   inflight?.abort()
@@ -155,6 +162,7 @@ export const planStore = {
     if (!inputs) return goOffline()
     if (state.source === 'fixture') set({ plan: inputs.plan })
     await planStore.refresh()
+    watchNode()
   },
 
   /** Re-run /simulate on the current plan (keeps its source); an optimized plan re-runs its optimization. */
@@ -173,9 +181,29 @@ export const planStore = {
     }
     const signal = begin('simulating')
     try {
-      const sim = await simulatePlan(state.plan, signal)
+      const sim = await simulatePlan(state.plan, signal, sensorWeather())
       landed({ sim, original: state.source === 'optimized' && state.original ? state.original : sim })
       apply(state.plan, sim)
+    } catch (e) {
+      fail(e)
+    }
+  },
+
+  /**
+   * The sensor's weather changed (or the sensor demo started/stopped): re-run the plan on screen. An optimized plan
+   * is re-simulated, not re-optimized, so the coach sees the same plan turn red as the "sun" comes out.
+   */
+  async resimulate() {
+    if (state.phase === 'simulating' || state.phase === 'optimizing' || state.offline) return
+    const sensor = sensorWeather()
+    const signal = begin('simulating')
+    try {
+      const sim = await simulatePlan(state.plan, signal, sensor)
+      landed({ sim })
+      // Sensor still running: swap the numbers in place (keep the clock). Demo started/stopped: full hand-off, so the
+      // HR replay is paused (sensor) or reloaded (pinned forecast again).
+      if (sensor && sensorWasOn) engine.updateSim(sim)
+      else apply(state.plan, sim)
     } catch (e) {
       fail(e)
     }
@@ -186,7 +214,7 @@ export const planStore = {
     const previous = snapshot()
     const signal = begin('simulating')
     try {
-      const sim = await simulatePlan(draft.plan, signal)
+      const sim = await simulatePlan(draft.plan, signal, sensorWeather())
       landed({ draft, plan: draft.plan, source: 'voice', opt: null, preset: null, sim, original: sim, confirmedAt: Date.now(), previous })
       apply(draft.plan, sim)
       persist()
@@ -200,7 +228,7 @@ export const planStore = {
     const previous = snapshot()
     const signal = begin('simulating')
     try {
-      const sim = await simulatePlan(plan, signal)
+      const sim = await simulatePlan(plan, signal, sensorWeather())
       landed({ plan, source: 'edited', draft: null, opt: null, preset: null, sim, original: sim, confirmedAt: Date.now(), previous })
       apply(plan, sim)
       persist()
@@ -296,4 +324,31 @@ export function usePlanState(): PlanState {
 /** The gear one athlete wears for a drill (per-athlete acclimatization overrides win). */
 export function gearFor(d: PracticePlan['drills'][number], athleteId: string): ContractGear {
   return d.gear_by_athlete?.[athleteId] ?? d.gear
+}
+
+// Sensor demo → plan: when /node/latest's demo_version changes (sun moved enough, or the demo started/stopped),
+// re-simulate the plan on screen with the sensor's weather. A run already in flight is followed by one more.
+let lastNodeVersion = 0
+let sensorWasOn = false
+let pendingNode = false
+let watching = false
+
+function watchNode() {
+  if (watching) return
+  watching = true
+  lastNodeVersion = engineMeta.get().node?.demo_version ?? 0
+  engineMeta.startNodePolling()
+  engineMeta.subscribe(() => {
+    const v = engineMeta.get().node?.demo_version ?? 0
+    if (v === lastNodeVersion) return
+    lastNodeVersion = v
+    if (state.phase === 'simulating' || state.phase === 'optimizing') pendingNode = true
+    else void planStore.resimulate()
+  })
+  planStore.subscribe(() => {
+    if (pendingNode && state.phase !== 'simulating' && state.phase !== 'optimizing') {
+      pendingNode = false
+      void planStore.resimulate()
+    }
+  })
 }

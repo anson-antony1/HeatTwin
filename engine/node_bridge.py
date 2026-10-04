@@ -103,17 +103,51 @@ class AirSource:
 
 
 class DemoScenario:
-    """Indoor demo (constants.demo_node, synthetic): globe rise above the room baseline on a hot-day scenario."""
+    """Indoor demo (constants.demo_node): the globe's rise above the room baseline is the only "sun".
 
-    def __init__(self):
-        from engine import consts, wbgt
+    air_mode "station" (default): air temperature, RH and 10 m wind are the live NWS station observation (KGNV), so the
+    only stand-in is the sun; "scenario": the fixed hot-day values in constants.demo_node (WBGT baseline_wbgt_f with
+    no sun). Falls back to "scenario" when the station can't be reached. Labelled synthetic/DEMO either way.
+    """
+
+    def __init__(self, air: Optional[AirSource] = None, air_mode: Optional[str] = None, gain: Optional[float] = None):
+        from engine import consts
 
         self.cfg = consts.get("demo_node")
-        inp = consts.get("wbgt_inputs")
-        stab = wbgt.stability_class(True, self.cfg["wind_10m_m_s"], 0.0, inp["night_dt_c"])
-        self.wind_2m = float(wbgt.wind_at_2m(self.cfg["wind_10m_m_s"], inp["wind_height_m"], stab, inp["urban"]))
-        self.air_c = self._solve_air()
+        self.air_src = air
+        self.air_mode = air_mode or self.cfg.get("air_mode_default", "scenario")
+        self.gain = float(self.cfg.get("sun_gain", 1.0)) if gain is None else float(gain)
         self.baseline: list[float] = []
+        self._set_scenario()
+        if self.air_mode == "station":
+            self.refresh_air()
+
+    def _set_scenario(self) -> None:
+        self.wind_10m = float(self.cfg["wind_10m_m_s"])
+        self.wind_2m = self._wind_2m(self.wind_10m)
+        self.rh = float(self.cfg["rh_pct"])
+        self.air_c = self._solve_air()
+        self.air_source = "demo_scenario"
+
+    def refresh_air(self) -> None:
+        """Pull the latest station observation (cached 10 min inside AirSource); keep the previous values if none."""
+        if self.air_mode != "station" or self.air_src is None:
+            return
+        obs = self.air_src._station_obs()
+        if obs is None:
+            return
+        self.air_c, self.rh = float(obs["air_c"]), float(obs["rh_pct"])
+        self.wind_10m = float(obs["wind_m_s"]) if obs.get("wind_m_s") is not None else float(self.cfg["wind_10m_m_s"])
+        self.wind_2m = self._wind_2m(self.wind_10m)
+        self.air_source = f"nws_station_{self.air_src.station}"
+
+    @staticmethod
+    def _wind_2m(v10: float) -> float:
+        from engine import consts, wbgt
+
+        inp = consts.get("wbgt_inputs")
+        stab = wbgt.stability_class(True, v10, 0.0, inp["night_dt_c"])
+        return float(wbgt.wind_at_2m(v10, inp["wind_height_m"], stab, inp["urban"]))
 
     def _solve_air(self) -> float:
         """Air temperature at which WBGT (globe = air, no sun) equals baseline_wbgt_f — bisection."""
@@ -122,11 +156,16 @@ class DemoScenario:
         lo, hi = 15.0, 45.0
         for _ in range(40):
             mid = 0.5 * (lo + hi)
-            if wbgt.wbgt_from_node(mid, self.cfg["rh_pct"], mid, self.wind_2m) < self.cfg["baseline_wbgt_f"]:
+            if wbgt.wbgt_from_node(mid, self.rh, mid, self.wind_2m) < self.cfg["baseline_wbgt_f"]:
                 lo = mid
             else:
                 hi = mid
         return 0.5 * (lo + hi)
+
+    def baseline_wbgt_f(self) -> float:
+        from engine import wbgt
+
+        return float(wbgt.wbgt_from_node(self.air_c, self.rh, self.air_c, self.wind_2m))
 
     @property
     def ready(self) -> bool:
@@ -140,19 +179,23 @@ class DemoScenario:
             print(f"  zeroing globe on the room: {raw['globe_c']:.2f}°C ({len(self.baseline)}/{self.cfg['baseline_samples']})",
                   flush=True)
             return None
+        self.refresh_air()
         base = sum(self.baseline) / len(self.baseline)
-        rise = max(0.0, raw["globe_c"] - base)
+        measured_rise = max(0.0, raw["globe_c"] - base)
+        rise = measured_rise * self.gain
         globe = self.air_c + rise
-        n = wbgt.node_components(self.air_c, self.cfg["rh_pct"], globe, self.wind_2m)
+        n = wbgt.node_components(self.air_c, self.rh, globe, self.wind_2m)
+        b = self.baseline_wbgt_f()
         return {"ts": t.isoformat(timespec="seconds"), "globe_c": round(globe, 2), "globe_ohm": round(raw["globe_ohm"]),
-                "air_c": round(self.air_c, 2), "rh_pct": self.cfg["rh_pct"], "wind_m_s": round(self.wind_2m, 2),
-                "air_source": "demo_scenario", "node_wbgt_f": round(n["wbgt_f"], 1),
-                "forecast_wbgt_f": self.cfg["baseline_wbgt_f"],
-                "field_minus_forecast_f": round(n["wbgt_f"] - self.cfg["baseline_wbgt_f"], 1),
+                "air_c": round(self.air_c, 2), "rh_pct": round(self.rh, 1), "wind_m_s": round(self.wind_2m, 2),
+                "air_source": self.air_source, "node_wbgt_f": round(n["wbgt_f"], 1),
+                "forecast_wbgt_f": round(b, 1),
+                "field_minus_forecast_f": round(n["wbgt_f"] - b, 1),
                 "fhsaa_zone": fhsaa.zone(n["wbgt_f"]), "solar_inferred_w_m2": round(n["solar_inferred_w_m2"]),
                 "globe_calibrated": False, "mode": "demo",
                 "_demo": {"globe_measured_c": raw["globe_c"], "globe_baseline_c": round(base, 2),
-                          "globe_rise_c": round(rise, 2)}}
+                          "globe_rise_c": round(measured_rise, 2), "sun_gain": self.gain,
+                          "wind_10m_m_s": round(self.wind_10m, 2)}}
 
 
 # ── one reading → one row ────────────────────────────────────────────────────
@@ -187,24 +230,42 @@ def node_payload(row: dict[str, Any]) -> dict[str, Any]:
 
 # ── main loop ────────────────────────────────────────────────────────────────
 
-def serial_lines(port: str, baud: int = 115200) -> Iterator[str]:
-    import serial
+class SerialNode:
+    """The Uno over USB: read sketch lines, and send the engine's FHSAA zone back for the LEDs ("Z<n>\\n")."""
 
-    with serial.Serial(port, baud, timeout=5) as s:
+    def __init__(self, port: str, baud: int = 115200):
+        import serial
+
+        self.s = serial.Serial(port, baud, timeout=5)
+
+    def lines(self) -> Iterator[str]:
         while True:
-            yield s.readline().decode("utf-8", errors="replace")
+            yield self.s.readline().decode("utf-8", errors="replace")
+
+    def send_zone(self, zone: int) -> None:
+        try:
+            self.s.write(f"Z{int(zone)}\n".encode())
+        except Exception:  # noqa: BLE001 — LEDs are a nice-to-have; never stop logging for them
+            pass
+
+
+def serial_lines(port: str, baud: int = 115200) -> Iterator[str]:
+    return SerialNode(port, baud).lines()
 
 
 def run(lines: Iterable[str], mode: str, post_url: Optional[str] = None, out_dir: Path = DATA_DIR,
-        offline: bool = False, clock=None, use_a1: bool = False, demo: bool = False) -> Path:
+        offline: bool = False, clock=None, use_a1: bool = False, demo: bool = False,
+        air_mode: Optional[str] = None, send_zone=None, post_fn=None, stop=None, gain: Optional[float] = None) -> Path:
+    """post_fn(payload) -> response dict: post in-process (engine/node_autostart.py) instead of HTTP to post_url.
+    stop: a threading.Event that ends the loop."""
     out_dir.mkdir(parents=True, exist_ok=True)
     now = (clock or (lambda: datetime.now().astimezone()))
     forecast = weather.get_forecast(SITE["lat"], SITE["lon"], offline=offline)
     air = AirSource(forecast, offline=offline, use_a1=use_a1)
-    scenario = DemoScenario() if demo else None
+    scenario = DemoScenario(air, air_mode, gain) if demo else None
     if scenario:
-        print(f"DEMO scenario (synthetic): air {scenario.air_c:.1f}°C, RH {scenario.cfg['rh_pct']:.0f}%, "
-              f"baseline WBGT {scenario.cfg['baseline_wbgt_f']:.0f}°F; heat the globe to add 'sun'.", flush=True)
+        print(f"DEMO: air {scenario.air_c:.1f}°C, RH {scenario.rh:.0f}% ({scenario.air_source}); no-sun WBGT "
+              f"{scenario.baseline_wbgt_f():.1f}°F. Heat the globe to add 'sun'.", flush=True)
     day = now().date().isoformat()
     path = out_dir / (f"node_demo_{day}.csv" if demo else f"node_{day}.csv")
     raw_path = out_dir / f"node_{day}.raw.txt"
@@ -215,6 +276,8 @@ def run(lines: Iterable[str], mode: str, post_url: Optional[str] = None, out_dir
         if new:
             w.writeheader()
         for line in lines:
+            if stop is not None and stop.is_set():
+                break
             if mode == "live":
                 raw_f.write(line if line.endswith("\n") else line + "\n")   # keep the untouched serial stream
                 raw_f.flush()
@@ -230,15 +293,29 @@ def run(lines: Iterable[str], mode: str, post_url: Optional[str] = None, out_dir
                   f"({row['air_source']})  →  field WBGT {row['node_wbgt_f']:5.1f}°F zone {row['fhsaa_zone']}  "
                   f"vs {'baseline' if scenario else 'forecast'} {row['forecast_wbgt_f']:5.1f}°F  [{row['field_minus_forecast_f']:+.1f}]  "
                   f"{'DEMO scenario' if scenario else 'uncalibrated'}", flush=True)
-            if post_url:
+            zone = row["fhsaa_zone"]
+            if post_fn is not None:
+                try:
+                    body = post_fn(node_payload(row))
+                    zone = (body.get("field") or body.get("hour") or {}).get("fhsaa_zone", zone)
+                except Exception as e:  # noqa: BLE001
+                    if not warned:
+                        print(f"  (posting to the engine failed: {e})", file=sys.stderr)
+                        warned = True
+            elif post_url:
                 try:
                     import requests
 
-                    requests.post(post_url, json=node_payload(row), timeout=3).raise_for_status()
+                    resp = requests.post(post_url, json=node_payload(row), timeout=3)
+                    resp.raise_for_status()
+                    body = resp.json()
+                    zone = (body.get("field") or body.get("hour") or {}).get("fhsaa_zone", zone)   # the engine's zone
                 except Exception as e:  # noqa: BLE001 — logging continues without the engine
                     if not warned:
                         print(f"  (POST {post_url} failed: {e}; still logging to {path.name})", file=sys.stderr)
                         warned = True
+            if send_zone is not None:
+                send_zone(zone)
     return path
 
 
@@ -252,15 +329,20 @@ def main(argv: Optional[list[str]] = None) -> None:
     ap.add_argument("--offline", action="store_true", help="no network: cached forecast for air/RH")
     ap.add_argument("--use-a1", action="store_true", help="a shaded air thermistor is wired to A1 (ignored otherwise)")
     ap.add_argument("--demo", action="store_true",
-                    help="indoor demo: zero the globe on the room, hot-day scenario (constants.demo_node; synthetic)")
+                    help="indoor demo: zero the globe on the room; the globe's rise is the sun (constants.demo_node)")
+    ap.add_argument("--demo-air", choices=["station", "scenario"], default=None,
+                    help="demo air/RH/wind: live NWS station (default) or the fixed hot-day scenario")
+    ap.add_argument("--no-leds", action="store_true", help="don't send FHSAA zones back to the Uno's LEDs")
     a = ap.parse_args(argv)
     if a.port:
-        path = run(serial_lines(a.port), "live", a.post, a.out, a.offline, use_a1=a.use_a1, demo=a.demo)
+        node = SerialNode(a.port)
+        path = run(node.lines(), "live", a.post, a.out, a.offline, use_a1=a.use_a1, demo=a.demo, air_mode=a.demo_air,
+                   send_zone=None if a.no_leds else node.send_zone)
     else:
         t0 = datetime.now().astimezone()
         ticks = iter(t0 + timedelta(seconds=2 * i) for i in range(10**9))
         path = run(a.replay.read_text().splitlines(), "replay", a.post, a.out, a.offline, clock=lambda: next(ticks), use_a1=a.use_a1,
-                   demo=a.demo)
+                   demo=a.demo, air_mode=a.demo_air)
     print(f"logged to {path}")
 
 

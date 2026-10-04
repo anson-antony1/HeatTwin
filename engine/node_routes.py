@@ -29,7 +29,7 @@ SITE = {"lat": 29.6516, "lon": -82.3248}       # demo field (fixtures/plan.json)
 MAX_READINGS = 6 * 60 * 30                     # 6 h at one reading every 2 s
 FORECAST_TTL_S = 600
 
-DEMO_LABEL = "DEMO scenario: indoor globe on a hot-day scenario (synthetic) — not field data"
+DEMO_LABEL = "DEMO scenario: indoor globe heated to stand in for the sun (synthetic) — not field data"
 
 _readings: deque[dict[str, Any]] = deque(maxlen=MAX_READINGS)
 _forecast: dict[str, Any] = {"hours": None, "at": 0.0}
@@ -62,6 +62,9 @@ def _labels(reading: dict[str, Any]) -> list[str]:
     out = ["field WBGT from a 40 mm black-globe node — not a certified WBGT meter"]
     if reading.get("demo"):
         out.insert(0, DEMO_LABEL)
+        g = reading.get("sun_gain")
+        if g and float(g) != 1.0:
+            out.insert(1, f"demo sensitivity: the globe's rise counts {float(g):g}× (fingertip stands in for full sun)")
     if reading.get("globe_calibrated") is False:
         out.append("globe thermistor uncalibrated")
     src = reading.get("air_source")
@@ -98,7 +101,7 @@ def _post_demo(reading: dict[str, Any]) -> dict[str, Any]:
     n = wbgt.node_components(reading["air_temp_c"], reading["rh_pct"], reading["globe_temp_c"], reading.get("wind_m_s"))
     w = round(n["wbgt_f"], 1)
     field = {"time": reading["ts"], "air_temp_c": round(reading["air_temp_c"], 2), "rh_pct": reading["rh_pct"],
-             "wind_m_s": consts.get("demo_node.wind_10m_m_s"), "cloud_cover_pct": 0.0,
+             "wind_m_s": reading.get("wind_10m_m_s") or consts.get("demo_node.wind_10m_m_s"), "cloud_cover_pct": 0.0,
              "solar_w_m2": round(n["solar_inferred_w_m2"], 1), "wbgt_f": w, "fhsaa_zone": fhsaa.zone(w),
              "source": "field_node", "node_id": reading.get("node_id"), "synthetic": True}
     reading["_field"] = field
@@ -117,6 +120,20 @@ def _post_demo(reading: dict[str, Any]) -> dict[str, Any]:
             if ref is not None:
                 out["reforecast"] = ref
     return out
+
+
+def end_demo() -> None:
+    """The node went away (unplugged): stop using its scenario weather now instead of after stale_after_s."""
+    if _demo["reading"] is not None:
+        _demo["received"] = 0.0
+
+
+@router.get("/node/status")
+def node_status() -> dict[str, Any]:
+    """What the engine's built-in bridge is doing (engine/node_autostart.py): waiting / connected / port_unavailable."""
+    from engine import node_autostart
+
+    return {**node_autostart.status(), "demo_active": demo_active()}
 
 
 def demo_active() -> bool:

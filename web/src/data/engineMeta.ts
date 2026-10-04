@@ -38,6 +38,10 @@ function set(patch: Partial<EngineMeta>) {
 
 let loading: Promise<DemoInputs | null> | null = null
 
+/** How often the web re-reads /node/latest (UI refresh rate, not a physiological value). */
+const NODE_POLL_MS = 2000
+let nodeTimer: ReturnType<typeof setInterval> | null = null
+
 async function settle<T>(p: Promise<T>, what: string): Promise<T | null> {
   try {
     return await p
@@ -87,6 +91,18 @@ export const engineMeta = {
     } catch {
       /* keep the last answer */
     }
+  },
+
+  /** Poll /node/latest so the sensor demo (heated globe) reaches the plan within a couple of seconds. */
+  startNodePolling(everyMs = NODE_POLL_MS) {
+    if (nodeTimer != null) return
+    nodeTimer = setInterval(() => {
+      if (state.link === 'online') void engineMeta.refreshNode()
+    }, everyMs)
+  },
+  stopNodePolling() {
+    if (nodeTimer != null) clearInterval(nodeTimer)
+    nodeTimer = null
   },
 
   /** The engine answered a later call: it's up. */
