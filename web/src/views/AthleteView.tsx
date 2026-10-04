@@ -4,18 +4,7 @@ import { athleteOf, engine, replayHeldNote, useSession } from '../data/engine'
 import { useEngineMeta } from '../data/engineMeta'
 import { SYNTHETIC_ROSTER_LABEL, useRoster } from '../data/roster'
 import { ESTIMATE_LABEL, SAFETY_LINE } from '../data/constants'
-import {
-  bodySurfaceAreaM2,
-  estimateOverLine,
-  headsUp,
-  acclimatizationDays,
-  breakWindow,
-  drillAtMinute,
-  inEarlyPhase,
-  maxBetween,
-  modelLabel,
-  statusTone,
-} from '../data/selectors'
+import { bodySurfaceAreaM2, acclimatizationDays, breakWindow, drillAtMinute, headsUp, inEarlyPhase, maxBetween, modelLabel, athleteTone, overLineNow } from '../data/selectors'
 import { BodyFigure } from '../components/BodyFigure'
 import { NumberTicker } from '../components/NumberTicker'
 import { StatusPill } from '../components/StatusPill'
@@ -74,8 +63,7 @@ function Picker({ athleteId, onSelect }: { athleteId: string; onSelect: (id: str
     <div className="picker glass" role="tablist" aria-label="Choose athlete">
       {roster.athletes.map((a) => {
         const on = a.id === athleteId
-        const l = athleteOf(s, a.id)
-        const status = statusTone(l.status, l.flag, estimateOverLine(l, s.limitC))
+        const status = athleteTone(athleteOf(s, a.id), s.limitC)
         return (
           <button
             key={a.id}
@@ -119,7 +107,7 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
   const coreShown = scrubbed ? scrubbed.c : live.coreC
   const zoom = useZoom(s.totalMinutes, scrub ?? s.minute)
   if (!a) return null
-  const tone = statusTone(live.status, live.flag, estimateOverLine(live, limit))
+  const tone = athleteTone(live, limit)
   const hu = headsUp(live, limit)
   const held = replayHeldNote(s.replay, planState.source)
   const model =
@@ -202,7 +190,7 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
           </div>
         </dl>
 
-        {estimateOverLine(live, limit) ? (
+        {overLineNow(live, limit) ? (
           <button className="btn btn--alert pressable vitals__cta" onClick={() => onCollapse(a.id)}>
             <IconResponse width={18} height={18} /> Collapse response
           </button>

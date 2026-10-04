@@ -68,16 +68,12 @@ describe('engine result → view values', () => {
     expect(statusTone(null)).toBe('none')
   })
 
-  it('heads-up text, red alert and skip-to-heat come from engine estimates', async () => {
-    const { estimateOverLine, headsUp, minutesOverLine, firstEstimateCrossing } = await import('../selectors')
-    expect(estimateOverLine({ coreC: 38.99 }, 39)).toBe(false)
-    expect(estimateOverLine({ coreC: 39.0 }, 39)).toBe(true)
-    expect(headsUp({ flag: true, firstCrossMin: 44, coreC: 37.1 }, 39)).toBe('Re-forecast crosses the planning line at 44′')
-    expect(headsUp({ flag: true, firstCrossMin: 44, coreC: 39.2 }, 39)).toBeNull()   // over the line → red alert instead
-    expect(headsUp({ flag: false, firstCrossMin: 44, coreC: 37.1 }, 39)).toBeNull()
-    expect(minutesOverLine([38.5, 39.1, 38.9, 39.0, 39.2], 39)).toBe(2)
-    expect(firstEstimateCrossing({ a: { forecast: [37, 38, 39.1] }, b: { forecast: [37, 39.0, 40] } }, 39)).toBe(1)
-    expect(firstEstimateCrossing({ a: { forecast: [37, 38] } }, 39)).toBeNull()
+  it('heads-up text and minutes over the line come from engine estimates (p95)', async () => {
+    const { headsUp, minutesOverLine } = await import('../selectors')
+    expect(headsUp({ flag: true, firstCrossMin: 44, coreC: 37.1, bandC: 0.2 }, 39)).toBe('Re-forecast crosses the planning line at 44′')
+    expect(headsUp({ flag: true, firstCrossMin: 44, coreC: 38.7, bandC: 0.3 }, 39)).toBeNull()   // p95 over now → red alert instead
+    expect(headsUp({ flag: false, firstCrossMin: 44, coreC: 37.1, bandC: 0.2 }, 39)).toBeNull()
+    expect(minutesOverLine({ history: [38.5, 39.1, 38.6, 38.8, 39.2], band: [0, 0, 0.3, 0.2, 0] }, 39)).toBe(2)
   })
 
   it('offline rows carry no numbers', () => {
@@ -218,5 +214,19 @@ describe('body surface area from the engine coefficients', () => {
     const src = { body_surface_area: { coeff: 0.202, mass_exp: 0.425, height_exp: 0.725 } }
     expect(bodySurfaceAreaM2({ mass_kg: 125, height_m: 1.88 }, src)).toBeCloseTo(0.202 * 125 ** 0.425 * 1.88 ** 0.725, 10)
     expect(bodySurfaceAreaM2({ mass_kg: 125, height_m: 1.88 }, null)).toBeNull()
+  })
+})
+
+describe('over the planning line now', () => {
+  it('turns an athlete red only when p95 at this minute reaches the limit', async () => {
+    const { overLineNow, athleteTone } = await import('../selectors')
+    expect(overLineNow({ coreC: 38.5, bandC: 0.4 }, 39)).toBe(false)
+    expect(overLineNow({ coreC: 38.7, bandC: 0.3 }, 39)).toBe(true)
+    expect(overLineNow({ coreC: null, bandC: null }, 39)).toBe(false)
+    expect(overLineNow({ coreC: 40, bandC: 0.5 }, null)).toBe(false)
+    const base = { status: 'over_limit' as const, flag: false, coreC: 37.5, bandC: 0.4 }
+    expect(athleteTone(base as never, 39)).toBe('watch')                 // forecast peak over later → amber
+    expect(athleteTone({ ...base, coreC: 38.8 } as never, 39)).toBe('alert') // over now → red
+    expect(athleteTone({ ...base, flag: true } as never, 39)).toBe('watch')  // engine early warning → amber heads-up (polish 1)
   })
 })

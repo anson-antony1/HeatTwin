@@ -7,7 +7,7 @@ import { usePlanState } from '../data/planStore'
 import { useEngineMeta } from '../data/engineMeta'
 import { SYNTHETIC_ROSTER_LABEL, useRoster } from '../data/roster'
 import { ESTIMATE_LABEL, zoneColor } from '../data/constants'
-import { acclimatizationDays, drillAtMinute, estimateOverLine, headsUp, minutesOverLine, SNAPSHOT_LABEL, statusTone, type Tone } from '../data/selectors'
+import { acclimatizationDays, athleteTone, drillAtMinute, headsUp, minutesOverLine, overLineNow, SNAPSHOT_LABEL, type Tone } from '../data/selectors'
 import { NumberTicker } from '../components/NumberTicker'
 import { StatusPill } from '../components/StatusPill'
 import { TempChart } from '../components/TempChart'
@@ -23,9 +23,9 @@ import './CoachDashboard.css'
 // estimate, peak and status from the plan forecast or the HR-calibrated
 // re-forecast, alerts from the engine's calibration gates (gates.flag).
 
-/** Sort bucket: estimate over the line first, then heads-up / near / over-forecast, then below. */
+/** Sort bucket: estimate over the line now first, then heads-up / forecast over / near, then below. */
 const RANK: Record<Tone, number> = { alert: 1, watch: 2, steady: 3, none: 4 }
-const rankOf = (a: AthleteLive, limit: number | null) => RANK[statusTone(a.status, a.flag, estimateOverLine(a, limit))]
+const rankOf = (a: AthleteLive, limit: number | null) => RANK[athleteTone(a, limit)]
 
 interface Props {
   acked: Set<string>
@@ -52,14 +52,13 @@ export function CoachDashboard({ acked, onAck, onOpenAthlete, onCollapse }: Prop
     [statusKey, roster], // eslint-disable-line react-hooks/exhaustive-deps
   )
 
-  // voice-plan's red alert card: only when the estimate itself passes the line (the engine's early warning is amber).
-  const alerts = order.filter((a) => estimateOverLine(athleteOf(s, a.id), s.limitC) && !acked.has(a.id))
+  // voice-plan's red alert card: only when the estimate itself is over the line now (the engine's early warning is amber).
+  const alerts = order.filter((a) => overLineNow(athleteOf(s, a.id), s.limitC) && !acked.has(a.id))
   const lead = alerts[0]
 
   const counts = roster.athletes.reduce(
     (c, a) => {
-      const l = athleteOf(s, a.id)
-      const tone = statusTone(l.status, l.flag, estimateOverLine(l, s.limitC))
+      const tone = athleteTone(athleteOf(s, a.id), s.limitC)
       return tone === 'none' ? c : { ...c, [tone]: c[tone] + 1 }
     },
     { steady: 0, watch: 0, alert: 0 },
@@ -301,7 +300,7 @@ function AlertCard({
         <NumberTicker value={tickerCore(live.coreC, limit, 1)} decimals={1} suffix="°C" />
       </div>
       <div className="alertcard__meta muted">
-        Est. over {fmtLimit(limit)}° for <span className="num">{minutesOverLine(live.history, limit)}</span> min
+        Est. over {fmtLimit(limit)}° for <span className="num">{minutesOverLine(live, limit)}</span> min
         {' '}· peak <span className="num">{fmtCore(live.peakP95C, limit)}</span>° (p95)
       </div>
       <div className="alertcard__actions">
@@ -358,7 +357,7 @@ function RosterRow({
   onOpen: () => void
 }) {
   const limit = s.limitC
-  const tone = statusTone(live.status, live.flag, estimateOverLine(live, limit))
+  const tone = athleteTone(live, limit)
   const hu = headsUp(live, limit)
   return (
     <button

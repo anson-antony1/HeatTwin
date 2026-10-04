@@ -217,6 +217,13 @@ export interface NodeLatest {
   series: { ts: string; node_wbgt_f: number; forecast_wbgt_f: number }[]
   file: string | null
   labels: string[]
+  /** Indoor sensor demo: > 0 while it runs; bumps when the sensor's inferred sun changes enough to change results. */
+  demo_version?: number
+}
+
+/** The indoor sensor demo is running (POST /node demo readings arriving): simulate with ?source=node. */
+export function nodeDemoActive(node: NodeLatest | null | undefined): boolean {
+  return (node?.demo_version ?? 0) > 0
 }
 
 /** GET /weather?lat&lon&date (engine/weather_routes.py). */
@@ -406,11 +413,16 @@ export function getDemoInputs(signal?: AbortSignal) {
   return request<DemoInputs>('GET', '/demo/inputs', undefined, signal)
 }
 
-/** Roster and weather fall back to the engine's labelled fixtures. */
-export function simulatePlan(plan: PracticePlan, signal?: AbortSignal) {
-  return request<SimulationResult>('POST', '/simulate?demo=1', { plan }, signal)
+/**
+ * Roster and weather fall back to the engine's labelled fixtures.
+ * `node`: the sensor demo is running → `/simulate?source=node` (its weather: the heated globe stands in for the sun).
+ * Not with ?demo=1, which keeps the saved forecast pinned by design; the seed and ensemble size are the same defaults.
+ */
+export function simulatePlan(plan: PracticePlan, signal?: AbortSignal, node = false) {
+  return request<SimulationResult>('POST', node ? '/simulate?source=node' : '/simulate?demo=1', { plan }, signal)
 }
 
+/** Always the pinned, deterministic demo optimizer; the sensor then re-simulates the optimized plan. */
 export function optimizePlan(plan: PracticePlan, signal?: AbortSignal, preset: OptimizePreset = 'max_load') {
   return request<OptimizeResult>('POST', `/optimize?demo=1&preset=${preset}`, { plan }, signal)
 }

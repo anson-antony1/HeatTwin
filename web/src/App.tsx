@@ -1,4 +1,4 @@
-import { estimateOverLine } from './data/selectors'
+import { overLineNow } from './data/selectors'
 import { useCallback, useEffect, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { engine, useSession } from './data/engine'
@@ -44,7 +44,7 @@ export default function App() {
   const acked = ackState.session === s.session ? ackState.ids : new Set<string>()
 
   // Red alerts: an athlete's engine estimate is at or over the line (the engine's early warning shows amber).
-  const alertIds = roster.athletes.filter((a) => s.athletes[a.id] && estimateOverLine(s.athletes[a.id], s.limitC)).map((a) => a.id)
+  const alertIds = roster.athletes.filter((a) => s.athletes[a.id] && overLineNow(s.athletes[a.id], s.limitC)).map((a) => a.id)
   const unacked = alertIds.filter((id) => !acked.has(id))
   // Hottest by the engine's estimate at this minute (first athlete when there are no numbers).
   const hottest = [...roster.athletes].sort((a, b) => (s.athletes[b.id]?.coreC ?? -Infinity) - (s.athletes[a.id]?.coreC ?? -Infinity))[0]?.id ?? athleteId

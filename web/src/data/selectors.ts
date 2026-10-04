@@ -576,42 +576,42 @@ export function modelLabel(a: Pick<AthleteLive, 'basis' | 'hasHr' | 'calibrated'
  * peak at the line"); 'steady' below it. Colour only — the numbers are the engine's.
  */
 export type Tone = 'steady' | 'watch' | 'alert' | 'none'
-export function statusTone(s: AthleteStatus | null | undefined, flag = false, over = false): Tone {
-  if (over) return 'alert' // the estimate itself is at or over the planning line
+/**
+ * The estimate at the current minute is at or over the planning line: p95 (p50 + band) ≥ the engine's limit_core_c,
+ * the same p95-vs-limit rule the engine uses for over_limit (constants.planning_limit_core_c applies to the p95
+ * estimate). Only this turns an athlete red — voice-plan's alert (owner decision, polish 1). A forecast peak over the
+ * line later in practice, and the engine's re-forecast flag, stay amber.
+ */
+export function overLineNow(a: Pick<AthleteLive, 'coreC' | 'bandC'> | null | undefined, limitC: number | null | undefined): boolean {
+  if (!a || a.coreC == null || limitC == null) return false
+  return a.coreC + (a.bandC ?? 0) >= limitC
+}
+
+export function statusTone(s: AthleteStatus | null | undefined, flag = false, overNow = false): Tone {
+  if (overNow) return 'alert' // the estimate itself is at or over the planning line
   if (flag) return 'watch' // the engine's early warning (re-forecast crossing) is a heads-up, not an alert
   return s === 'over_limit' || s === 'near_limit' ? 'watch' : s === 'below_limit' ? 'steady' : 'none'
 }
 
-/** voice-plan's red alert: the athlete's current estimate (engine p50 at this minute) is at or over the line. */
-export function estimateOverLine(a: Pick<AthleteLive, 'coreC'>, limit: number | null | undefined): boolean {
-  return a.coreC != null && limit != null && a.coreC >= limit
+/** Tone of one athlete on screen: over the line now → alert; engine flag or forecast over / near → watch. */
+export function athleteTone(a: AthleteLive, limitC: number | null | undefined): Tone {
+  return statusTone(a.status, a.flag, overLineNow(a, limitC))
 }
 
 /** Amber heads-up for the engine's early warning (gates.flag) while the estimate is still under the line. */
-export function headsUp(a: Pick<AthleteLive, 'flag' | 'firstCrossMin' | 'coreC'>, limit: number | null | undefined): string | null {
-  if (!a.flag || estimateOverLine(a, limit)) return null
+export function headsUp(a: Pick<AthleteLive, 'flag' | 'firstCrossMin' | 'coreC' | 'bandC'>, limit: number | null | undefined): string | null {
+  if (!a.flag || overLineNow(a, limit)) return null
   return a.firstCrossMin != null
     ? `Re-forecast crosses the planning line at ${Math.round(a.firstCrossMin)}′`
     : 'Re-forecast crosses the planning line'
 }
 
-/** Minutes the estimate has been at or over the line, counting back from now (engine estimates per minute). */
-export function minutesOverLine(history: number[], limit: number | null | undefined): number {
+/** Minutes the p95 estimate has been at or over the line, counting back from now (engine estimates per minute). */
+export function minutesOverLine(a: Pick<AthleteLive, 'history' | 'band'>, limit: number | null | undefined): number {
   if (limit == null) return 0
   let n = 0
-  for (let i = history.length - 1; i >= 0 && history[i] >= limit; i--) n++
+  for (let i = a.history.length - 1; i >= 0 && a.history[i] + (a.band[i] ?? 0) >= limit; i--) n++
   return n
-}
-
-/** First minute any athlete's estimate (p50 curve) reaches the line — where "Skip to heat" lands on an alert. */
-export function firstEstimateCrossing(athletes: Record<string, Pick<AthleteLive, 'forecast'>>, limit: number | null): number | null {
-  if (limit == null) return null
-  let first: number | null = null
-  for (const a of Object.values(athletes)) {
-    const i = (a.forecast ?? []).findIndex((v) => v >= limit)
-    if (i >= 0 && (first == null || i < first)) first = i
-  }
-  return first
 }
 
 /** Earliest first crossing among the athletes on screen (for "Skip to heat"). */
