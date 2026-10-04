@@ -369,7 +369,7 @@ function SourcesCard() {
   }, [])
 
   const rows: { label: string; ok: boolean | null; detail: string }[] = [
-    { label: 'HeatTwin engine', ok: engine === 'checking' ? null : engine === 'ok', detail: engine === 'down' ? 'Not reachable — start it on :8000' : 'Two-node model, optimizer' },
+    { label: 'HeatTwin engine', ok: engine === 'checking' ? null : engine === 'ok', detail: engine === 'down' ? 'Not reachable — start it with make demo (port HEATTWIN_PORT, default 8010)' : 'Two-node model, optimizer' },
     {
       label: 'Weather',
       ok: w.source == null ? null : w.source === 'nws_forecast',

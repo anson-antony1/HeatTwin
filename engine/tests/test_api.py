@@ -214,3 +214,26 @@ def test_field_node_results_only_from_real_rows(tmp_path):
         assert out["mean_field_minus_liljegren_f"] == 2.0 and "globe thermistor uncalibrated" in out["labels"]
     finally:
         demo_data.DATA = orig
+
+
+def test_demo_optimize_result_survives_an_engine_restart_via_the_disk_cache(monkeypatch, tmp_path):
+    """Owner decision Oct 3 (item 5): the warmed demo optimizer result is persisted, keyed by inputs + code version."""
+    from engine import api, demo_cache, optimizer
+    monkeypatch.setenv("HEATTWIN_CACHE_DIR", str(tmp_path))
+    calls = []
+    real = optimizer.optimize
+
+    def fake(*a, **k):
+        calls.append(k.get("preset"))
+        return real(*a, **{**k, "demo": False, "budget_s": 2.0, "max_iterations": 20})
+    monkeypatch.setattr(optimizer, "optimize", fake)
+    body = {"plan": {**fixtures.plan(), "id": "cache-test"}}
+    first = client.post("/optimize?demo=1", json=body).json()
+    assert calls == ["max_load"] and len(list(tmp_path.glob("*.json"))) == 1
+    api._DEMO_CACHE.clear()                       # "restart": the in-memory cache is gone
+    second = client.post("/optimize?demo=1", json=body).json()
+    assert calls == ["max_load"] and second == first
+    monkeypatch.setattr(demo_cache, "code_version", lambda: "different-code")   # a code change misses the cache
+    api._DEMO_CACHE.clear()
+    client.post("/optimize?demo=1", json=body)
+    assert calls == ["max_load", "max_load"]

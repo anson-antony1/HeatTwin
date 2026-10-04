@@ -11,7 +11,8 @@ export default defineConfig({
     // without depending on the engine's CORS allowlist. Override with VITE_ENGINE_URL.
     proxy: {
       '/engine': {
-        target: process.env.ENGINE_URL ?? 'http://127.0.0.1:8000',
+        // Engine port: HEATTWIN_PORT (default 8010, same default as the Makefile); ENGINE_URL overrides the whole URL.
+        target: process.env.ENGINE_URL ?? `http://127.0.0.1:${process.env.HEATTWIN_PORT ?? '8010'}`,
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/engine/, ''),
       },

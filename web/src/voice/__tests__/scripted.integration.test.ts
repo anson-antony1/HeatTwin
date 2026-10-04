@@ -11,9 +11,9 @@ import { findReassurance, TEST_QUESTIONS } from '../testQuestions'
 // Live check of the 8 scripted questions against a running engine, through the real flow:
 //   typed text → /voice/intent (Gemini if the engine has a key; else 503 → local router)
 //   → /voice/answer?demo=1 → /guard + per-answer numbers → (no speech here; /voice/tts checked separately).
-// Runs only with VITE_HEATTWIN_LIVE=1. Engine URL: VITE_ENGINE_URL (default http://127.0.0.1:8000), e.g.
+// Runs only with VITE_HEATTWIN_LIVE=1. Engine URL: VITE_ENGINE_URL (default http://127.0.0.1:8010, the HEATTWIN_PORT default), e.g.
 //   VITE_HEATTWIN_LIVE=1 VITE_ENGINE_URL=http://127.0.0.1:8012 npx vitest run src/voice
-const BASE = (import.meta.env.VITE_ENGINE_URL as string | undefined) ?? 'http://127.0.0.1:8000'
+const BASE = (import.meta.env.VITE_ENGINE_URL as string | undefined) ?? 'http://127.0.0.1:8010'
 const PLAN = planFile.plan as unknown as PracticePlan
 const ROSTER = rosterFile.roster as RosterName[]
 

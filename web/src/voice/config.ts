@@ -1,5 +1,5 @@
 // "Ask Kelvin" configuration. Same engine base URL as the rest of the web app (web/src/data/engineApi.ts):
-//   VITE_ENGINE_URL   engine base URL; default '/engine' (the Vite dev proxy → http://127.0.0.1:8000)
+//   VITE_ENGINE_URL   engine base URL; default '/engine' (the Vite dev proxy → http://127.0.0.1:$HEATTWIN_PORT, default 8010)
 // No API keys live in the browser: Gemini (intent) and ElevenLabs (TTS) keys stay on the engine.
 export const ENGINE_URL: string = (import.meta.env?.VITE_ENGINE_URL as string | undefined) ?? '/engine'
 

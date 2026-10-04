@@ -21,7 +21,7 @@ typed text ───────────────────────
 ```bash
 cp .env.example .env        # then paste the key: GEMINI_API_KEY=...
 uvicorn engine.api:app --reload --port 8000
-curl localhost:8000/plan/llm_status     # → {"configured": true, ...}
+curl localhost:8010/plan/llm_status     # → {"configured": true, ...}
 ```
 `.env` is gitignored. The key never goes to the browser; the web app only talks to the engine.
 
@@ -31,7 +31,7 @@ curl localhost:8000/plan/llm_status     # → {"configured": true, ...}
 | `web/src/data/llmPlan.ts` | `parsePlanText(text)`, `parsePlanAudio(wavBlob)`, `llmStatus()`, types (`PlanDraft`, `PracticePlan`, `ContractDrill`), `toUiDrills(plan, metFor)` to map into the current UI `Drill` shape |
 | `web/src/lib/useVoicePlan.ts` | `useVoicePlan()` hook: `start()`, `stop()`, `submitText(text)`, `state` (`idle/recording/processing/done/error`), `seconds`, `draft`, `error`, `reset()` |
 
-Engine URL: `VITE_ENGINE_URL` (default `http://localhost:8000`). Microphone needs https or localhost.
+Engine URL: `VITE_ENGINE_URL` (default `http://localhost:8010`). Microphone needs https or localhost.
 
 Minimal component:
 ```tsx

@@ -70,7 +70,7 @@ The sketch uses `BETA = 3950`, a typical value, not one measured for *your* ther
   `env -u PYTHONPATH .venv/bin/python -m engine.node_bridge --port /dev/ttyACM0`
   It adds air temperature/RH from the NWS KGNV airport station (the node has no air/RH sensor), prints field WBGT vs
   the forecast live, and logs to `data/node_<date>.csv` (+ the raw serial stream in `node_<date>.raw.txt`).
-  Add `--post http://localhost:8000/node` once the engine has the /node route.
+  Add `--post http://localhost:8010/node` once the engine has the /node route.
 
 ## Upload without the Arduino IDE
 ```bash
@@ -88,12 +88,12 @@ we report "our field vs. the forecast" and don't present it as a certified WBGT 
 `engine/node_routes.py` implements CONTRACTS.md's `POST /node` and `GET /node/latest` (+ `GET /node/history`).
 - Until `/integrate` adds it to `engine/api.py` (`from engine import node_routes; app.include_router(node_routes.router)`),
   run it on its own: `uvicorn engine.node_routes:standalone_app --factory --port 8000`
-- Bridge with posting: `python -m engine.node_bridge --port /dev/ttyACM0 --post http://localhost:8000/node`
+- Bridge with posting: `python -m engine.node_bridge --port /dev/ttyACM0 --post http://localhost:8010/node`
 - Web field card: `GET /node/latest` → `field.wbgt_f`, `field.fhsaa_zone`, `labels` (show them). `assimilated` is the
   rest of today's forecast corrected by the field readings.
 - `fixtures/node_indoor_test_2026-10-03.csv` / `.raw.txt`: a real but **indoor** test run (globe warmed by hand/air,
   air/RH from the KGNV airport station). For building and replaying the UI only — not field data, not for validation:
-  `python -m engine.node_bridge --replay fixtures/node_indoor_test_2026-10-03.raw.txt --post http://localhost:8000/node`
+  `python -m engine.node_bridge --replay fixtures/node_indoor_test_2026-10-03.raw.txt --post http://localhost:8010/node`
 
 ## Indoor demo (what we present — no outdoor readings)
 `--demo` zeroes the globe on the room (first 5 readings, so start it with the ball at room temperature), then puts
@@ -104,7 +104,7 @@ dryer on the ball reads as sunlight. Everything is labelled **"DEMO scenario …
 # terminal 1: the engine (node routes are mounted in engine/api.py on this branch)
 env -u PYTHONPATH .venv/bin/python -m uvicorn engine.api:app --port 8000
 # terminal 2: the bridge
-env -u PYTHONPATH .venv/bin/python -m engine.node_bridge --port /dev/ttyACM0 --demo --post http://localhost:8000/node
+env -u PYTHONPATH .venv/bin/python -m engine.node_bridge --port /dev/ttyACM0 --demo --post http://localhost:8010/node
 ```
 While demo readings arrive (and for 5 min after), `/simulate`, `/optimize` and the live session use the scenario
 weather, and every `POST /node` that moves the inferred sun by ≥25 W/m² returns a fresh live `reforecast`.

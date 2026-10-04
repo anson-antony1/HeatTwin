@@ -11,3 +11,4 @@ engine/logs/
 .env.*
 !.env.example
 .claude/worktrees/
+.cache/

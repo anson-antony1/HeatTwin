@@ -296,6 +296,15 @@ def optimize(req: OptimizeRequest | None = None,
         if key in _DEMO_CACHE:
             return _DEMO_CACHE[key]
     plan, roster, weather, labels = _inputs(req, demo_mode, node_scenario=source == "node")
+    disk = None
+    if key is not None:  # demo results persist across engine restarts (keyed by inputs + code version)
+        from engine import demo_cache
+        disk = demo_cache.key("optimize", preset, plan, roster, weather, req.model_dump(exclude={"plan", "roster", "weather"}),
+                              labels)
+        hit = demo_cache.load(disk)
+        if hit is not None:
+            _DEMO_CACHE[key] = hit
+            return hit
     try:
         res = optimizer.optimize(plan, roster, weather, budget_s=req.budget_s, seed=req.seed,
                                  n_ensemble=req.n_ensemble, step_min=req.step_min, extra_labels=labels,
@@ -305,6 +314,8 @@ def optimize(req: OptimizeRequest | None = None,
     res = _guard(res)
     if key is not None:
         _DEMO_CACHE[key] = res
+        from engine import demo_cache
+        demo_cache.save(disk, res)
     return res
 
 

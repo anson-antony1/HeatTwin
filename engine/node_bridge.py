@@ -12,9 +12,9 @@ Field WBGT uses engine/wbgt.py's globe inversion (weather.node_reading_wbgt) and
 for the same minute.
 
     python -m engine.node_bridge --port /dev/ttyACM0                    # live, log to data/
-    python -m engine.node_bridge --port /dev/ttyACM0 --post http://localhost:8000/node
+    python -m engine.node_bridge --port /dev/ttyACM0 --post http://localhost:8010/node
     python -m engine.node_bridge --replay data/node_2026-10-03.raw.txt     # re-run saved serial output
-    python -m engine.node_bridge --port /dev/ttyACM0 --demo --post http://localhost:8000/node   # indoor demo
+    python -m engine.node_bridge --port /dev/ttyACM0 --demo --post http://localhost:8010/node   # indoor demo
 """
 from __future__ import annotations
 
@@ -247,7 +247,7 @@ def main(argv: Optional[list[str]] = None) -> None:
     src = ap.add_mutually_exclusive_group(required=True)
     src.add_argument("--port", help="serial port, e.g. /dev/ttyACM0")
     src.add_argument("--replay", type=Path, help="saved serial output to re-run (timestamps spaced 2 s from now)")
-    ap.add_argument("--post", help="engine URL, e.g. http://localhost:8000/node")
+    ap.add_argument("--post", help="engine URL, e.g. http://localhost:8010/node")
     ap.add_argument("--out", type=Path, default=DATA_DIR)
     ap.add_argument("--offline", action="store_true", help="no network: cached forecast for air/RH")
     ap.add_argument("--use-a1", action="store_true", help="a shaded air thermistor is wired to A1 (ignored otherwise)")
