@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-10-04T00:01:25+00:00",
-  "engine_commit": "2d9a914",
+  "generated_at": "2026-10-04T00:22:39+00:00",
+  "engine_commit": "acdd457",
   "demo": {
     "computed_by": "validation/demo_numbers.py via the engine API with ?demo=1",
-    "computed_at": "2026-10-03T23:59:31+00:00",
+    "computed_at": "2026-10-04T00:20:24+00:00",
     "synthetic": true,
     "inputs": {
       "plan_id": "plan-demo-1",
@@ -349,7 +349,8 @@
     "labels": [
       "estimate \u2014 planning only",
       "same plan and roster (synthetic fixtures), demo mode (fixed seed)",
-      "physiology uses air temperature, humidity, wind and sun; WBGT sets the FHSAA zone and its rules"
+      "physiology uses air temperature, humidity, wind and sun; WBGT sets the FHSAA zone and its rules",
+      "live rows from the stored snapshot (NWS fetched 2026-10-04T00:01:04+00:00; offline now)"
     ]
   },
   "live_hours": {

@@ -174,3 +174,43 @@ def test_demo_comparison_serves_the_stored_snapshot():
     j = client.get("/demo/comparison").json()
     assert j["headline"] == "saved_forecast" and j["rows"][0]["key"] == "saved_forecast"
     assert {"peak_zone", "over_before", "over_after", "load_kept_pct", "changes", "feasible"} <= set(j["rows"][0])
+
+
+def test_real_hr_recording_wins_and_is_labelled_with_device_and_date(monkeypatch, tmp_path):
+    """Decision 7: a real fixtures/hr_<date>.csv (hr_bridge) is replayed instead of the synthetic file, labelled."""
+    import shutil
+    from engine import demo_data
+    shutil.copy(demo_data.FIXTURES / demo_data.SYNTHETIC_HR, tmp_path / demo_data.SYNTHETIC_HR)
+    real = tmp_path / "hr_2026-10-04.csv"
+    real.write_text("# recorded by engine/hr_bridge.py from BLE heart-rate straps (real data, not synthetic).\n"
+                    "ts,athlete_id,hr_bpm,device,replay,synthetic,rr_ms,sensor_contact\n"
+                    + "".join(f"2026-10-04T09:{m:02d}:00-04:00,a07,{110 + m},Amazfit Helio Strap,false,false,,true\n"
+                              for m in range(30)))
+    monkeypatch.setattr(demo_data, "FIXTURES", tmp_path)
+    assert demo_data.pick_hr_file() == real and not demo_data.hr_is_synthetic(real)
+    r = client.post("/live/replay?demo=1", json={}).json()   # same body as the cached synthetic run: the file is in the key
+    assert r["source"]["synthetic"] is False and r["source"]["aligned_to_plan_start"] is True
+    assert any("real HR recording — Amazfit Helio Strap, 2026-10-04" in x for x in r["labels"])
+    assert not any("synthetic HR" in x for x in r["labels"])
+
+
+def test_field_node_results_only_from_real_rows(tmp_path):
+    from validation import field_node
+    from engine import demo_data, node_bridge
+    import csv
+    orig = demo_data.DATA
+    try:
+        assert field_node.compute(tmp_path)["status"] == "no field recording yet"
+        with open(tmp_path / "node_2026-10-04.csv", "w", newline="") as f:
+            w = csv.DictWriter(f, node_bridge.FIELDS)
+            w.writeheader()
+            for i, (mode, wb) in enumerate([("demo", 95.0), ("live", 84.0), ("live", 86.0)]):
+                w.writerow({"ts": f"2026-10-04T09:0{i}:00-04:00", "globe_c": 40, "air_c": 30, "rh_pct": 70,
+                            "air_source": "nws_station_KGNV", "node_wbgt_f": wb, "forecast_wbgt_f": 83.0,
+                            "field_minus_forecast_f": wb - 83.0, "fhsaa_zone": 2, "globe_calibrated": "False",
+                            "mode": mode})
+        out = field_node.compute(tmp_path)
+        assert out["n_readings"] == 2 and out["by_hour"][0]["node_wbgt_f"] == 85.0          # demo row excluded
+        assert out["mean_field_minus_liljegren_f"] == 2.0 and "globe thermistor uncalibrated" in out["labels"]
+    finally:
+        demo_data.DATA = orig

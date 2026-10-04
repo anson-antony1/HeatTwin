@@ -47,6 +47,13 @@ def pick_hr_file(name: Optional[str] = None) -> Path:
     return real[-1] if real else FIXTURES / SYNTHETIC_HR
 
 
+def hr_device(rows: Sequence[Mapping[str, Any]]) -> str:
+    """The strap named in the recording's ``device`` column (most common value), e.g. the Amazfit Helio Strap."""
+    from collections import Counter
+    c = Counter(str(r.get("device") or "").strip() for r in rows if str(r.get("device") or "").strip())
+    return c.most_common(1)[0][0] if c else "device not recorded"
+
+
 def _align(rows: list[dict[str, Any]], plan_start: str) -> tuple[list[dict[str, Any]], bool]:
     """Shift a recording so its first reading is at the plan start, unless it already falls inside the plan."""
     if not rows:
@@ -72,7 +79,8 @@ def run_replay(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], wea
     if synthetic:
         labels.insert(1, "synthetic HR (not a real athlete)")
     else:
-        labels.insert(1, f"real HR recording ({path.name})")
+        labels.insert(1, f"real HR recording — {hr_device(rows_all)}, {rows_all[0]['ts'][:10] if rows_all else '?'} "
+                         f"(fixtures/{path.name})")
     if aligned:
         labels.append("recording clock shifted so its first reading is the plan start")
     if len(rows) < len(rows_all):
@@ -124,9 +132,18 @@ def _num(x: Any) -> Optional[float]:
     return None if v != v else v  # NaN → None
 
 
-def newest_node_csv() -> Optional[Path]:
+def newest_node_csv(real_only: bool = False) -> Optional[Path]:
+    """Newest data/node_<date>.csv; with ``real_only`` the newest one holding field readings (mode live/replay), not
+    only the indoor DEMO scenario (mode demo, synthetic)."""
     files = sorted(DATA.glob("node_*.csv")) if DATA.exists() else []
+    if real_only:
+        files = [f for f in files if field_rows(_read_node_csv(f))]
     return files[-1] if files else None
+
+
+def field_rows(rows: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+    """Readings from the field (node_bridge mode live or replay); the indoor demo scenario (mode demo) is synthetic."""
+    return [r for r in rows if str(r.get("mode", "live")).lower() != "demo"]
 
 
 def _read_node_csv(path: Path) -> list[dict[str, Any]]:
@@ -154,12 +171,16 @@ def _per_minute(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
 
 
 def node_latest() -> dict[str, Any]:
-    path = newest_node_csv()
+    """Newest real field recording (preferred over a demo-scenario file), labelled with its date and node."""
+    path = newest_node_csv(real_only=True) or newest_node_csv()
     if path is not None:
-        rows = _read_node_csv(path)
+        all_rows = _read_node_csv(path)
+        rows = field_rows(all_rows) or all_rows
         if rows:
             last = _reading(rows[-1])
-            labels = [f"field node recording (data/{path.name})"]
+            demo = rows is all_rows and not field_rows(all_rows)
+            labels = ([f"DEMO scenario recording (synthetic) — data/{path.name}"] if demo else
+                      [f"field node recording — {str(rows[0]['ts'])[:10]}, node-1 black-globe node (data/{path.name})"])
             if not last["globe_calibrated"]:
                 labels.append("globe thermistor uncalibrated")
             if last.get("air_source"):

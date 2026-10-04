@@ -525,13 +525,23 @@ def demo_comparison() -> dict[str, Any]:
 _REPLAY_CACHE: dict[str, dict[str, Any]] = {}
 
 
+def demo_data_pick(name):
+    from engine import demo_data
+    return demo_data.pick_hr_file(name)
+
+
 @app.post("/live/replay")
 def live_replay(req: LiveReplayRequest | None = None, demo_mode: bool = Query(False, alias="demo", description="fixed seed (demo mode)")
                 ) -> dict[str, Any]:
     """v1.3: replay a recorded (or the synthetic) HR file through live calibration → per-update frames (deterministic)."""
     from engine import demo_data
     req = _demo_req(req or LiveReplayRequest(), demo_mode)
-    key = f"{demo_mode}|{req.model_dump_json()}"
+    try:
+        hr_file = demo_data_pick(req.file)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e)) from e
+    # the HR file is part of the key: a real recording that lands while the engine runs replaces the synthetic one
+    key = f"{demo_mode}|{req.model_dump_json()}|{hr_file.name}|{hr_file.stat().st_mtime_ns}"
     if key in _REPLAY_CACHE:
         return _REPLAY_CACHE[key]
     plan, roster, weather, labels = _inputs(req, demo_mode)

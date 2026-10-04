@@ -294,7 +294,19 @@ def main() -> None:
     f = facts(c, demo, comp)
     OUT_JSON.write_text(json.dumps({"generated_at": generated, "engine_commit": commit, "demo": demo,
                                     "comparison": comp, "live_hours": live_hours_snapshot}, indent=2) + "\n")
-    OUT_MD.write_text(md(f, generated, commit))
+    from validation import field_node as _fnm
+    fnode = _fnm.compute()
+    if "status" in fnode:
+        node_md = f"\n## Field node\n{fnode['status']} (no data/node_<date>.csv with field readings).\n"
+    else:
+        rows_md = "\n".join(f"| {t['hour']} | {t['n']} | {t['node_wbgt_f']} | {t['forecast_liljegren_f']} | "
+                             f"{t['field_minus_liljegren_f']} | {t['nws_wbgt_f']} | {t['field_minus_nws_f']} |"
+                             for t in fnode["by_hour"])
+        node_md = (f"\n## Field node — {fnode['date']}\n{', '.join(fnode['labels'])}.\n\n"
+                   "| Hour | Readings | Node WBGT °F | Forecast (our Liljegren) °F | Field − Liljegren | NWS WBGT °F | "
+                   f"Field − NWS |\n|---|---|---|---|---|---|---|\n{rows_md}\n\nMean field − Liljegren "
+                   f"{fnode['mean_field_minus_liljegren_f']} °F; mean field − NWS {fnode['mean_field_minus_nws_f']} °F.\n")
+    OUT_MD.write_text(md(f, generated, commit) + node_md)
     p = PLAN.read_text()
     a7, b8 = p.index("## 7. Demo script"), p.index("## 8. ")
     sec = p[a7:b8]
@@ -303,8 +315,11 @@ def main() -> None:
         ("## 7. Demo script (3 minutes)\n\n" + body + "\n\n---\n\n")
     PLAN.write_text(p[:a7] + new_sec + p[b8:])
     DISCORD.write_text(discord(f, commit))
+    from validation import field_node
+    fn = field_node.compute()
     results = json.loads(vdn.RESULTS.read_text()) if vdn.RESULTS.exists() else {}
     results["demo"] = demo
+    results["field_node"] = fn
     vdn.RESULTS.write_text(json.dumps(results, indent=2) + "\n")
     for r in comp["rows"]:
         print(f"{r['key']:15s} zone {r['peak_zone']}  over {r['over_before']}→{r['over_after']}  "
