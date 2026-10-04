@@ -508,6 +508,20 @@ def demo_inputs() -> dict[str, Any]:
                           "weather": "fixture" in srcs and bool(fixtures.forecast_meta().get("synthetic", False))}}
 
 
+@app.get("/demo/comparison")
+def demo_comparison() -> dict[str, Any]:
+    """v1.4: the same plan under three weather inputs — the stored snapshot written by scripts/demo_numbers.py."""
+    import json
+    from pathlib import Path
+    p = Path(__file__).resolve().parents[1] / "docs" / "demo_numbers.json"
+    if not p.exists():
+        raise HTTPException(404, "comparison not generated yet: run python scripts/demo_numbers.py")
+    snap = json.loads(p.read_text())
+    out = dict(snap["comparison"])
+    out["generated_at"], out["engine_commit"] = snap.get("generated_at"), snap.get("engine_commit")
+    return out
+
+
 _REPLAY_CACHE: dict[str, dict[str, Any]] = {}
 
 

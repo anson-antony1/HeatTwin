@@ -163,3 +163,14 @@ def test_node_latest_reads_newest_node_csv(monkeypatch, tmp_path):
     j = client.get("/node/latest").json()
     assert j["reading"]["node_wbgt_f"] == 88.1 and j["reading"]["field_minus_forecast_f"] == 2.1
     assert "globe thermistor uncalibrated" in j["labels"] and j["file"] == "data/node_2026-10-04.csv"
+
+
+def test_demo_comparison_serves_the_stored_snapshot():
+    """v1.4 GET /demo/comparison: the snapshot written by scripts/demo_numbers.py (no network at request time)."""
+    from pathlib import Path
+    if not (Path(__file__).resolve().parents[2] / "docs" / "demo_numbers.json").exists():
+        assert client.get("/demo/comparison").status_code == 404
+        return
+    j = client.get("/demo/comparison").json()
+    assert j["headline"] == "saved_forecast" and j["rows"][0]["key"] == "saved_forecast"
+    assert {"peak_zone", "over_before", "over_after", "load_kept_pct", "changes", "feasible"} <= set(j["rows"][0])
