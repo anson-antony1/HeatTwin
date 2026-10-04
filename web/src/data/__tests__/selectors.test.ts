@@ -3,6 +3,8 @@ import {
   athleteAtMinute,
   athleteFromLive,
   drillAtMinute,
+  fieldSensorNote,
+  fieldSourceChip,
   fieldSourceLabel,
   firstCrossing,
   frameAt,
@@ -10,10 +12,12 @@ import {
   hrAt,
   indexAtMinute,
   modelLabel,
+  isFieldSensorHour,
   nextBreakIn,
   offlineAthlete,
   overCount,
   peakZone,
+  readingAgeText,
   seriesByMinute,
   statusTone,
   weatherHourAt,
@@ -21,7 +25,7 @@ import {
   zoneRuleText,
   zoneShortText,
 } from '../selectors'
-import type { FhsaaZoneRule } from '../engineApi'
+import type { FhsaaZoneRule, NodeSource, WeatherHour } from '../engineApi'
 import { liveApplies, liveLabel } from '../liveStore'
 import { liveState, PLAN, replay, sim, WEATHER } from './helpers'
 
@@ -173,6 +177,45 @@ describe('field card source chip', () => {
     expect(fieldSourceLabel({ source: 'fixture' })).toBe('NWS fixture')
     expect(fieldSourceLabel({ source: 'nws_forecast' })).toBe('NWS forecast')
     expect(fieldSourceLabel(null)).toBe('—')
+  })
+})
+
+describe('field card chip with the Arduino field sensor (v1.7)', () => {
+  const fieldHour = (over: Partial<WeatherHour> = {}): WeatherHour => ({ ...WEATHER[0], source: 'field_node', field_mode: true, weather_from: 'nws', ...over })
+  const node = (over: Partial<NodeSource> = {}): NodeSource => ({
+    id: 'field_sensor_nws', label: 'Field sensor (Arduino) + NWS', mode: 'field', sensor_fresh: true, reading_age_s: 4.2, stale_after_s: 10, ...over,
+  })
+
+  it('shows the active source and the last reading age', () => {
+    expect(fieldSourceChip(fieldHour(), node())).toBe('Field sensor + NWS · 4 s ago')
+    expect(fieldSourceChip(fieldHour({ weather_from: 'snapshot', time_shifted_min: -120 }), node({ reading_age_s: 0.4 }))).toBe('Field sensor + snapshot · 0 s ago')
+    expect(fieldSourceChip(fieldHour(), node({ reading_age_s: 75 }))).toBe('Field sensor + NWS · 1 min ago')
+    expect(fieldSourceChip(fieldHour(), null)).toBe('Field sensor + NWS')
+  })
+  it('falls back to today\'s chip text for any other hour', () => {
+    expect(fieldSourceChip({ source: 'nws_forecast' }, node())).toBe('NWS forecast')
+    expect(fieldSourceChip({ source: 'fixture' }, node())).toBe('NWS fixture')
+    expect(fieldSourceChip({ source: 'fixture', time_shifted_min: -195 }, node({ id: 'snapshot', sensor_fresh: false }))).toBe('Forecast snapshot (time-shifted)')
+    expect(fieldSourceChip({ source: 'field_node' }, node())).toBe('Field node')            // the indoor demo scenario hour
+    expect(fieldSourceChip(null, node())).toBe('—')
+    expect(isFieldSensorHour({ source: 'field_node', field_mode: true })).toBe(true)
+    expect(isFieldSensorHour({ source: 'field_node' })).toBe(false)
+  })
+  it('formats the age', () => {
+    expect(readingAgeText(null)).toBeNull()
+    expect(readingAgeText(Number.NaN)).toBeNull()
+    expect([0, 3.6, 59.4, 60, 119, 3600].map(readingAgeText)).toEqual(['0 s ago', '4 s ago', '59 s ago', '1 min ago', '1 min ago', '1 h ago'])
+  })
+  it('explains the sensor in the title: in use, stale, or connected but not used by this plan', () => {
+    expect(fieldSensorNote(fieldHour(), node())).toMatch(/uncalibrated thermistor = field air temperature.*live NWS.*last reading 4 s ago/)
+    expect(fieldSensorNote(fieldHour({ weather_from: 'snapshot' }), node())).toMatch(/pinned forecast shifted to now/)
+    expect(fieldSensorNote(fieldHour(), node({ sensor_fresh: false, reading_age_s: 37 }))).toMatch(/no recent reading \(older than 10 s\), falling back/)
+    expect(fieldSensorNote({ source: 'fixture' }, node())).toMatch(/connected · last reading 4 s ago — this plan keeps the pinned forecast/)
+    expect(fieldSensorNote({ source: 'fixture' }, node({ id: 'nws', label: 'live NWS forecast', sensor_fresh: false, reading_age_s: 37 })))
+      .toBe('Field sensor (Arduino) not in use · last reading 37 s ago — live NWS forecast instead')
+    expect(fieldSensorNote({ source: 'fixture' }, node({ reading_age_s: null }))).toBeNull()          // never read
+    expect(fieldSensorNote({ source: 'fixture' }, node({ mode: 'demo' }))).toBeNull()                 // the indoor demo has its own labels
+    expect(fieldSensorNote({ source: 'fixture' }, null)).toBeNull()
   })
 })
 

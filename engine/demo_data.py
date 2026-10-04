@@ -155,7 +155,8 @@ def _num(x: Any) -> Optional[float]:
 def newest_node_csv(real_only: bool = False) -> Optional[Path]:
     """Newest data/node_<date>.csv; with ``real_only`` the newest one holding field readings (mode live/replay), not
     only the indoor DEMO scenario (mode demo, synthetic)."""
-    files = sorted(DATA.glob("node_*.csv")) if DATA.exists() else []
+    # node_field_<date>.csv (Arduino field mode: an air-temperature thermistor + NWS, no globe) is not a globe recording
+    files = sorted(f for f in DATA.glob("node_*.csv") if not f.name.startswith("node_field_")) if DATA.exists() else []
     if real_only:
         files = [f for f in files if field_rows(_read_node_csv(f))]
     return files[-1] if files else None

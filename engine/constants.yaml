@@ -835,3 +835,23 @@ live_hr:
   status: DESIGN
   justification: "Display only: a strap that has sent nothing for this long is shown as not receiving (the BLE strap streams about once a second). Not physiology."
   stale_after_s: 15
+
+field_node:
+  status: DESIGN
+  justification: "Timing and sanity gates for the Arduino field-sensor path (engine/node_autostart.py, field_sensor.py, node_routes.py); none is physiology. They decide how fast a re-plugged board is found, when a silent one counts as gone, how long a fetched NWS forecast is reused, and which thermistor readings are rejected as a wiring fault. Each value is explained next to it."
+  note: "Field mode (HEATTWIN_NODE_MODE=field, the default): the Arduino's A0 thermistor temperature is the field AIR temperature; humidity, wind and sunlight come from live NWS (or the pinned forecast time-shifted to now when NWS is unreachable); WBGT is engine/wbgt.py (Liljegren) and the zone is engine/fhsaa.py. The thermistor is uncalibrated (nominal Beta) and, unshielded in the sun, reads above the true air temperature; every field reading says so."
+  scan_every_s: 2.0           # USB rescan period: a re-plugged board (same or a different port name) is found within this long
+  stale_after_s: 10.0         # a reading older than this is not used (live NWS / snapshot instead). The sketches print every 1 s
+                              # (node_leds.ino) or 2 s (thermistor_test.ino): 10 s is five of the slower period, enough to ride
+                              # out a USB hiccup or an Uno auto-reset (~2 s), short enough that an unplugged box is replaced by
+                              # NWS within seconds. The serial reader also reopens the port after this long without a line.
+  nws_cache_ttl_s: 600        # a fetched NWS gridpoint forecast is reused this long (in memory only; nothing written to fixtures/).
+                              # NWS updates its hourly forecast at most hourly; same 10 min as GET /weather and the KGNV observation.
+  nws_retry_s: 30             # after a failed NWS fetch, do not retry sooner (no hammering of api.weather.gov; the snapshot is used
+                              # meanwhile); short enough to recover soon after the network returns.
+  air_c_min: -20.0            # a thermistor reading outside [air_c_min, air_c_max] is a wiring fault (loose lead, floating pin),
+  air_c_max: 60.0             # not weather: wider than any air temperature a US high-school field plans for, narrower than what a
+                              # shorted or floating divider reads through the Beta equation. Such a reading is dropped.
+  reforecast_min_change_c: 0.5   # re-run a live session's weather chain when the field air temperature moved this much (about 5 ADC
+                                 # counts: 0.09 °C per count at 25 °C for a 10 kΩ Beta-3950 NTC on a 10-bit divider), so sensor
+                                 # noise does not trigger a re-forecast every second

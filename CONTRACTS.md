@@ -1,9 +1,10 @@
-# CONTRACTS.md — frozen data shapes (v1.6)
+# CONTRACTS.md — frozen data shapes (v1.7)
 
 Freeze at M0. Additive changes only after that.
 **v1.1 (additive, Oct 3):** fields marked `// v1.1` are new and optional; every v1 field keeps its meaning.
 **v1.2 (additive, Oct 3 night):** `// v1.2` — Drill.drill_type, OptimizeResult.top_changes/top_changes_text, voice-tool endpoints. Units are in field names. Times are ISO 8601 with offset; durations are in minutes.
 **v1.7 (additive, live demo):** `POST /live/start` optional `profile` (adds the live-demo athlete from git-ignored `profiles/local/*.json`, else the fictional "Demo athlete (live)"; maps it to the conditioning drill) and `plan_preset: "optimized"`; `LiveState.roster_extra`; `LiveState.athletes[id].suggestion` (`LiveSuggestion`); `POST /live/apply`; gate field `n_windows`; `GET /health` → `paid_api` (kill-switch counter).
+**v1.7 (additive, Arduino field mode):** the box's one thermistor is the field **air** temperature (`HEATTWIN_NODE_MODE=field`, the engine's built-in bridge default; `demo` keeps the indoor globe-as-sun scenario). `POST /node` accepts `mode: "field"` with only `air_temp_c` (+ `ts`, `node_id`): the engine adds NWS humidity / wind / sunlight (or the pinned forecast shifted to now when NWS is unreachable) and computes WBGT and the zone → `{ok, field, labels, source}`. `GET /node/latest` and `GET /node/status` gain `source: NodeSource` (below). `WeatherHour` gains `field_mode?`, `weather_from?`. Live-session weather chain (`POST /live/start` with `start_now`, no `weather`): node demo scenario → **fresh Arduino field reading** (over live NWS, else over the snapshot) → live NWS → snapshot; a running session re-runs it when the sensor appears / disappears / moves the air temperature. `?demo=1` Plan / Optimize never use the sensor. Constants: `field_node` (DESIGN). Details: firmware/SENSOR_DEMO.md.
 **v1.6 (additive, polish):** `POST /live/start` optional `live_demo` (athlete → drill their HR is read against) and response `live_demo`; `LiveState.athletes[id].live_demo`; `WeatherHour.time_shifted_min` (a live session on the pinned forecast shifted to now, labelled "forecast snapshot (time-shifted)"); `GET /validation/hr_recording`; `/live/replay` defaults to the synthetic file; guard rule "suspected/possible <heat illness>" with one exception scoped to the Collapse 911 script.
 **v1.5 (additive, final-ui):** `GET /live/state` (the web polls the live HR session), `LiveReplay.source.{date, device, label}`.
 **v1.4 (additive, Oct 3 night):** `?source=node` (node demo scenario weather; never with ?demo=1), `OptimizeResult.fewest_changes` (minimum compliant edit), `GET /demo/comparison` (same plan, three weather inputs), `/voice/answer` optional `question`, `first_cross_min: number | null`. GET /weather is implemented (engine/weather_routes.py, display only).
@@ -84,6 +85,19 @@ type WeatherHour = {
   fhsaa_zone: 1 | 2 | 3 | 4 | 5;
   source: "nws_forecast" | "field_node" | "assimilated" | "fixture";
   time_shifted_min?: number;  // v1.6: live session on the pinned forecast shifted by this many minutes to now
+  field_mode?: true;          // v1.7: Arduino air temperature (source "field_node") + NWS / snapshot humidity, wind, sunlight
+  weather_from?: "nws" | "snapshot";   // v1.7: where humidity / wind / sunlight came from when field_mode
+};
+
+// v1.7: GET /node/latest and GET /node/status → `source`: which weather a live session would use right now.
+type NodeSource = {
+  id: "field_sensor_nws" | "field_sensor_snapshot" | "demo_scenario" | "nws" | "snapshot" | "none";
+  label: string | null;       // "Field sensor (Arduino) + NWS" | "Field sensor (Arduino) + forecast snapshot (time-shifted)" |
+                              // "live NWS forecast" | "forecast snapshot (time-shifted)" | the DEMO scenario label
+  mode: "field" | "demo";     // HEATTWIN_NODE_MODE
+  sensor_fresh: boolean;      // an Arduino reading arrived within stale_after_s and the board is still there
+  reading_age_s: number | null;   // seconds since the last Arduino reading (keeps counting after an unplug; null = never)
+  stale_after_s: number;      // constants.field_node.stale_after_s
 };
 ```
 
@@ -93,6 +107,9 @@ type WeatherHour = {
   "air_temp_c": 30.1, "rh_pct": 62.0, "globe_temp_c": 41.3,
   "tub_temp_c": 9.8, "wind_m_s": null, "battery_v": 4.1 }
 ```
+v1.7 field mode (Arduino with one thermistor): `{ "node_id": "node-1", "ts": "…", "air_temp_c": 30.1, "mode": "field", "air_source": "arduino_a0" }`.
+The engine fills `rh_pct` / `wind_m_s` (NWS or the time-shifted pinned forecast), rejects an `air_temp_c` outside
+`field_node.air_c_min..air_c_max` with 422, and answers `{ok, field: WeatherHour (source "field_node", field_mode, weather_from, forecast_air_c, forecast_wbgt_f), labels, source}`; `reading.globe_c` is `null`.
 
 ## Live HR (web → engine POST /hr)
 ```json
@@ -184,7 +201,7 @@ type CollapseLog = {
 | GET | `/settings` | v1.1 → `{owner: "athletic trainer", settings: [{key, value, default, status, source, description, …}]}` |
 | GET | `/health` | v1.1 → `{ok, model, fhsaa: "stub" \| "ws1"}` |
 | POST | `/hr` | live HR → `{athlete_id, calib, reforecast: SimulationResult}` · v1.1 adds `gates: {crossing, persistent, coverage_ok, coverage_fraction, n_updates, flag, held_by[], message}`, `updated`, `replay`, `labels` |
-| POST | `/live/start` | v1.1 `{plan?, roster?, weather?, settings?, seed?}` → `{ok, plan_id, athletes}` — starts/reset the live session /hr uses (defaults to fixtures). v1.6: `live_demo?: Record<athleteId, drill id or name word>` (e.g. `{"a07": "conditioning"}`): that athlete's HR is read against the drill's intensity and gear instead of the plan drill at the clock; the re-forecast still runs the plan as written; labels gain `"live demo · <word>"`; response `live_demo: Record<athleteId, {drill_id, drill, intensity}>`; 422 for an unknown athlete or no matching drill. v1.6 weather with `start_now` and no `weather`: the node demo scenario if running; else live NWS (label "live NWS forecast", not cached to disk); else the pinned forecast shifted so its plan start lands on now (label "forecast snapshot (time-shifted)", `WeatherHour.time_shifted_min`). `?demo=1` is never affected |
+| POST | `/live/start` | v1.1 `{plan?, roster?, weather?, settings?, seed?}` → `{ok, plan_id, athletes}` — starts/reset the live session /hr uses (defaults to fixtures). v1.6: `live_demo?: Record<athleteId, drill id or name word>` (e.g. `{"a07": "conditioning"}`): that athlete's HR is read against the drill's intensity and gear instead of the plan drill at the clock; the re-forecast still runs the plan as written; labels gain `"live demo · <word>"`; response `live_demo: Record<athleteId, {drill_id, drill, intensity}>`; 422 for an unknown athlete or no matching drill. v1.6 weather with `start_now` and no `weather`: the node demo scenario if running; else live NWS (label "live NWS forecast", cached in memory only); else the pinned forecast shifted so its plan start lands on now (label "forecast snapshot (time-shifted)", `WeatherHour.time_shifted_min`). v1.7: with a fresh Arduino field reading (field mode) the air temperature of the plan-window hours is the Arduino's and WBGT is recomputed per hour (`source: "field_node"`, `field_mode`, `weather_from`), labels gain "Field sensor (Arduino) + NWS" or "Field sensor (Arduino) + forecast snapshot (time-shifted)" and the sensor note, in front of the base labels; the running session re-runs this chain when the sensor appears / disappears / moves ≥ `field_node.reforecast_min_change_c`. `?demo=1` is never affected |
 | POST | `/node` | node reading → `{ok}` |
 | GET | `/node/latest` | → last reading + assimilated `WeatherHour` |
 | GET | `/sources` | → constants.yaml as JSON with status |
@@ -200,7 +217,8 @@ type CollapseLog = {
 | POST | `/node` | v1.3 implemented: node reading (`node_bridge.node_payload`) → `{ok, hour: WeatherHour (source "field_node")}` — kept in memory for this engine run |
 | GET | `/node/latest` | v1.3 → `NodeLatest` (below). Newest `data/node_<date>.csv` or the last POST /node; else `{reading: null, labels: ["no field recording yet"]}` — never placeholder numbers |
 | GET | `/node/latest` | v1.4 (additive): `demo_version?: number` — > 0 while the indoor sensor demo runs; bumps when its inferred sun changes enough to change results. The web then calls `/simulate?source=node` |
-| GET | `/node/status` | v1.4 → `{enabled, state: "off" \| "waiting" \| "connected" \| "port_unavailable" \| "disconnected", port, since, detail, readings, demo_active}` — the engine's built-in Arduino bridge (engine/node_autostart.py; `HEATTWIN_NODE=off` disables it) |
+| GET | `/node/status` | v1.4 → `{enabled, state: "off" \| "waiting" \| "connected" \| "port_unavailable" \| "disconnected", port, since, detail, readings, demo_active}` — the engine's built-in Arduino bridge (engine/node_autostart.py; `HEATTWIN_NODE=off` disables it). v1.7 (additive): `mode: "field" \| "demo"` and `source: NodeSource`. The bridge rescans USB every `field_node.scan_every_s`, so unplug / replug (same or a different port name) needs no restart |
+| GET | `/node/latest` | v1.7 (additive): `source: NodeSource` on every answer (active source label and last-reading age); in field mode `reading.globe_c` is null, `reading.air_c` the Arduino temperature, `field` the fused `WeatherHour`, `assimilated` the next 3 h with that air temperature held |
 | POST | `/plan/parse` · `/plan/parse_audio` · GET `/plan/llm_status` | v1.3 (shipped on llm-bridge) Gemini plan entry → `PlanDraft {plan, transcript, assumptions[], unclear[], total_min, needs_confirmation: true, labels, model}`. Coach must confirm before /simulate |
 | POST | `/voice/intent` | v1.3 `{text? \| audio_b64 + mime_type, plan?, roster?}` → `VoiceIntent` (below). Gemini returns only `{transcript, intent, slots}` against a JSON schema; the engine validates it and resolves names against the plan. 503 when no GEMINI_API_KEY (the web then routes typed text locally) |
 | POST | `/voice/answer` | v1.3 `{intent, slots, plan?, roster?, settings?}` (`?demo=1`) → `VoiceAnswer` (below). The engine runs the tool and writes the sentence; `say` already passed engine/guard.py |

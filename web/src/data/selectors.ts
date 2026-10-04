@@ -9,6 +9,7 @@ import type {
   LiveSuggestion,
   LiveReplay,
   NataPhase,
+  NodeSource,
   ReplayFrame,
   SettingsResponse,
   SimulationResult,
@@ -231,6 +232,52 @@ export const SNAPSHOT_LABEL = 'forecast snapshot (time-shifted)'
 /** The field card's source chip: the weather source, or the time-shifted snapshot during a live session. */
 export function fieldSourceLabel(h: Pick<WeatherHour, 'source' | 'time_shifted_min'> | null | undefined): string {
   return h?.time_shifted_min != null ? 'Forecast snapshot (time-shifted)' : weatherSourceLabel(h?.source)
+}
+
+/** The hour is the Arduino's air temperature with NWS (or snapshot) humidity / wind / sunlight (engine v1.7 field mode). */
+export function isFieldSensorHour(h: Pick<WeatherHour, 'source' | 'field_mode'> | null | undefined): boolean {
+  return h?.source === 'field_node' && h.field_mode === true
+}
+
+/** "4 s ago" / "2 min ago" / "1 h ago": how long ago the Arduino's last reading arrived (engine `reading_age_s`). */
+export function readingAgeText(ageS: number | null | undefined): string | null {
+  if (ageS == null || !Number.isFinite(ageS)) return null
+  const s = Math.max(0, Math.round(ageS))
+  if (s < 60) return `${s} s ago`
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`
+  return `${Math.floor(s / 3600)} h ago`
+}
+
+/**
+ * The field card's source chip. When the hour on the card is the field sensor's, the active source and the last
+ * reading's age ("Field sensor + NWS · 4 s ago"); otherwise today's text (the weather source / the time-shifted snapshot).
+ */
+export function fieldSourceChip(
+  h: Pick<WeatherHour, 'source' | 'time_shifted_min' | 'field_mode' | 'weather_from'> | null | undefined,
+  node: Pick<NodeSource, 'reading_age_s'> | null | undefined,
+): string {
+  if (!isFieldSensorHour(h)) return fieldSourceLabel(h)
+  const base = h?.weather_from === 'snapshot' ? 'Field sensor + snapshot' : 'Field sensor + NWS'
+  const age = readingAgeText(node?.reading_age_s)
+  return age ? `${base} · ${age}` : base
+}
+
+/** Title (hover) line about the Arduino for the field card; null when there is nothing to say. */
+export function fieldSensorNote(
+  h: Pick<WeatherHour, 'source' | 'field_mode' | 'weather_from'> | null | undefined,
+  node: NodeSource | null | undefined,
+): string | null {
+  if (!node || node.mode !== 'field') return null
+  const age = readingAgeText(node.reading_age_s)
+  if (isFieldSensorHour(h)) {
+    const from = h?.weather_from === 'snapshot' ? 'the pinned forecast shifted to now (NWS unreachable)' : 'live NWS'
+    const state = node.sensor_fresh ? '' : ` — no recent reading (older than ${node.stale_after_s} s), falling back`
+    return `Field sensor (Arduino): uncalibrated thermistor = field air temperature; humidity, wind and sunlight from ${from}${age ? ` · last reading ${age}` : ''}${state}`
+  }
+  if (age == null) return null
+  return node.sensor_fresh
+    ? `Field sensor (Arduino) connected · last reading ${age} — this plan keeps the pinned forecast; a live session uses the sensor`
+    : `Field sensor (Arduino) not in use · last reading ${age} — ${node.label ?? 'forecast'} instead`
 }
 
 /** Display name of a WeatherHour source (the field card chip). */

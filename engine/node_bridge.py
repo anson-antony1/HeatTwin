@@ -15,6 +15,10 @@ for the same minute.
     python -m engine.node_bridge --port /dev/ttyACM0 --post http://localhost:8010/node
     python -m engine.node_bridge --replay data/node_2026-10-03.raw.txt     # re-run saved serial output
     python -m engine.node_bridge --port /dev/ttyACM0 --demo --post http://localhost:8010/node   # indoor demo
+    python -m engine.node_bridge --port /dev/ttyACM0 --field --post http://localhost:8010/node  # air temp + NWS
+
+``--field`` (the engine's default when it runs the bridge itself): the box's one thermistor is read as the field AIR
+temperature, and NWS supplies humidity, wind and sunlight (engine/field_sensor.py); rows go to data/node_field_<date>.csv.
 """
 from __future__ import annotations
 
@@ -27,7 +31,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Iterable, Iterator, Optional
 
-from engine import weather
+from engine import field_sensor, weather
 
 SITE = {"lat": 29.6516, "lon": -82.3248}     # demo field (fixtures/plan.json site)
 STATION = "KGNV"
@@ -198,6 +202,26 @@ class DemoScenario:
                           "wind_10m_m_s": round(self.wind_10m, 2)}}
 
 
+class FieldFusion:
+    """Field mode (engine/field_sensor.py): the one thermistor (A0) is the AIR temperature at the field; relative humidity,
+    10 m wind and sunlight are NWS's (or the time-shifted pinned forecast when NWS is unreachable). WBGT = engine/wbgt.py."""
+
+    def __init__(self, use_nws: bool = True):
+        self.use_nws = use_nws
+
+    def row(self, raw: dict[str, float], t: datetime) -> Optional[dict[str, Any]]:
+        air = raw["globe_c"]                      # the sketch's A0 column; in field mode it is the air thermistor
+        if not field_sensor.plausible(air):
+            return None
+        f = field_sensor.fuse(air, t, SITE["lat"], SITE["lon"], use_nws=self.use_nws)
+        return {"ts": t.isoformat(timespec="seconds"), "globe_c": "", "globe_ohm": round(raw["globe_ohm"]),
+                "air_c": f["air_temp_c"], "rh_pct": f["rh_pct"], "wind_m_s": f["wind_m_s"],
+                "air_source": f"arduino_a0 + {f['weather_from']}", "node_wbgt_f": f["wbgt_f"],
+                "forecast_wbgt_f": f["forecast_wbgt_f"],
+                "field_minus_forecast_f": round(f["wbgt_f"] - f["forecast_wbgt_f"], 1), "fhsaa_zone": f["fhsaa_zone"],
+                "solar_inferred_w_m2": "", "globe_calibrated": False, "mode": "field", "_field": f}
+
+
 # ── one reading → one row ────────────────────────────────────────────────────
 
 def make_row(raw: dict[str, float], t: datetime, air: AirSource, mode: str) -> Optional[dict[str, Any]]:
@@ -222,6 +246,9 @@ def make_row(raw: dict[str, float], t: datetime, air: AirSource, mode: str) -> O
 
 def node_payload(row: dict[str, Any]) -> dict[str, Any]:
     """CONTRACTS.md node reading, plus additive fields saying where air/RH came from."""
+    if row.get("mode") == "field":       # only what the box measured; the engine adds NWS humidity / wind / sunlight
+        return {"node_id": "node-1", "ts": row["ts"], "air_temp_c": row["air_c"], "tub_temp_c": None, "battery_v": None,
+                "mode": "field", "air_source": "arduino_a0", "globe_calibrated": False}
     return {"node_id": "node-1", "ts": row["ts"], "air_temp_c": row["air_c"], "rh_pct": row["rh_pct"],
             "globe_temp_c": row["globe_c"], "tub_temp_c": None, "wind_m_s": None, "battery_v": None,
             "air_source": row["air_source"], "globe_calibrated": False,
@@ -233,14 +260,36 @@ def node_payload(row: dict[str, Any]) -> dict[str, Any]:
 class SerialNode:
     """The Uno over USB: read sketch lines, and send the engine's FHSAA zone back for the LEDs ("Z<n>\\n")."""
 
-    def __init__(self, port: str, baud: int = 115200):
+    def __init__(self, port: str, baud: int = 115200, timeout: float = 5):
         import serial
 
-        self.s = serial.Serial(port, baud, timeout=5)
+        self.port = port
+        self.s = serial.Serial(port, baud, timeout=timeout)
 
-    def lines(self) -> Iterator[str]:
-        while True:
-            yield self.s.readline().decode("utf-8", errors="replace")
+    def present(self) -> bool:
+        """The port is still listed by the OS (a vanished USB device drops out of the list)."""
+        from serial.tools import list_ports
+
+        return any(p.device == self.port for p in list_ports.comports())
+
+    def lines(self, stop=None, silent_after_s: Optional[float] = None) -> Iterator[str]:
+        """Sketch lines as they arrive. A read that times out yields "" (a tick, so the caller can check ``stop``) after
+        checking the board is still there: raises SerialException when the port vanished, or when no line has come for
+        ``silent_after_s`` (a hung board, or a port that lost its device) — the caller closes and rescans."""
+        import serial
+
+        last = time.monotonic()
+        while stop is None or not stop.is_set():
+            raw = self.s.readline()
+            if raw:
+                last = time.monotonic()
+                yield raw.decode("utf-8", errors="replace")
+                continue
+            if not self.present():
+                raise serial.SerialException(f"{self.port} is no longer connected")
+            if silent_after_s is not None and time.monotonic() - last > silent_after_s:
+                raise serial.SerialException(f"no data on {self.port} for {silent_after_s:g} s")
+            yield ""
 
     def send_zone(self, zone: int) -> None:
         try:
@@ -248,26 +297,49 @@ class SerialNode:
         except Exception:  # noqa: BLE001 — LEDs are a nice-to-have; never stop logging for them
             pass
 
+    def close(self) -> None:
+        try:
+            self.s.close()
+        except Exception:  # noqa: BLE001
+            pass
+
 
 def serial_lines(port: str, baud: int = 115200) -> Iterator[str]:
     return SerialNode(port, baud).lines()
 
 
-def run(lines: Iterable[str], mode: str, post_url: Optional[str] = None, out_dir: Path = DATA_DIR,
+def _console_line(row: dict[str, Any], demo: bool) -> str:
+    if row.get("mode") == "field":
+        fd = row["_field"]
+        return (f"{row['ts'][11:19]}  air {row['air_c']:4.1f}°C (Arduino)  RH {row['rh_pct']:3.0f}% wind {row['wind_m_s']:3.1f} m/s "
+                f"sun {fd['solar_w_m2']:4.0f} W/m² ({fd['weather_from']})  →  field WBGT {row['node_wbgt_f']:5.1f}°F "
+                f"zone {row['fhsaa_zone']}  vs forecast {row['forecast_wbgt_f']:5.1f}°F  [{row['field_minus_forecast_f']:+.1f}]  "
+                f"{field_sensor.label_for(fd['weather_from'])}")
+    return (f"{row['ts'][11:19]}  globe {row['globe_c']:5.1f}°C  air {row['air_c']:4.1f}°C RH {row['rh_pct']:3.0f}% "
+            f"({row['air_source']})  →  field WBGT {row['node_wbgt_f']:5.1f}°F zone {row['fhsaa_zone']}  "
+            f"vs {'baseline' if demo else 'forecast'} {row['forecast_wbgt_f']:5.1f}°F  [{row['field_minus_forecast_f']:+.1f}]  "
+            f"{'DEMO scenario' if demo else 'uncalibrated'}")
+
+
+def run(lines: Iterable[str], mode: str, post_url: Optional[str] = None, out_dir: Optional[Path] = None,
         offline: bool = False, clock=None, use_a1: bool = False, demo: bool = False,
-        air_mode: Optional[str] = None, send_zone=None, post_fn=None, stop=None, gain: Optional[float] = None) -> Path:
+        air_mode: Optional[str] = None, send_zone=None, post_fn=None, stop=None, gain: Optional[float] = None,
+        field: bool = False) -> Path:
     """post_fn(payload) -> response dict: post in-process (engine/node_autostart.py) instead of HTTP to post_url.
-    stop: a threading.Event that ends the loop."""
+    stop: a threading.Event that ends the loop. field: field mode (FieldFusion; no forecast fetch, no cache files).
+    out_dir defaults to data/ (looked up at call time)."""
+    out_dir = DATA_DIR if out_dir is None else out_dir
     out_dir.mkdir(parents=True, exist_ok=True)
     now = (clock or (lambda: datetime.now().astimezone()))
-    forecast = weather.get_forecast(SITE["lat"], SITE["lon"], offline=offline)
+    forecast = [] if field else weather.get_forecast(SITE["lat"], SITE["lon"], offline=offline)
     air = AirSource(forecast, offline=offline, use_a1=use_a1)
+    fusion = FieldFusion(use_nws=not offline) if field else None
     scenario = DemoScenario(air, air_mode, gain) if demo else None
     if scenario:
         print(f"DEMO: air {scenario.air_c:.1f}°C, RH {scenario.rh:.0f}% ({scenario.air_source}); no-sun WBGT "
               f"{scenario.baseline_wbgt_f():.1f}°F. Heat the globe to add 'sun'.", flush=True)
     day = now().date().isoformat()
-    path = out_dir / (f"node_demo_{day}.csv" if demo else f"node_{day}.csv")
+    path = out_dir / (f"node_demo_{day}.csv" if demo else f"node_field_{day}.csv" if field else f"node_{day}.csv")
     raw_path = out_dir / f"node_{day}.raw.txt"
     new = not path.exists()
     warned = False
@@ -278,21 +350,21 @@ def run(lines: Iterable[str], mode: str, post_url: Optional[str] = None, out_dir
         for line in lines:
             if stop is not None and stop.is_set():
                 break
+            if not line:                       # SerialNode.lines() tick: the read timed out
+                continue
             if mode == "live":
                 raw_f.write(line if line.endswith("\n") else line + "\n")   # keep the untouched serial stream
                 raw_f.flush()
             raw = parse_line(line)
             if raw is None:
                 continue
-            row = scenario.row(raw, now()) if scenario else make_row(raw, now(), air, mode)
+            row = (scenario.row(raw, now()) if scenario else fusion.row(raw, now()) if fusion
+                   else make_row(raw, now(), air, mode))
             if row is None:
                 continue
             w.writerow({k: v for k, v in row.items() if k in FIELDS})
             f.flush()
-            print(f"{row['ts'][11:19]}  globe {row['globe_c']:5.1f}°C  air {row['air_c']:4.1f}°C RH {row['rh_pct']:3.0f}% "
-                  f"({row['air_source']})  →  field WBGT {row['node_wbgt_f']:5.1f}°F zone {row['fhsaa_zone']}  "
-                  f"vs {'baseline' if scenario else 'forecast'} {row['forecast_wbgt_f']:5.1f}°F  [{row['field_minus_forecast_f']:+.1f}]  "
-                  f"{'DEMO scenario' if scenario else 'uncalibrated'}", flush=True)
+            print(_console_line(row, scenario is not None), flush=True)
             zone = row["fhsaa_zone"]
             if post_fn is not None:
                 try:
@@ -328,21 +400,30 @@ def main(argv: Optional[list[str]] = None) -> None:
     ap.add_argument("--out", type=Path, default=DATA_DIR)
     ap.add_argument("--offline", action="store_true", help="no network: cached forecast for air/RH")
     ap.add_argument("--use-a1", action="store_true", help="a shaded air thermistor is wired to A1 (ignored otherwise)")
-    ap.add_argument("--demo", action="store_true",
-                    help="indoor demo: zero the globe on the room; the globe's rise is the sun (constants.demo_node)")
+    mode = ap.add_mutually_exclusive_group()
+    mode.add_argument("--demo", action="store_true",
+                      help="indoor demo: zero the globe on the room; the globe's rise is the sun (constants.demo_node)")
+    mode.add_argument("--field", action="store_true",
+                      help="field mode: the thermistor is the air temperature; NWS humidity, wind and sunlight "
+                           "(engine/field_sensor.py)")
     ap.add_argument("--demo-air", choices=["station", "scenario"], default=None,
                     help="demo air/RH/wind: live NWS station (default) or the fixed hot-day scenario")
     ap.add_argument("--no-leds", action="store_true", help="don't send FHSAA zones back to the Uno's LEDs")
     a = ap.parse_args(argv)
     if a.port:
+        import serial
+
         node = SerialNode(a.port)
-        path = run(node.lines(), "live", a.post, a.out, a.offline, use_a1=a.use_a1, demo=a.demo, air_mode=a.demo_air,
-                   send_zone=None if a.no_leds else node.send_zone)
+        try:
+            path = run(node.lines(), "live", a.post, a.out, a.offline, use_a1=a.use_a1, demo=a.demo, air_mode=a.demo_air,
+                       send_zone=None if a.no_leds else node.send_zone, field=a.field)
+        except serial.SerialException as e:         # unplugged: the engine's built-in bridge (node_autostart) rescans; this one stops
+            raise SystemExit(f"serial port lost: {e}") from e
     else:
         t0 = datetime.now().astimezone()
         ticks = iter(t0 + timedelta(seconds=2 * i) for i in range(10**9))
         path = run(a.replay.read_text().splitlines(), "replay", a.post, a.out, a.offline, clock=lambda: next(ticks), use_a1=a.use_a1,
-                   demo=a.demo, air_mode=a.demo_air)
+                   demo=a.demo, air_mode=a.demo_air, field=a.field)
     print(f"logged to {path}")
 
 

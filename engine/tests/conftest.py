@@ -20,6 +20,10 @@ def _no_network(monkeypatch, tmp_path_factory):
         raise ConnectionError("tests run offline")
     monkeypatch.setattr(weather, "fetch_gridpoint", offline)
     monkeypatch.setattr(weather, "CACHE_DIR", tmp_path_factory.mktemp("weather_cache"))
+    from engine import field_sensor
+    field_sensor.reset()          # the in-memory NWS cache of the Arduino field mode never leaks between tests
+    yield
+    field_sensor.reset()
 
 
 @pytest.fixture(autouse=True)

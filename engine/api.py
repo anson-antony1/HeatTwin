@@ -22,7 +22,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
 
-from engine import consts, fixtures, node_routes, optimizer
+from engine import consts, field_sensor, fixtures, node_routes, optimizer
 from engine import settings as at_settings
 from engine.physio import twonode
 
@@ -205,8 +205,8 @@ def _forecast_for(plan: dict, labels: list[str], demo_mode: bool = False, node_s
     return _fixture_hours(t0, t1, labels)
 
 
-SNAPSHOT_LABEL = "forecast snapshot (time-shifted)"
-LIVE_NWS_LABEL = "live NWS forecast"
+SNAPSHOT_LABEL = field_sensor.SNAPSHOT_LABEL
+LIVE_NWS_LABEL = field_sensor.LIVE_NWS_LABEL
 _WEATHER_LABELS = ("forecast is fixture", "live forecast unavailable; cached NWS fixture used",
                    "fixture forecast does not cover the plan window; nearest hours used",
                    "demo mode: forecast pinned to the cached NWS fixture")
@@ -218,21 +218,27 @@ def _covers(hours: list[dict], t0, t1) -> bool:
 
 
 def _live_nws_hours(plan: dict) -> Optional[list[dict]]:
-    """Live NWS gridpoint hours with engine WBGT, or None when unreachable. Not written to the weather cache."""
+    """Live NWS gridpoint hours with engine WBGT, or None when unreachable. Cached in memory for
+    constants.field_node.nws_cache_ttl_s (engine/field_sensor.py); not written to the weather cache."""
     from engine import weather as ws1
     lat, lon = plan["site"]["lat"], plan["site"]["lon"]
+    hours = field_sensor.nws_hours(lat, lon, wait=True)
+    if hours is None:
+        return None
     try:
-        raw, tz = ws1.fetch_gridpoint(lat, lon)
-        return ws1.add_wbgt(ws1.hours_from_gridpoint(raw, tz), lat, lon)
-    except Exception:  # noqa: BLE001 — any network/parse failure → the time-shifted snapshot
+        return ws1.add_wbgt([dict(h) for h in hours], lat, lon)
+    except Exception:  # noqa: BLE001 — a parse failure → the time-shifted snapshot
         return None
 
 
 def _live_session_weather(plan: dict, pinned_start: str, labels: list[str]) -> list[dict]:
-    """Polish 5: weather for a live session at the current time. The indoor node demo's scenario when it runs; else
-    live NWS when reachable; else the pinned demo forecast shifted so the pinned plan start lands on the session start
-    (labelled "forecast snapshot (time-shifted)"; the sun angle is still computed for the real clock). ?demo=1 is
-    never affected."""
+    """Weather for a live session at the current time, in order: the indoor node demo's scenario when it runs; else the
+    base hours — live NWS when reachable, else the pinned demo forecast shifted so the pinned plan start lands on the
+    session start (labelled "forecast snapshot (time-shifted)"; the sun angle is still computed for the real clock) —
+    with a fresh Arduino field reading (node_routes.field_reading, v1.7) holding the field air temperature across the
+    plan window, WBGT recomputed per hour from that hour's NWS / snapshot humidity, wind and sunlight (labelled "Field
+    sensor (Arduino) + NWS" or "… + forecast snapshot (time-shifted)", in front of the base labels). ?demo=1 is never
+    affected."""
     t0 = twonode.parse_time(plan["start"])
     t1 = t0 + timedelta(minutes=sum(float(d["duration_min"]) for d in plan["drills"])
                         + consts.get("optimizer.max_added_minutes"))
@@ -242,17 +248,20 @@ def _live_session_weather(plan: dict, pinned_start: str, labels: list[str]) -> l
         return scenario
     hours = _live_nws_hours(plan)
     if hours and _covers(hours, t0, t1):
-        labels.append(LIVE_NWS_LABEL)
-        return hours
-    labels.append("live NWS unreachable" if hours is None else "live NWS forecast does not cover this session")
-    shift = t0 - twonode.parse_time(pinned_start)
-    shift_min = round(shift.total_seconds() / 60.0)
-    shifted = [{**h, "time": (twonode.parse_time(h["time"]) + shift).isoformat(), "time_shifted_min": shift_min}
-               for h in fixtures.forecast()]
-    labels.append(SNAPSHOT_LABEL)
-    if not _covers(shifted, t0, t1):
-        labels.append("fixture forecast does not cover the plan window; nearest hours used")
-    return shifted
+        base, notes, src = hours, [LIVE_NWS_LABEL], "nws"
+    else:
+        base, src = field_sensor.snapshot_hours(t0, pinned_start), "snapshot"
+        notes = ["live NWS unreachable" if hours is None else "live NWS forecast does not cover this session",
+                 SNAPSHOT_LABEL]
+        if not _covers(base, t0, t1):
+            notes.append("fixture forecast does not cover the plan window; nearest hours used")
+    fr = node_routes.field_reading()
+    if fr is not None:
+        site = plan["site"]
+        base = field_sensor.apply_air_temp(base, float(fr["air_temp_c"]), site["lat"], site["lon"], t0, t1, src)
+        notes = [field_sensor.label_for(src), field_sensor.THERMISTOR_LABEL, *notes]
+    labels.extend(notes)
+    return base
 
 
 def _fixture_hours(t0, t1, labels: list[str]) -> list[dict]:
@@ -412,6 +421,7 @@ def live_start(req: LiveStart | None = None) -> dict[str, Any]:
         labels = [*labels, *plabels]
         if req.live_demo is None:
             req = req.model_copy(update={"live_demo": {prof["id"]: "conditioning"}})
+    chain = None
     if req.start_now:
         from datetime import datetime
         pinned_start = plan["start"]
@@ -419,7 +429,9 @@ def live_start(req: LiveStart | None = None) -> dict[str, Any]:
         labels = [*labels, "plan clock set to now for a live HR session"]
         if req.weather is None:
             labels = [x for x in labels if x not in (*_WEATHER_LABELS, node_routes.DEMO_LABEL)]
+            n = len(labels)
             weather = _live_session_weather(plan, pinned_start, labels)
+            chain = {"pinned_start": pinned_start, "labels": labels[n:]}   # re-run when the field sensor changes
     observe: dict[str, dict] = {}
     if req.live_demo:
         ids = {a["id"] for a in roster}
@@ -436,6 +448,7 @@ def live_start(req: LiveStart | None = None) -> dict[str, Any]:
     _LIVE["session"] = LiveSession(plan, roster, weather, settings=_settings(req), seed=req.seed, extra_labels=labels,
                                    observe=observe)
     _LIVE["roster_extra"], _LIVE["suggestions"] = extra, {}
+    _LIVE["chain"] = chain
     _LIVE["last"], _LIVE["prior"] = {}, _guard(_LIVE["session"].reforecast())   # plan forecast before any HR
     return {"ok": True, "plan_id": plan["id"], "start": plan["start"], "athletes": [a["id"] for a in roster],
             "live_demo": {aid: {"drill_id": d["id"], "drill": d["name"], "intensity": d["intensity"]}
@@ -862,6 +875,25 @@ def _on_node_demo_update() -> dict | None:
 
 
 node_routes.on_demo_update = _on_node_demo_update
+
+
+def _on_node_field_update() -> dict | None:
+    """The Arduino field reading appeared, went away (unplugged / silent) or moved the air temperature enough: re-run the
+    live session's weather chain (field sensor → live NWS → snapshot) and re-forecast. Only for a session started with
+    ``start_now`` and no ``weather`` (the chain); others keep the weather they were given."""
+    s, chain = _LIVE.get("session"), _LIVE.get("chain")
+    if s is None or chain is None:
+        return None
+    notes: list[str] = []
+    s.weather = _live_session_weather(s.plan, chain["pinned_start"], notes)
+    s.extra_labels = [*(x for x in s.extra_labels if x not in chain["labels"]), *notes]
+    chain["labels"] = notes
+    res = _guard(s.reforecast())
+    _LIVE["reforecast"] = res
+    return res
+
+
+node_routes.on_field_update = _on_node_field_update
 
 
 # Built-in sensor bridge: find the Arduino on USB and stream it into /node (engine/node_autostart.py; HEATTWIN_NODE=off).
