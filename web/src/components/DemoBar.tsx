@@ -16,7 +16,8 @@ export function DemoBar() {
   const progress = s.totalMinutes > 0 ? s.minute / s.totalMinutes : 0
   // "Skip to heat": the earliest minute the engine forecasts anyone over the line (else its first gates flag).
   const skipTo = s.skipTo
-  const tag = s.source === 'offline' ? 'Offline' : s.clock === 'live' ? 'Live' : 'Replay'
+  // 'Live' only for a strap stream; hr_bridge replaying a file on the live clock is still a replay.
+  const tag = s.source === 'offline' ? 'Offline' : s.clock === 'live' && !/^replay/i.test(s.live.label ?? '') ? 'Live' : 'Replay'
   const tagTitle =
     s.source === 'offline'
       ? 'HeatTwin engine unreachable — offline fallback, no estimates'

@@ -127,7 +127,7 @@ def test_demo_inputs_match_what_demo_simulate_uses():
 
 
 def test_live_replay_synthetic_fixture_is_labelled_and_deterministic():
-    r = client.post("/live/replay?demo=1", json={})
+    r = client.post("/live/replay?demo=1", json={"file": "hr_a07_synthetic.csv"})
     assert r.status_code == 200
     j = r.json()
     assert j["source"]["synthetic"] is True and j["source"]["file"].endswith("hr_a07_synthetic.csv")
@@ -135,7 +135,7 @@ def test_live_replay_synthetic_fixture_is_labelled_and_deterministic():
     assert j["frames"] and all(f["athlete_id"] == "a07" for f in j["frames"])
     assert [f["minute"] for f in j["frames"]] == sorted(f["minute"] for f in j["frames"])
     assert j["plan_forecast"]["plan_id"] == "plan-demo-1"
-    assert client.post("/live/replay?demo=1", json={}).json()["frames"] == j["frames"]
+    assert client.post("/live/replay?demo=1", json={"file": "hr_a07_synthetic.csv"}).json()["frames"] == j["frames"]
 
 
 def test_node_latest_without_recording_has_no_numbers(monkeypatch, tmp_path):
@@ -258,5 +258,12 @@ def test_live_state_shows_the_strap_reading_and_reforecast():
 
 
 def test_live_replay_source_label_says_what_is_replayed():
-    j = client.post("/live/replay?demo=1", json={}).json()
+    j = client.post("/live/replay?demo=1", json={"file": "hr_a07_synthetic.csv"}).json()
     assert j["source"]["label"] == "replay · synthetic HR file (not a real athlete)" and j["source"]["date"] is None
+    from engine import demo_data
+    real = sorted(p for p in demo_data.FIXTURES.glob("hr_*.csv") if not demo_data.hr_is_synthetic(p))
+    d = client.post("/live/replay?demo=1", json={}).json()["source"]   # default: newest real recording, else synthetic
+    if real:
+        assert d["synthetic"] is False and d["label"] == f"replay · {d['date']} · {d['device']}"
+    else:
+        assert d["synthetic"] is True
