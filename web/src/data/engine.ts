@@ -45,8 +45,9 @@ import {
 export type SessionSource = 'loading' | 'engine' | 'offline'
 
 export interface ReplayInfo {
-  /** `other_plan`: the plan on screen is not the one the HR file was recorded on — no replay. */
-  status: 'idle' | 'loading' | 'ready' | 'error' | 'other_plan'
+  /** `other_plan`: the plan on screen is not the one the HR file was recorded on — no replay.
+   *  `sensor`: the indoor sensor demo drives the weather; the HR replay (recorded on the pinned forecast) is paused. */
+  status: 'idle' | 'loading' | 'ready' | 'error' | 'other_plan' | 'sensor'
   /** The HR file is synthetic (not a real athlete). */
   synthetic: boolean
   /** Engine provenance label: "replay · <date> · <device>" / "replay · synthetic HR file (not a real athlete)". */
@@ -58,10 +59,11 @@ export interface ReplayInfo {
 }
 
 /** Whether the HR replay belongs to the plan handed to the session (planStore decides, against /demo/inputs). */
-export type ReplayFor = 'this_plan' | 'other_plan' | 'unknown'
+export type ReplayFor = 'this_plan' | 'other_plan' | 'unknown' | 'sensor'
 
 /** The note Live and Athlete show while the HR replay is held back because another plan is on screen. */
 export function replayHeldNote(r: ReplayInfo, planSource?: string): string | null {
+  if (r.status === 'sensor') return 'HR replay paused — the indoor sensor demo (heated globe) is driving the weather'
   if (r.status !== 'other_plan') return null
   return planSource === 'optimized'
     ? 'HR replay was recorded on the original plan — undo the optimization to watch it'
@@ -185,12 +187,24 @@ class Session {
     this.curves = sim ? makeCurveCache(sim.step_min, planMinutes(plan)) : null
     this.clearReplay()
     if (sim && replayFor === 'other_plan') this.replayInfo = { ...NO_REPLAY, status: 'other_plan' }
+    if (sim && replayFor === 'sensor') this.replayInfo = { ...NO_REPLAY, status: 'sensor' }
     if (sim && replayFor === 'unknown')
       this.replayInfo = { ...NO_REPLAY, status: 'error', error: "the engine's demo plan is unknown (GET /demo/inputs failed)" }
     this.reset()
     this.resume()
     this.syncLiveTick()
     if (sim && replayFor === 'this_plan') void this.loadReplay(plan)
+  }
+
+  /**
+   * New engine numbers for the plan already on screen (the sensor demo's weather moved): swap them in without
+   * resetting the playback clock or reloading the HR replay, so the views change smoothly with the sensor.
+   */
+  updateSim(sim: SimulationResult) {
+    if (!this.plan) return
+    this.sim = sim
+    this.curves = makeCurveCache(sim.step_min, planMinutes(this.plan))
+    this.publish()
   }
 
   /** Engine unreachable: the plan structure and roster stay on screen with no numbers ("—", badged). */

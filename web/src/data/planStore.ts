@@ -100,6 +100,7 @@ function forget() {
 
 /** The HR file was recorded on the engine's demo plan: replay it only while that plan (same id and drills) is on screen. */
 function replayFor(plan: PracticePlan): ReplayFor {
+  if (sensorWeather()) return 'sensor'
   const inputs = engineMeta.get().inputs
   if (!inputs) return 'unknown'
   return isDemoPlan(plan, inputs) ? 'this_plan' : 'other_plan'
@@ -107,6 +108,7 @@ function replayFor(plan: PracticePlan): ReplayFor {
 
 /** Hand the plan and its engine result to the session, keeping play state. */
 function apply(plan: PracticePlan, sim: SimulationResult | null) {
+  sensorWasOn = sensorWeather()
   const wasRunning = engine.getSnapshot().running
   if (sim) engine.setPlan(plan, sim, replayFor(plan))
   else if (state.offline) engine.setOffline(plan, (engineMeta.get().inputs?.roster ?? FIXTURE_ROSTER).map((a) => a.id))
@@ -193,11 +195,15 @@ export const planStore = {
    */
   async resimulate() {
     if (state.phase === 'simulating' || state.phase === 'optimizing' || state.offline) return
+    const sensor = sensorWeather()
     const signal = begin('simulating')
     try {
-      const sim = await simulatePlan(state.plan, signal, sensorWeather())
+      const sim = await simulatePlan(state.plan, signal, sensor)
       landed({ sim })
-      apply(state.plan, sim)
+      // Sensor still running: swap the numbers in place (keep the clock). Demo started/stopped: full hand-off, so the
+      // HR replay is paused (sensor) or reloaded (pinned forecast again).
+      if (sensor && sensorWasOn) engine.updateSim(sim)
+      else apply(state.plan, sim)
     } catch (e) {
       fail(e)
     }
@@ -323,6 +329,7 @@ export function gearFor(d: PracticePlan['drills'][number], athleteId: string): C
 // Sensor demo → plan: when /node/latest's demo_version changes (sun moved enough, or the demo started/stopped),
 // re-simulate the plan on screen with the sensor's weather. A run already in flight is followed by one more.
 let lastNodeVersion = 0
+let sensorWasOn = false
 let pendingNode = false
 let watching = false
 
