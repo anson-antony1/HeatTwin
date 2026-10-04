@@ -64,7 +64,7 @@ stays 0; the tests assert it).
 ## The decisions
 
 All five use one mechanism: embed the utterance with fastembed (ONNX, no torch; default `BAAI/bge-small-en-v1.5`, set
-`FASTEMBED_MODEL`; ~70 MB cached in `FASTEMBED_CACHE_DIR`, default `.cache/fastembed`), take the cosine similarity to labelled
+`FASTEMBED_MODEL`; ~70 MB cached in `FASTEMBED_CACHE_DIR`, default `~/.cache/heattwin/fastembed`, shared by every checkout; without the model the assist is advisory only and never redacts), take the cosine similarity to labelled
 **exemplars**, run a **temperature-scaled softmax over the exemplars summed per class** (a soft nearest-neighbour vote), and
 **abstain** when the top probability is below a calibrated threshold (or the top two are tied).
 
