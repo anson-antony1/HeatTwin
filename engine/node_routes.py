@@ -173,6 +173,14 @@ def end_field() -> None:
     _run_field_hook()
 
 
+def _expire_field() -> None:
+    """A reading that just stopped arriving with no unplug event (an external bridge died, a hung board): once it is older
+    than stale_after_s treat the board as gone, so a running live session falls back like it does on an unplug."""
+    age = field_age_s()
+    if age is not None and not _field["ended"] and age >= consts.get("field_node.stale_after_s"):
+        end_field()
+
+
 def field_age_s() -> Optional[float]:
     """Seconds since the last field (Arduino) reading arrived; None if none has."""
     return None if _field["reading"] is None else round(max(0.0, time.time() - _field["received"]), 1)
@@ -196,6 +204,7 @@ def source_info() -> dict[str, Any]:
     (no fresh reading: live NWS if reachable, else the pinned forecast shifted to now) | "none" (no sensor path)."""
     from engine import node_autostart
 
+    _expire_field()
     mode, stale = field_sensor.node_mode(), consts.get("field_node.stale_after_s")
     base = {"mode": mode, "stale_after_s": stale}
     if demo_active():

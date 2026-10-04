@@ -411,9 +411,14 @@ def main(argv: Optional[list[str]] = None) -> None:
     ap.add_argument("--no-leds", action="store_true", help="don't send FHSAA zones back to the Uno's LEDs")
     a = ap.parse_args(argv)
     if a.port:
+        import serial
+
         node = SerialNode(a.port)
-        path = run(node.lines(), "live", a.post, a.out, a.offline, use_a1=a.use_a1, demo=a.demo, air_mode=a.demo_air,
-                   send_zone=None if a.no_leds else node.send_zone, field=a.field)
+        try:
+            path = run(node.lines(), "live", a.post, a.out, a.offline, use_a1=a.use_a1, demo=a.demo, air_mode=a.demo_air,
+                       send_zone=None if a.no_leds else node.send_zone, field=a.field)
+        except serial.SerialException as e:         # unplugged: the engine's built-in bridge (node_autostart) rescans; this one stops
+            raise SystemExit(f"serial port lost: {e}") from e
     else:
         t0 = datetime.now().astimezone()
         ticks = iter(t0 + timedelta(seconds=2 * i) for i in range(10**9))

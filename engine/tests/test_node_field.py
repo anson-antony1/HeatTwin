@@ -398,6 +398,21 @@ def test_running_live_session_falls_back_when_the_board_is_unplugged_and_follows
     assert not any(h.get("field_mode") for h in live["reforecast"]["weather"])
 
 
+def test_a_reading_that_just_stops_arriving_also_drops_the_session_back_to_nws(nws_up):
+    """No unplug event (e.g. an external `--post` bridge died): the next poll of /node/latest notices the stale reading."""
+    field_sensor.nws_hours(SITE["lat"], SITE["lon"], wait=True)
+    assert post_field(31.0).status_code == 200
+    start_live()
+    s = api._LIVE["session"]
+    assert any(h.get("field_mode") for h in s.weather)
+    node_routes._field["received"] -= consts.get("field_node.stale_after_s") + 1
+    assert latest()["source"]["id"] == "nws"
+    assert not any(h.get("field_mode") for h in s.weather) and not any("Field sensor" in x for x in s.extra_labels)
+    v = node_routes._field["version"]
+    latest()
+    assert node_routes._field["version"] == v                            # the fallback runs once, not on every poll
+
+
 # ── ?demo=1 never uses the sensor ───────────────────────────────────────────────────────────────────────────────────
 
 def test_demo_mode_plan_and_optimize_stay_pinned_while_the_sensor_is_fresh(nws_up, monkeypatch, tmp_path):
@@ -462,6 +477,21 @@ def test_demo_scenario_is_still_available_behind_the_env_var(monkeypatch):
     assert field_sensor.node_mode() == "demo" and node_autostart.status()["mode"] == "demo"
     monkeypatch.setenv("HEATTWIN_NODE_MODE", "nonsense")
     assert field_sensor.node_mode() == "field"
+
+
+def test_demo_mode_still_runs_through_the_hot_plug_loop(usb, monkeypatch):
+    """HEATTWIN_NODE_MODE=demo: Jack's globe-as-sun scenario, now behind the env var — zero on the room, heat → sun, unplug → gone."""
+    monkeypatch.setenv("HEATTWIN_NODE_MODE", "demo")
+    board = usb.plug(PORT_A, 25.0)
+    node_autostart.start()
+    wait_for(lambda: node_autostart.status()["readings"] >= 1, timeout=8, what="demo readings after the room baseline")
+    assert node_autostart.status()["mode"] == "demo" and node_routes.demo_active() and not node_routes.field_active()
+    board.temp_c = 45.0                                                  # heat the globe
+    wait_for(lambda: latest()["field"]["wbgt_f"] > 85.0, what="the heated globe raising WBGT")
+    j = latest()
+    assert node_routes.DEMO_LABEL in j["labels"] and j["field"]["synthetic"] is True and j["source"]["id"] == "demo_scenario"
+    usb.unplug(PORT_A)
+    wait_for(lambda: not node_routes.demo_active(), timeout=1.0, what="the demo ending on unplug")
 
 
 def test_nws_fetch_is_cached_retried_slowly_and_never_blocks_the_reader(monkeypatch):
