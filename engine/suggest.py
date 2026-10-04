@@ -184,7 +184,10 @@ def suggest(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weathe
     outcome = ("under the planning line" if best["under"] else
                f"still over the planning line from minute {best['first_cross_min']:g}" if best["first_cross_min"] is not None
                else "still over the planning line")
-    result = f"Re-forecast peak {b_peak:.2f} → {best['peak']:.2f} °C (p95), {outcome}. Estimate — planning only."
+    # HR-calibrated: both numbers use this athlete's heart-rate calibration (the plan view after Apply, on an HR replay
+    # recorded on another plan, shows the plan forecast without it — demo-qa F1)
+    result = (f"HR-calibrated re-forecast peak {b_peak:.2f} → {best['peak']:.2f} °C (p95), {outcome}. "
+              "Estimate — planning only.")
     text = f"Suggested for {name}, rest of session: {'; '.join(phrases)}. {result}"
     g = guard.check(text, source="live_suggestion")
     go = guard.check(result, source="live_suggestion")

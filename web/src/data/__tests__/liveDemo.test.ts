@@ -19,7 +19,7 @@ describe('live demo (v1.7)', () => {
   it("carries the engine's suggestion only while that strap is received", () => {
     const sug: LiveSuggestion = {
       athlete_id: 'a02', changes: [{ kind: 'rotate_out', drill_id: 'd4', detail: "rotate out of 'Team period'" }],
-      text: 'Suggested …', outcome: 'Re-forecast peak 39.42 → 38.79 °C (p95), under the planning line. Estimate — planning only.',
+      text: 'Suggested …', outcome: 'HR-calibrated re-forecast peak 39.42 → 38.79 °C (p95), under the planning line. Estimate — planning only.',
       before: { peak_core_c_p95: 39.42, first_cross_min: 44 }, after: { peak_core_c_p95: 38.79, first_cross_min: null, under_line: true },
       at_minute: 3, labels: [],
     }

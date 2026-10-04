@@ -177,8 +177,8 @@ def athlete_status(res: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], 
            "peak_p50_c": round(max(a["core_c_p50"]), 2), "peak_p95_c": round(a["peak_core_c_p95"], 2),
            "status": a["status"], "first_cross_min": a["first_cross_min"], "limit_c": res["limit_core_c"],
            "labels": _labels(res)}
-    head = (f"{_plain(a.get('name'))}: estimated peak {out['peak_p50_c']} °C typical and {out['peak_p95_c']} °C at the "
-            f"95th percentile; ")
+    head = (f"{_plain(a.get('name'))}: plan forecast (no heart-rate calibration) peak {out['peak_p50_c']} °C typical "
+            f"and {out['peak_p95_c']} °C at the 95th percentile; ")
     if a["first_cross_min"] is not None:
         say = head + (f"above the {res['limit_core_c']} °C planning line from minute {a['first_cross_min']:g}. "
                       "Estimate, planning only.")

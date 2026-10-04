@@ -198,7 +198,7 @@ export interface LiveSuggestion {
   athlete_id: string
   changes: { kind: 'rest_start' | 'rotate_out' | 'gear_down'; drill_id: string; detail: string }[]
   text: string
-  /** The guarded result sentence: "Re-forecast peak 39.42 → 38.79 °C (p95), under the planning line. …" */
+  /** The guarded result sentence: "HR-calibrated re-forecast peak 39.42 → 38.79 °C (p95), under the planning line. …" */
   outcome: string
   before: { peak_core_c_p95: number; first_cross_min: number | null }
   after: { peak_core_c_p95: number; first_cross_min: number | null; under_line: boolean }
