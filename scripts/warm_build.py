@@ -17,9 +17,10 @@ Run it with the same environment variables as the service (a different HEATTWIN_
 cache key). Build and start must run from the same checkout, because the cache key hashes the engine source.
 
 The warm-up always uses the numba kernel (HEATTWIN_INTEGRATOR is forced to "auto" here): the numpy integrator agrees to
-< 1e-6 °C but is about 6x slower on the optimizer, and the annealing search is sensitive enough that its path, and so
-its headline numbers, can differ. It also compares the warmed headline numbers with docs/demo_numbers.json and prints a
-WARNING (it does not fail the build) if floating-point differences between machines changed them.
+< 1e-6 °C but is about 6x slower on the optimizer. The demo search is ended by its iteration caps, not a clock, so a slow
+build machine takes longer but lands on the same plan; search.cut_short says if the runaway guard ever ended it. It also
+compares the warmed headline numbers with docs/demo_numbers.json and prints a WARNING (it does not fail the build) if
+they differ.
 """
 from __future__ import annotations
 
@@ -91,8 +92,8 @@ def main() -> int:
     print(f"warm-up took {time.perf_counter() - t0:.0f} s")
     differs = headline_differences(got)
     print("headline numbers vs docs/demo_numbers.json:",
-          "match" if not differs else "WARNING, they DIFFER (floating-point differences between machines can change the "
-          "annealing path; compare the Plan screen with docs/demo_numbers.md): " + "; ".join(differs))
+          "match" if not differs else "WARNING, they DIFFER (check search.cut_short in the optimize result; compare the "
+          "Plan screen with docs/demo_numbers.md): " + "; ".join(differs))
 
     api._DEMO_CACHE.clear()      # what a freshly started engine has in memory: nothing
     api._REPLAY_CACHE.clear()

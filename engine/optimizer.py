@@ -860,7 +860,7 @@ def optimize(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weath
         demo_cfg = dm
         beam_cfg = {k: dm[k] for k in ("beam_width", "beam_depth", "beam_candidates_per_state") if k in dm}
         seed, n_ensemble = int(dm["seed"]), int(dm["n_ensemble"])
-        max_iterations, budget_s = int(dm["sa_iterations"]), float(dm["safety_budget_s"])
+        max_iterations, budget_s = int(dm["sa_iterations"]), float(dm["hard_stop_s"])   # iteration caps decide
         dl = f"demo mode: seed {seed}, {max_iterations} annealing iterations (reproducible)"
         extra_labels = [*extra_labels, dl] if dl not in extra_labels else list(extra_labels)
     presets = consts.get("optimizer_presets")
@@ -878,25 +878,28 @@ def optimize(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weath
     beam_deadline = t_start + budget * float(_opt("beam_time_fraction"))
     sa_deadline = t_start + budget * float(_opt("sa_time_fraction_end"))
     best, beam_iters = beam_search(P, beam_deadline, beam_cfg)
+    cut: list[str] = ["beam"] if time.perf_counter() > beam_deadline else []   # stages a clock ended (all of them)
     n_max = int(max_iterations if max_iterations is not None else _opt("sa_max_iterations"))
     restarts = int(demo_cfg["sa_restarts"] if demo else _opt("sa_restarts"))
     beam_best = best
     sa_iters, best_it, stopped = 0, 0, "iterations"
     for k in range(restarts):  # multi-start SA: same ensemble draws, different search RNG; alternate start points
         if time.perf_counter() > sa_deadline:
-            stopped = "time_budget"
+            cut.append(f"sa restarts {k + 1}–{restarts} skipped")
             break
         start = beam_best if k % 2 == 0 else P.evaluate(P.orig)
         rng_k = random.Random(seed * 1000 + k)
         remaining = max(sa_deadline - time.perf_counter(), 0.0) / max(restarts - k, 1)
         sa_best, it_k, bit_k, stopped = anneal(P, start, time.perf_counter() + remaining, rng_k, n_max)
+        if stopped == "time_budget":
+            cut.append(f"sa restart {k + 1}")
         if _better(sa_best, best):
             best, best_it = sa_best, sa_iters + bit_k
         sa_iters += it_k
     best = recover(P, best, deadline)
     best = simplify(P, best, deadline + min(1.0, 0.1 * budget))
-    if time.perf_counter() > deadline and stopped != "time_budget":
-        stopped = "time_budget"
+    if time.perf_counter() > deadline:
+        cut.append("recover/simplify")
 
     fallback_note = None
     kw = dict(budget_s=budget_s, seed=seed, n_ensemble=n_ensemble, step_min=step_min, max_iterations=max_iterations,
@@ -912,6 +915,8 @@ def optimize(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weath
             rng_s = random.Random(seed * 1000 + restarts)
             t_s = time.perf_counter() + budget / max(restarts, 1)
             seeded, it_s, _bit, _st = anneal(P, ev_me, t_s, rng_s, n_max)
+            if _st == "time_budget":
+                cut.append("seeded sa")
             sa_iters += it_s
             seeded = simplify(P, recover(P, seeded, t_s), t_s + min(1.0, 0.1 * budget))
             cands = [("max-load search", best), ("minimum-edit plan", ev_me), ("search seeded from the minimum edit", seeded)]
@@ -974,7 +979,8 @@ def optimize(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weath
             "beam_iterations": beam_iters,
             "sa_iterations": sa_iters,
             "sa_best_iteration": best_it,
-            "stopped_by": stopped,
+            "stopped_by": "time_budget" if cut else "iterations",
+            "cut_short": cut,
             "seed": seed,
             "budget_s": budget,
             "demo": demo,
@@ -987,6 +993,8 @@ def optimize(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weath
         "labels": [twonode.ESTIMATE_LABEL, *labels, *P.S.labels()]
                   + ([] if best.feasible else ["no plan met every constraint — least-bad plan shown"])
                   + ([fallback_note] if fallback_note else [])
+                  + ([f"search cut short by the clock ({', '.join(cut)}) — not the reproducible demo result"]
+                     if demo and cut else [])
                   + ([seed_note] if seed_note else []),
     })
     out.state = best.state   # internal (not serialized): seeds other searches

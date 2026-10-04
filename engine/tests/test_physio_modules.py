@@ -179,6 +179,7 @@ def test_results_json_is_computed_by_validation_code():
 @pytest.mark.parametrize("mode", ["conservative", "iso7933_dynamic", "gagge_static"])
 def test_numba_kernel_matches_numpy(mode, monkeypatch):
     """The compiled kernel and the numpy reference loop give the same core temperatures (≤ 2e-3 °C)."""
+    monkeypatch.delenv("HEATTWIN_INTEGRATOR", raising=False)   # else an exported flag compares numpy with numpy
     from engine.physio import twonode
     if twonode._numba_kernel() is None:
         pytest.skip("numba unavailable")

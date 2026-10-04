@@ -600,13 +600,13 @@ clothing_conservative:
 
 demo_mode:
   status: DESIGN
-  note: "?demo=1: reproducible runs for presentations — fixed seed and a fixed iteration cap instead of a time budget (the budget below is only a safety stop well above the expected run time)."
+  note: "?demo=1: reproducible runs for presentations — fixed seed and fixed iteration caps (beam depth, SA iterations × restarts) end the search, not a clock. hard_stop_s is only a runaway guard: reaching it marks the result cut short (search.cut_short, a label), because a clock-ended search depends on machine speed and load (physio-reviewer, Oct 4: a busy or slow machine changed the 'pinned' plan)."
   seed: 0
   n_ensemble: 30
   sa_iterations: 600
   sa_restarts: 10
   preset_overrides: {}             # per-preset overrides of the demo caps (none needed at 10 × 600)
-  safety_budget_s: 120.0
+  hard_stop_s: 3600.0              # runaway guard only (an unloaded laptop needs ~100–120 s per preset)
 
 hr_model:
   status: DESIGN

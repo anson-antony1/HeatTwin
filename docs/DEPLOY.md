@@ -82,15 +82,18 @@ URLs; the symptom of a mismatch is a CORS error in the browser console and an em
    demo. The engine's in-memory state (live sessions) is lost on sleep.
 
 Limits to know:
-- **An edited plan (voice or plan editor) is not in the cache.** `?demo=1` then runs the full search: 98 to 121 s here,
-  stopped by a 120 s safety budget (`constants.yaml: demo_mode.safety_budget_s`), and far slower on a 0.1 vCPU free
-  instance. On the hosted demo, show the pinned plan; simulate of an edited plan is fast.
+- **An edited plan (voice or plan editor) is not in the cache.** `?demo=1` then runs the full search, which the
+  iteration caps end: about 100–120 s per preset on an unloaded laptop, much longer on a 0.1 vCPU free instance (the
+  web gives up after 60 s). `constants.yaml: demo_mode.hard_stop_s` is only a runaway guard. On the hosted demo, show
+  the pinned plan; simulating an edited plan is fast.
 - **The cache key hashes the engine source**, so build and start must run from the same checkout (Render does this) and
   with the same env (a different `HEATTWIN_PROFILE` is a different key).
-- **Machine differences.** The annealing search is sensitive: the numpy integrator, which agrees with numba to under 1e-6
-  deg C, gave 70.7 % load kept instead of 72.9 %. `warm_build.py` prints whether the warmed headline numbers match
-  `docs/demo_numbers.json` ("match" here). If it prints WARNING on Render, the numbers are still valid, labelled
-  estimates but differ from the slides. To pin the laptop's numbers instead: on the laptop run
+- **Machine differences.** Until Oct 4 the demo search also stopped on a clock (a 120 s budget), so a slow or busy
+  machine could land on a different plan. That, not the integrator, was the cause of the earlier 70.7 % (the numpy
+  path is slower, so its searches were cut short; with no clock it reproduces 72.9 %). The demo search is now ended by
+  its iteration caps alone, and `search.cut_short` plus a label say if the runaway guard ever ends it.
+  `warm_build.py` prints whether the warmed headline numbers match `docs/demo_numbers.json` ("match" here). If it
+  prints WARNING on Render, the numbers are still valid, labelled estimates but differ from the slides. To pin the laptop's numbers instead: on the laptop run
   `HEATTWIN_CACHE_DIR=deploy/demo_cache python scripts/warm_build.py`, commit `deploy/demo_cache/*.json` after code
   freeze (any engine change invalidates them), and set `HEATTWIN_CACHE_DIR=deploy/demo_cache` on the engine service. The
   build then finds the entries and takes seconds (checked locally with a copied cache).
@@ -110,7 +113,7 @@ Limits to know:
 Peak is about 320 MB, 400 MB if the numba cache is unusable and the model is loaded as well: under 512 MB, so
 `HEATTWIN_INTEGRATOR=numpy` is **not needed** and stays off. It exists as a safety valve: numpy gives 77 MB engine only,
 251 MB with the model, at a cost: the cold optimizer search takes 688 s instead of 113 s (6x), the first replay 7.6 s
-instead of 1.4 s, and the search lands on a different plan (70.7 % vs 72.9 % load kept). Cached demo answers are
+instead of 1.4 s; under the old 120 s clock its cut-short search landed on a different plan (70.7 % vs 72.9 %). Cached demo answers are
 unaffected. Numba's cache depends on the CPU: if Render's runtime CPU differs from the build's, the first `/simulate`
 recompiles (about 8 s, once). Not measured: Render's 0.1 vCPU.
 

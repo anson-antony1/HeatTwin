@@ -34,8 +34,11 @@ def code_version() -> str:
 
 
 def key(kind: str, preset: str, plan: Any, roster: Any, weather: Any, options: Any, labels: Any) -> str:
+    import os
     blob = json.dumps({"kind": kind, "preset": preset, "plan": plan, "roster": roster, "weather": weather,
-                       "options": options, "labels": labels, "code": code_version()}, sort_keys=True, default=str)
+                       "options": options, "labels": labels, "code": code_version(),
+                       "integrator": os.environ.get("HEATTWIN_INTEGRATOR", "auto")},   # numpy runs never share a key
+                      sort_keys=True, default=str)
     return hashlib.sha256(blob.encode()).hexdigest()
 
 
