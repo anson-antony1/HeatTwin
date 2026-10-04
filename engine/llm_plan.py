@@ -69,12 +69,23 @@ def model_name() -> str:
 
 
 def status() -> dict[str, Any]:
+    from engine import paid_api
     try:
         _key()
-        configured = True
+        configured = not paid_api.disabled()
     except LLMNotConfigured:
         configured = False
-    return {"configured": configured, "provider": "google-gemini", "model": model_name()}
+    return {"configured": configured, "provider": "google-gemini", "model": model_name(),
+            "paid_apis_disabled": paid_api.disabled()}
+
+
+def gate_gemini() -> None:
+    """Kill switch (engine/paid_api.py): raise LLMNotConfigured before any Gemini request while paid APIs are off."""
+    from engine import paid_api
+    try:
+        paid_api.gate("gemini")
+    except paid_api.PaidAPIDisabled as e:
+        raise LLMNotConfigured(str(e)) from e
 
 
 # ── what the model must return ───────────────────────────────────────────────
@@ -180,6 +191,7 @@ def _call_gemini(parts: list[dict[str, Any]], editing: bool = False) -> str:
     """One generateContent call with JSON-constrained output; returns the JSON text."""
     import requests
 
+    gate_gemini()
     body = {
         "systemInstruction": {"parts": [{"text": INSTRUCTIONS + ("\n\n" + EDIT_INSTRUCTIONS if editing else "")}]},
         "contents": [{"role": "user", "parts": parts}],

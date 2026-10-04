@@ -113,6 +113,7 @@ def _context(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]]) -> st
 def _call(parts: list[dict[str, Any]]) -> Parsed:
     import requests
 
+    llm_plan.gate_gemini()   # kill switch: no Gemini request while HEATTWIN_DISABLE_PAID_APIS is on
     body = {"systemInstruction": {"parts": [{"text": INSTRUCTIONS}]},
             "contents": [{"role": "user", "parts": parts}],
             "generationConfig": {"responseMimeType": "application/json", "responseSchema": INTENT_SCHEMA,
@@ -249,6 +250,11 @@ def tts(text: str) -> bytes:
     import requests
 
     llm_plan._load_dotenv()
+    from engine import paid_api
+    try:
+        paid_api.gate("elevenlabs")   # kill switch: the web falls back to speechSynthesis
+    except paid_api.PaidAPIDisabled as e:
+        raise TTSUnavailable(str(e)) from e
     key, voice = os.environ.get("ELEVENLABS_API_KEY"), os.environ.get("ELEVENLABS_VOICE_ID")
     if not key or not voice:
         raise TTSUnavailable("no ELEVENLABS_API_KEY / ELEVENLABS_VOICE_ID on the engine")

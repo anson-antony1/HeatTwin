@@ -4,6 +4,7 @@ import os
 import pytest
 
 os.environ["HEATTWIN_NODE"] = "off"   # never let the engine's built-in bridge grab a real Arduino during tests
+os.environ["HEATTWIN_DISABLE_PAID_APIS"] = "1"   # no Gemini / ElevenLabs request from any test (engine/paid_api.py)
 
 
 def pytest_configure(config):
@@ -26,7 +27,7 @@ def _no_paid_apis(monkeypatch):
     """Tests never reach Gemini or ElevenLabs: no key from the shell or .env (tests that need one set a fake key and
     stub the call)."""
     from engine import llm_plan
-    for k in ("GEMINI_API_KEY", "ELEVENLABS_API_KEY", "ELEVENLABS_VOICE_ID"):
+    for k in ("GEMINI_API_KEY", "GOOGLE_API_KEY", "ELEVENLABS_API_KEY", "ELEVENLABS_VOICE_ID"):
         monkeypatch.delenv(k, raising=False)
     monkeypatch.setattr(llm_plan, "_load_dotenv", lambda: None)
 

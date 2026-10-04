@@ -321,9 +321,10 @@ def _live_session():
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    from engine import fhsaa_adapter
+    """Liveness (hosting health check). v1.6: ``paid_api`` = the kill-switch counter (engine/paid_api.py)."""
+    from engine import fhsaa_adapter, paid_api
     return {"ok": True, "model": twonode.MODEL_NAME, "fhsaa": "stub" if fhsaa_adapter.USING_STUB else "ws1",
-            "weather": weather_mode()}
+            "weather": weather_mode(), "paid_api": paid_api.counts()}
 
 
 @app.post("/simulate")

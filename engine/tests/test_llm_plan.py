@@ -91,7 +91,8 @@ def test_malformed_output_retried_then_error(monkeypatch):
 
 def test_routes(gemini):
     c = TestClient(app)
-    assert c.get("/plan/llm_status").json()["configured"] is True
+    st = c.get("/plan/llm_status").json()   # a key is set, but the paid-API kill switch is on in tests
+    assert st["configured"] is False and st["paid_apis_disabled"] is True
     r = c.post("/plan/parse", json={"text": "warmup 10"})
     assert r.status_code == 200 and r.json()["plan"]["drills"]
     wav = base64.b64encode(b"RIFF....WAVE").decode()
