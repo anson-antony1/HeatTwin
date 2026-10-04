@@ -1,8 +1,9 @@
-# CONTRACTS.md — frozen data shapes (v1.5)
+# CONTRACTS.md — frozen data shapes (v1.6)
 
 Freeze at M0. Additive changes only after that.
 **v1.1 (additive, Oct 3):** fields marked `// v1.1` are new and optional; every v1 field keeps its meaning.
 **v1.2 (additive, Oct 3 night):** `// v1.2` — Drill.drill_type, OptimizeResult.top_changes/top_changes_text, voice-tool endpoints. Units are in field names. Times are ISO 8601 with offset; durations are in minutes.
+**v1.6 (additive, polish):** `POST /live/start` optional `live_demo` (athlete → drill their HR is read against) and response `live_demo`; `LiveState.athletes[id].live_demo`; `WeatherHour.time_shifted_min` (a live session on the pinned forecast shifted to now, labelled "forecast snapshot (time-shifted)"); `GET /validation/hr_recording`; `/live/replay` defaults to the synthetic file; guard rule "suspected/possible <heat illness>" with one exception scoped to the Collapse 911 script.
 **v1.5 (additive, final-ui):** `GET /live/state` (the web polls the live HR session), `LiveReplay.source.{date, device, label}`.
 **v1.4 (additive, Oct 3 night):** `?source=node` (node demo scenario weather; never with ?demo=1), `OptimizeResult.fewest_changes` (minimum compliant edit), `GET /demo/comparison` (same plan, three weather inputs), `/voice/answer` optional `question`, `first_cross_min: number | null`. GET /weather is implemented (engine/weather_routes.py, display only).
 **v1.3 (additive, Oct 3 evening, audit-fixes):** `// v1.3` — /demo/inputs, POST /athlete_status and /field_conditions (act on the plan on screen), /live/replay, /node + /node/latest implemented, /plan/parse* (Gemini plan entry, already shipped), voice Q&A: /voice/intent → /voice/answer → /voice/tts. GET /weather is still not implemented (the engine reads the cached NWS fixture; live NWS only with HEATTWIN_WEATHER=live, never with ?demo=1).
@@ -79,6 +80,7 @@ type WeatherHour = {
   wbgt_f: number;             // computed by wbgt.py
   fhsaa_zone: 1 | 2 | 3 | 4 | 5;
   source: "nws_forecast" | "field_node" | "assimilated" | "fixture";
+  time_shifted_min?: number;  // v1.6: live session on the pinned forecast shifted by this many minutes to now
 };
 ```
 
@@ -179,19 +181,19 @@ type CollapseLog = {
 | GET | `/settings` | v1.1 → `{owner: "athletic trainer", settings: [{key, value, default, status, source, description, …}]}` |
 | GET | `/health` | v1.1 → `{ok, model, fhsaa: "stub" \| "ws1"}` |
 | POST | `/hr` | live HR → `{athlete_id, calib, reforecast: SimulationResult}` · v1.1 adds `gates: {crossing, persistent, coverage_ok, coverage_fraction, n_updates, flag, held_by[], message}`, `updated`, `replay`, `labels` |
-| POST | `/live/start` | v1.1 `{plan?, roster?, weather?, settings?, seed?}` → `{ok, plan_id, athletes}` — starts/reset the live session /hr uses (defaults to fixtures) |
+| POST | `/live/start` | v1.1 `{plan?, roster?, weather?, settings?, seed?}` → `{ok, plan_id, athletes}` — starts/reset the live session /hr uses (defaults to fixtures). v1.6: `live_demo?: Record<athleteId, drill id or name word>` (e.g. `{"a07": "conditioning"}`): that athlete's HR is read against the drill's intensity and gear instead of the plan drill at the clock; the re-forecast still runs the plan as written; labels gain `"live demo · <word>"`; response `live_demo: Record<athleteId, {drill_id, drill, intensity}>`; 422 for an unknown athlete or no matching drill. v1.6 weather with `start_now` and no `weather`: the node demo scenario if running; else live NWS (label "live NWS forecast", not cached to disk); else the pinned forecast shifted so its plan start lands on now (label "forecast snapshot (time-shifted)", `WeatherHour.time_shifted_min`). `?demo=1` is never affected |
 | POST | `/node` | node reading → `{ok}` |
 | GET | `/node/latest` | → last reading + assimilated `WeatherHour` |
 | GET | `/sources` | → constants.yaml as JSON with status |
 | POST | `/what_if` | v1.2 `{change: {drill_id, gear?\|duration_min?\|shade?\|intensity?\|move_to?\|remove?} \| {add_break_after, minutes}, plan?, roster?, settings?}` → `{before, after, delta_team_mean_p95_c, say, labels}` (summaries: athletes, over_limit, near_limit, max_p95_c, team_mean_p95_c, first_cross_min, limit_c, fhsaa_violations, practice_min) |
 | GET | `/athlete_status?athlete_id=` | v1.2 id or name → `{id, name, position, acclimatization_day, gear_limit, peak_p50_c, peak_p95_c, status, first_cross_min, limit_c, say, labels}` |
 | GET | `/field_conditions` | v1.2 → `{hours: [{time, wbgt_f, fhsaa_zone, air_temp_c, rh_pct, source}], sources, say, labels}` |
-| POST | `/guard` | `{text}` → `{ok, redacted_text, hits[]}` |
+| POST | `/guard` | `{text}` → `{ok, redacted_text, hits[]}`. Source is always "api": the scoped Collapse-911 exception (constants.guard_exceptions) cannot be claimed over HTTP |
 | GET | `/health` | v1.3 adds `weather: "fixture" \| "live"` |
 | GET | `/demo/inputs` | v1.3 → `{plan: PracticePlan, roster: Athlete[], weather: WeatherHour[], labels, synthetic: {plan, roster, weather}}` — exactly what `/simulate?demo=1` with no body simulates. The web shows this plan/roster instead of its own copies |
 | POST | `/athlete_status` | v1.3 `{athlete: id or name, plan?, roster?, settings?}` (`?demo=1`) → same as the GET, on the plan sent. `labels` now carry the fixture labels too |
 | POST | `/field_conditions` | v1.3 `{plan?, roster?, settings?}` → same as the GET, for the plan's window |
-| POST | `/live/replay` | v1.3 `{plan?, roster?, settings?, file?}` (`?demo=1`) → `LiveReplay` (below). Newest non-synthetic `fixtures/hr_<date>.csv` wins; else `fixtures/hr_a07_synthetic.csv` (labelled synthetic). Deterministic; cached |
+| POST | `/live/replay` | v1.3 `{plan?, roster?, settings?, file?}` (`?demo=1`) → `LiveReplay` (below). Default `fixtures/hr_a07_synthetic.csv` (labelled synthetic); v1.6: a real `fixtures/hr_<date>.csv` is replayed only when named in `file` (labelled with its date and device). Deterministic; cached |
 | POST | `/node` | v1.3 implemented: node reading (`node_bridge.node_payload`) → `{ok, hour: WeatherHour (source "field_node")}` — kept in memory for this engine run |
 | GET | `/node/latest` | v1.3 → `NodeLatest` (below). Newest `data/node_<date>.csv` or the last POST /node; else `{reading: null, labels: ["no field recording yet"]}` — never placeholder numbers |
 | POST | `/plan/parse` · `/plan/parse_audio` · GET `/plan/llm_status` | v1.3 (shipped on llm-bridge) Gemini plan entry → `PlanDraft {plan, transcript, assumptions[], unclear[], total_min, needs_confirmation: true, labels, model}`. Coach must confirm before /simulate |
@@ -272,6 +274,7 @@ type DemoComparison = {                // GET /demo/comparison — a stored snap
 | POST | `/voice/answer` | v1.4 optional `question` (the coach's words): when it asks whether someone is "safe/fine/OK/cleared", `say` starts with the boundary sentence (no clearance is given) |
 | GET | `/demo/comparison` | v1.4 → `DemoComparison` (snapshot; 404 until scripts/demo_numbers.py has run) |
 | GET | `/live/state` | v1.5 → `LiveState` (poll every few seconds). Start with `POST /live/start {"start_now": true}`; readings arrive from `engine/hr_bridge.py` (`POST /hr`) |
+| GET | `/validation/hr_recording` | v1.6 → `validation/results.json["helio_recording"]`: the real strap recording as calibration evidence `{file, device, date, athlete_ids, n_readings, duration_min, hr_bpm: {min, mean, max}, per_minute_mean_hr_bpm, calibration: {mapped_drill, n_updates, prior_met_scale(_sd), final_met_scale(_sd), sd_reduction_pct, last5_met_scale_range, trajectory} \| null, labels, synthetic: false, replay: true}`; 404 when none |
 
 ```ts
 // v1.5
@@ -286,9 +289,11 @@ type LiveState = {
     calib: { met_scale: number; met_scale_sd: number } | null;
     gates: LiveReplay["frames"][number]["gates"] | null;
     athlete: { core_c_p50: number[]; core_c_p95: number[]; peak_core_c_p95: number; status: string; first_cross_min: number | null } | null;
+    live_demo?: { drill_id: string; drill: string; intensity: string };   // v1.6: HR read against this drill
   }>;
   reforecast?: SimulationResult;   // whole roster, latest calibration (plan forecast for athletes without HR)
-  labels: string[];                // "live · Amazfit Helio Strap" (or "replay (hr_bridge) · …") + plan labels
+  labels: string[];                // "live · Amazfit Helio Strap" (or "replay (hr_bridge) · …") + plan labels;
+                                   // v1.6: "live demo · conditioning" first with a live-demo mapping
 };
 // LiveReplay.source (v1.5 additive): date: string | null; device: string | null;
 //   label: "replay · <date> · <device>" | "replay · synthetic HR file (not a real athlete)"

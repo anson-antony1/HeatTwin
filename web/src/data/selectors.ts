@@ -224,6 +224,14 @@ export function zoneShortText(r: FhsaaZoneRule): string {
   return r.activity
 }
 
+/** Engine label for a live session on the pinned forecast shifted to now (polish 5). */
+export const SNAPSHOT_LABEL = 'forecast snapshot (time-shifted)'
+
+/** The field card's source chip: the weather source, or the time-shifted snapshot during a live session. */
+export function fieldSourceLabel(h: Pick<WeatherHour, 'source' | 'time_shifted_min'> | null | undefined): string {
+  return h?.time_shifted_min != null ? 'Forecast snapshot (time-shifted)' : weatherSourceLabel(h?.source)
+}
+
 /** Display name of a WeatherHour source (the field card chip). */
 export function weatherSourceLabel(source: string | null | undefined): string {
   if (source === 'nws_forecast') return 'NWS forecast'

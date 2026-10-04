@@ -62,9 +62,14 @@ export function useLiveState(): LiveState | null {
   return useSyncExternalStore(liveStore.subscribe, liveStore.get)
 }
 
-/** The engine's provenance label for the strap(s): "live · Amazfit Helio Strap" (or "replay (hr_bridge) · …"). */
+/**
+ * The engine's provenance label for the strap(s): "live · Amazfit Helio Strap" (or "replay (hr_bridge) · …"), with
+ * the live-demo mapping appended when the session has one: "… · live demo · conditioning".
+ */
 export function liveLabel(s: Pick<LiveState, 'labels'> | null): string | null {
-  return s?.labels.find((l) => /^(live|replay \(hr_bridge\)) · /.test(l)) ?? null
+  const strap = s?.labels.find((l) => /^(live|replay \(hr_bridge\)) · /.test(l)) ?? null
+  const demo = s?.labels.find((l) => /^live demo · /.test(l))
+  return strap && demo ? `${strap} · ${demo}` : strap
 }
 
 /**

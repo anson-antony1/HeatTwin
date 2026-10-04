@@ -28,6 +28,12 @@ import { AI_NAME } from '../lib/brand'
 import { fmtCore, fmtLimit, tickerCore } from '../lib/format'
 import './AthleteView.css'
 
+/** "2026-10-03" → "Oct 3". */
+function shortDate(iso: string): string {
+  const d = new Date(`${iso}T12:00:00`)
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
 interface Props {
   athleteId: string
   onSelect: (id: string) => void
@@ -92,6 +98,7 @@ function Picker({ athleteId, onSelect }: { athleteId: string; onSelect: (id: str
 function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (id: string) => void }) {
   const s = useSession()
   const meta = useEngineMeta()
+  const rec = meta.hrRecording
   const roster = useRoster()
   const planState = usePlanState()
   const a = roster.byId(athleteId)
@@ -205,6 +212,39 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
             <span className="pill__label">{hu}</span>
           </span>
         ) : null}
+
+        {/* The real strap recording for this athlete id: calibration evidence (validation/results.json), not a replay of this plan. */}
+        {rec && rec.athlete_ids.includes(a.id) && (
+          <div className="vitals__recorded" title={rec.labels.join(' · ')}>
+            <div className="eyebrow">
+              Recorded {shortDate(rec.date)} · {rec.device}
+            </div>
+            <dl className="vitals__list">
+              <div>
+                <dt>Readings</dt>
+                <dd className="num">
+                  {rec.n_readings.toLocaleString('en-US')} · {rec.duration_min} min
+                </dd>
+              </div>
+              <div>
+                <dt>HR min · mean · max</dt>
+                <dd className="num">
+                  {rec.hr_bpm.min} · {rec.hr_bpm.mean} · {rec.hr_bpm.max} bpm
+                </dd>
+              </div>
+              {rec.calibration && (
+                <div>
+                  <dt>Calibration</dt>
+                  <dd className="num" title={`HR read against '${rec.calibration.mapped_drill.name}' (live demo)`}>
+                    met_scale {rec.calibration.final_met_scale.toFixed(2)} ± {rec.calibration.final_met_scale_sd.toFixed(2)} ·{' '}
+                    {rec.calibration.n_updates} updates
+                  </dd>
+                </div>
+              )}
+            </dl>
+            <p className="vitals__recnote faint">{rec.labels.find((l) => /not replayed/.test(l)) ?? rec.labels[0]}</p>
+          </div>
+        )}
       </section>
 
       {/* The twin itself */}

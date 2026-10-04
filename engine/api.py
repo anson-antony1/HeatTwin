@@ -194,6 +194,56 @@ def _forecast_for(plan: dict, labels: list[str], demo_mode: bool = False, node_s
     return _fixture_hours(t0, t1, labels)
 
 
+SNAPSHOT_LABEL = "forecast snapshot (time-shifted)"
+LIVE_NWS_LABEL = "live NWS forecast"
+_WEATHER_LABELS = ("forecast is fixture", "live forecast unavailable; cached NWS fixture used",
+                   "fixture forecast does not cover the plan window; nearest hours used",
+                   "demo mode: forecast pinned to the cached NWS fixture")
+
+
+def _covers(hours: list[dict], t0, t1) -> bool:
+    ts = [twonode.parse_time(h["time"]) for h in hours]
+    return bool(ts) and min(ts) <= t0 and max(ts) + timedelta(hours=1) >= t1
+
+
+def _live_nws_hours(plan: dict) -> Optional[list[dict]]:
+    """Live NWS gridpoint hours with engine WBGT, or None when unreachable. Not written to the weather cache."""
+    from engine import weather as ws1
+    lat, lon = plan["site"]["lat"], plan["site"]["lon"]
+    try:
+        raw, tz = ws1.fetch_gridpoint(lat, lon)
+        return ws1.add_wbgt(ws1.hours_from_gridpoint(raw, tz), lat, lon)
+    except Exception:  # noqa: BLE001 — any network/parse failure → the time-shifted snapshot
+        return None
+
+
+def _live_session_weather(plan: dict, pinned_start: str, labels: list[str]) -> list[dict]:
+    """Polish 5: weather for a live session at the current time. The indoor node demo's scenario when it runs; else
+    live NWS when reachable; else the pinned demo forecast shifted so the pinned plan start lands on the session start
+    (labelled "forecast snapshot (time-shifted)"; the sun angle is still computed for the real clock). ?demo=1 is
+    never affected."""
+    t0 = twonode.parse_time(plan["start"])
+    t1 = t0 + timedelta(minutes=sum(float(d["duration_min"]) for d in plan["drills"])
+                        + consts.get("optimizer.max_added_minutes"))
+    scenario = node_routes.demo_weather(t0, t1)
+    if scenario:
+        labels.append(node_routes.DEMO_LABEL)
+        return scenario
+    hours = _live_nws_hours(plan)
+    if hours and _covers(hours, t0, t1):
+        labels.append(LIVE_NWS_LABEL)
+        return hours
+    labels.append("live NWS unreachable" if hours is None else "live NWS forecast does not cover this session")
+    shift = t0 - twonode.parse_time(pinned_start)
+    shift_min = round(shift.total_seconds() / 60.0)
+    shifted = [{**h, "time": (twonode.parse_time(h["time"]) + shift).isoformat(), "time_shifted_min": shift_min}
+               for h in fixtures.forecast()]
+    labels.append(SNAPSHOT_LABEL)
+    if not _covers(shifted, t0, t1):
+        labels.append("fixture forecast does not cover the plan window; nearest hours used")
+    return shifted
+
+
 def _fixture_hours(t0, t1, labels: list[str]) -> list[dict]:
     hours = fixtures.forecast()
     ts = [twonode.parse_time(h["time"]) for h in hours]
@@ -243,11 +293,15 @@ class HrReading(_Model):
 
 
 class LiveReplayRequest(SimulateRequest):
-    file: Optional[str] = Field(default=None, description="v1.3: HR file under fixtures/; default newest real, else synthetic")
+    file: Optional[str] = Field(default=None, description="v1.3: HR file under fixtures/; default the synthetic file (v1.6: a real recording only when named)")
 
 
 class LiveStart(SimulateRequest):
     start_now: bool = Field(default=False, description="v1.1: set the plan start to now (live HR from a strap)")
+    live_demo: Optional[dict[str, str]] = Field(
+        default=None, description="v1.6: athlete id → plan drill (id, or a word of its name, e.g. 'conditioning') the "
+                                  "strap wearer is actually doing; their HR is read against that drill's intensity. "
+                                  "Labelled 'live demo · <word>'. The re-forecast still runs the plan as written.")
 
 
 _LIVE: dict[str, Any] = {}
@@ -322,19 +376,36 @@ def optimize(req: OptimizeRequest | None = None,
 @app.post("/live/start")
 def live_start(req: LiveStart | None = None) -> dict[str, Any]:
     """v1.1: start a live session for /hr (defaults to fixtures). Resets calibration state."""
-    from engine.calibrate import LiveSession
+    from engine.calibrate import LiveSession, match_drill
     req = req or LiveStart()
     plan, roster, weather, labels = _inputs(req, node_scenario=True)   # Live mode: node demo scenario if running
     if req.start_now:
         from datetime import datetime
+        pinned_start = plan["start"]
         plan = dict(plan, start=datetime.now().astimezone().replace(second=0, microsecond=0).isoformat())
         labels = [*labels, "plan clock set to now for a live HR session"]
         if req.weather is None:
-            labels = [x for x in labels if x not in ("forecast is fixture", node_routes.DEMO_LABEL)]
-            weather = _forecast_for(plan, labels, node_scenario=True)
-    _LIVE["session"] = LiveSession(plan, roster, weather, settings=_settings(req), seed=req.seed, extra_labels=labels)
+            labels = [x for x in labels if x not in (*_WEATHER_LABELS, node_routes.DEMO_LABEL)]
+            weather = _live_session_weather(plan, pinned_start, labels)
+    observe: dict[str, dict] = {}
+    if req.live_demo:
+        ids = {a["id"] for a in roster}
+        for aid, q in req.live_demo.items():
+            if aid not in ids:
+                raise HTTPException(422, f"live_demo: athlete {aid} is not on the roster")
+            d = match_drill(plan, q)
+            if d is None:
+                raise HTTPException(422, f"live_demo: the plan has no drill matching {q!r}")
+            observe[aid] = d
+        words = [q.strip().lower() if q.strip().lower() in observe[aid]["name"].lower() else observe[aid]["name"].lower()
+                 for aid, q in req.live_demo.items()]   # "conditioning"; a drill id ("d6") → the drill's name
+        labels = [*(f"live demo · {w}" for w in dict.fromkeys(words)), *labels]
+    _LIVE["session"] = LiveSession(plan, roster, weather, settings=_settings(req), seed=req.seed, extra_labels=labels,
+                                   observe=observe)
     _LIVE["last"], _LIVE["prior"] = {}, _guard(_LIVE["session"].reforecast())   # plan forecast before any HR
     return {"ok": True, "plan_id": plan["id"], "start": plan["start"], "athletes": [a["id"] for a in roster],
+            "live_demo": {aid: {"drill_id": d["id"], "drill": d["name"], "intensity": d["intensity"]}
+                          for aid, d in observe.items()},
             "labels": labels}
 
 
@@ -392,13 +463,18 @@ def live_state() -> dict[str, Any]:
         age = (now - twonode.parse_time(v["ts"])).total_seconds()
         athletes[aid] = {**v, "age_s": round(age, 1), "receiving": age <= stale,
                          "minute": round((twonode.parse_time(v["ts"]) - t0).total_seconds() / 60.0, 2)}
+        if aid in s.observe:   # v1.6: HR read against this drill (live demo)
+            athletes[aid]["live_demo"] = {"drill_id": s.observe[aid]["id"], "drill": s.observe[aid]["name"],
+                                          "intensity": s.observe[aid]["intensity"]}
     receiving = any(a["receiving"] for a in athletes.values())
     devices = sorted({a["device"] for a in athletes.values() if a["receiving"]})
     replay = any(a["replay"] for a in athletes.values() if a["receiving"])
     labels = ([f"{'replay (hr_bridge)' if replay else 'live'} · {d}" for d in devices] or ["live session — no HR yet"])
     return {"active": True, "receiving": receiving, "plan_id": s.plan["id"], "plan_start": s.plan["start"],
             "now": now.isoformat(), "minute": round((now - t0).total_seconds() / 60.0, 2), "athletes": athletes,
-            "reforecast": _LIVE.get("reforecast", _LIVE["prior"]), "labels": [*labels, *s.extra_labels]}
+            "reforecast": _LIVE.get("reforecast", _LIVE["prior"]),
+            "labels": [*(x for x in s.extra_labels if x.startswith("live demo · ")), *labels,
+                       *(x for x in s.extra_labels if not x.startswith("live demo · "))]}
 
 
 class WhatIfRequest(SimulateRequest):
@@ -585,6 +661,19 @@ def demo_comparison() -> dict[str, Any]:
     return out
 
 
+@app.get("/validation/hr_recording")
+def validation_hr_recording() -> dict[str, Any]:
+    """v1.6: the real Helio Strap recording as calibration evidence — validation/results.json["helio_recording"]
+    (written by validation/helio_recording.py; readings, duration, HR min/mean/max, calibration convergence)."""
+    import json
+    from pathlib import Path
+    p = Path(__file__).resolve().parents[1] / "validation" / "results.json"
+    block = json.loads(p.read_text()).get("helio_recording") if p.exists() else None
+    if not block or "status" in block:
+        raise HTTPException(404, (block or {}).get("status", "no HR recording in validation/results.json"))
+    return block
+
+
 _REPLAY_CACHE: dict[str, dict[str, Any]] = {}
 
 
@@ -603,7 +692,7 @@ def live_replay(req: LiveReplayRequest | None = None, demo_mode: bool = Query(Fa
         hr_file = demo_data_pick(req.file)
     except FileNotFoundError as e:
         raise HTTPException(404, str(e)) from e
-    # the HR file is part of the key: a real recording that lands while the engine runs replaces the synthetic one
+    # the HR file (name + mtime) is part of the key, so an edited or newly named file is never served stale
     key = f"{demo_mode}|{req.model_dump_json()}|{hr_file.name}|{hr_file.stat().st_mtime_ns}"
     if key in _REPLAY_CACHE:
         return _REPLAY_CACHE[key]

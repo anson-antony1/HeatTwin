@@ -833,7 +833,7 @@
   },
   "demo": {
     "computed_by": "validation/demo_numbers.py via the engine API with ?demo=1",
-    "computed_at": "2026-10-04T03:04:51+00:00",
+    "computed_at": "2026-10-04T04:45:49+00:00",
     "synthetic": true,
     "inputs": {
       "plan_id": "plan-demo-1",
@@ -1015,32 +1015,31 @@
       }
     },
     "replay": {
-      "file": "fixtures/hr_2026-10-03.csv",
-      "synthetic": false,
-      "date": "2026-10-03",
-      "device": "Amazfit Helio Strap",
-      "label": "replay \u00b7 2026-10-03 \u00b7 Amazfit Helio Strap",
+      "file": "fixtures/hr_a07_synthetic.csv",
+      "synthetic": true,
+      "date": null,
+      "device": null,
+      "label": "replay \u00b7 synthetic HR file (not a real athlete)",
       "athletes": [
         "a07"
       ],
-      "n_readings": 1557,
+      "n_readings": 3600,
       "first_ts": "2026-10-04T15:30:00-04:00",
-      "last_ts": "2026-10-04T15:56:11-04:00",
-      "aligned_to_plan_start": true,
-      "frames": 26,
+      "last_ts": "2026-10-04T16:29:59-04:00",
+      "aligned_to_plan_start": false,
+      "frames": 59,
       "labels": [
         "replay",
-        "real HR recording \u2014 Amazfit Helio Strap, 2026-10-03 (fixtures/hr_2026-10-03.csv)",
+        "synthetic HR (not a real athlete)",
         "synthetic plan (fixture)",
         "synthetic roster",
-        "demo mode: forecast pinned to the cached NWS fixture",
-        "recording clock shifted so its first reading is the plan start"
+        "demo mode: forecast pinned to the cached NWS fixture"
       ],
       "last_frame": {
-        "minute": 26.0,
+        "minute": 59.0,
         "athlete_id": "a07",
-        "met_scale": 1.6344,
-        "peak_p95_c": 42.25,
+        "met_scale": 1.2392,
+        "peak_p95_c": 41.65,
         "status": "over_limit",
         "gate_message": "re-forecast shows crossing"
       }
@@ -3839,5 +3838,289 @@
   "field_node": {
     "status": "no field recording yet",
     "synthetic": false
+  },
+  "helio_recording": {
+    "computed_by": "validation/helio_recording.py",
+    "computed_at": "2026-10-04T04:54:04+00:00",
+    "synthetic": false,
+    "replay": true,
+    "file": "fixtures/hr_2026-10-03.csv",
+    "device": "Amazfit Helio Strap",
+    "date": "2026-10-03",
+    "athlete_ids": [
+      "a07"
+    ],
+    "n_readings": 1557,
+    "first_ts": "2026-10-03T22:31:27-04:00",
+    "last_ts": "2026-10-03T22:57:38-04:00",
+    "duration_min": 26.2,
+    "hr_bpm": {
+      "min": 69.0,
+      "mean": 116.6,
+      "max": 185.0
+    },
+    "per_minute_mean_hr_bpm": [
+      {
+        "minute": "22:31",
+        "n": 32,
+        "mean": 77.8
+      },
+      {
+        "minute": "22:32",
+        "n": 60,
+        "mean": 77.0
+      },
+      {
+        "minute": "22:33",
+        "n": 60,
+        "mean": 88.3
+      },
+      {
+        "minute": "22:34",
+        "n": 60,
+        "mean": 102.8
+      },
+      {
+        "minute": "22:35",
+        "n": 50,
+        "mean": 78.7
+      },
+      {
+        "minute": "22:36",
+        "n": 60,
+        "mean": 79.2
+      },
+      {
+        "minute": "22:37",
+        "n": 60,
+        "mean": 83.0
+      },
+      {
+        "minute": "22:38",
+        "n": 60,
+        "mean": 87.8
+      },
+      {
+        "minute": "22:39",
+        "n": 60,
+        "mean": 97.3
+      },
+      {
+        "minute": "22:40",
+        "n": 60,
+        "mean": 86.2
+      },
+      {
+        "minute": "22:41",
+        "n": 60,
+        "mean": 84.4
+      },
+      {
+        "minute": "22:42",
+        "n": 58,
+        "mean": 91.7
+      },
+      {
+        "minute": "22:43",
+        "n": 60,
+        "mean": 144.7
+      },
+      {
+        "minute": "22:44",
+        "n": 60,
+        "mean": 129.7
+      },
+      {
+        "minute": "22:45",
+        "n": 58,
+        "mean": 161.5
+      },
+      {
+        "minute": "22:46",
+        "n": 60,
+        "mean": 135.2
+      },
+      {
+        "minute": "22:47",
+        "n": 60,
+        "mean": 165.1
+      },
+      {
+        "minute": "22:48",
+        "n": 60,
+        "mean": 128.2
+      },
+      {
+        "minute": "22:49",
+        "n": 60,
+        "mean": 161.4
+      },
+      {
+        "minute": "22:50",
+        "n": 59,
+        "mean": 153.1
+      },
+      {
+        "minute": "22:51",
+        "n": 61,
+        "mean": 172.5
+      },
+      {
+        "minute": "22:52",
+        "n": 60,
+        "mean": 161.2
+      },
+      {
+        "minute": "22:53",
+        "n": 60,
+        "mean": 119.8
+      },
+      {
+        "minute": "22:54",
+        "n": 60,
+        "mean": 117.8
+      },
+      {
+        "minute": "22:55",
+        "n": 60,
+        "mean": 111.9
+      },
+      {
+        "minute": "22:56",
+        "n": 60,
+        "mean": 112.2
+      },
+      {
+        "minute": "22:57",
+        "n": 39,
+        "mean": 115.4
+      }
+    ],
+    "calibration": {
+      "athlete_id": "a07",
+      "mapped_drill": {
+        "id": "d6",
+        "name": "Conditioning (gassers)",
+        "intensity": "max",
+        "gear": "helmet"
+      },
+      "update_interval_s": 60,
+      "window_s": 60,
+      "n_updates": 15,
+      "n_windows_skipped_rest": 11,
+      "n_windows_ceiling_held": 0,
+      "profile_synthetic": true,
+      "prior_met_scale": 1.0226,
+      "prior_met_scale_sd": 0.2066,
+      "final_met_scale": 0.6918,
+      "final_met_scale_sd": 0.0143,
+      "sd_reduction_pct": 93.1,
+      "last5_met_scale_range": [
+        0.6918,
+        0.7696
+      ],
+      "seed": 0,
+      "trajectory": [
+        {
+          "minute": 12.0,
+          "athlete_id": "a07",
+          "met_scale": 0.6135,
+          "met_scale_sd": 0.1882
+        },
+        {
+          "minute": 13.0,
+          "athlete_id": "a07",
+          "met_scale": 0.7341,
+          "met_scale_sd": 0.0626
+        },
+        {
+          "minute": 14.0,
+          "athlete_id": "a07",
+          "met_scale": 0.7269,
+          "met_scale_sd": 0.047
+        },
+        {
+          "minute": 15.0,
+          "athlete_id": "a07",
+          "met_scale": 0.7356,
+          "met_scale_sd": 0.0358
+        },
+        {
+          "minute": 16.0,
+          "athlete_id": "a07",
+          "met_scale": 0.7438,
+          "met_scale_sd": 0.0295
+        },
+        {
+          "minute": 17.0,
+          "athlete_id": "a07",
+          "met_scale": 0.752,
+          "met_scale_sd": 0.024
+        },
+        {
+          "minute": 18.0,
+          "athlete_id": "a07",
+          "met_scale": 0.7376,
+          "met_scale_sd": 0.0225
+        },
+        {
+          "minute": 19.0,
+          "athlete_id": "a07",
+          "met_scale": 0.7525,
+          "met_scale_sd": 0.0201
+        },
+        {
+          "minute": 20.0,
+          "athlete_id": "a07",
+          "met_scale": 0.766,
+          "met_scale_sd": 0.0188
+        },
+        {
+          "minute": 21.0,
+          "athlete_id": "a07",
+          "met_scale": 0.7779,
+          "met_scale_sd": 0.0185
+        },
+        {
+          "minute": 22.0,
+          "athlete_id": "a07",
+          "met_scale": 0.7696,
+          "met_scale_sd": 0.0178
+        },
+        {
+          "minute": 23.0,
+          "athlete_id": "a07",
+          "met_scale": 0.7477,
+          "met_scale_sd": 0.0181
+        },
+        {
+          "minute": 24.0,
+          "athlete_id": "a07",
+          "met_scale": 0.7265,
+          "met_scale_sd": 0.0169
+        },
+        {
+          "minute": 25.0,
+          "athlete_id": "a07",
+          "met_scale": 0.7056,
+          "met_scale_sd": 0.0155
+        },
+        {
+          "minute": 26.0,
+          "athlete_id": "a07",
+          "met_scale": 0.6918,
+          "met_scale_sd": 0.0143
+        }
+      ]
+    },
+    "labels": [
+      "real HR recording \u2014 Amazfit Helio Strap, 2026-10-03 (fixtures/hr_2026-10-03.csv); the wearer's own, consented",
+      "rest, then burpees \u2014 not football drills; not replayed on the demo plan's clock",
+      "calibration read against the plan's 'Conditioning (gassers)' drill (max) \u2014 the live-demo mapping; windows that look like rest are skipped, recovery windows count as conditioning",
+      "HR observation model uses roster athlete a07's synthetic profile, not the wearer's",
+      "no process noise: the spread shrinks with every update, so a tight spread is not agreement",
+      "no cardiovascular-drift term in the HR model: weather does not enter calibration",
+      "replay: true \u2014 recorded HR fed through live calibration"
+    ]
   }
 }

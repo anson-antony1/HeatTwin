@@ -3,6 +3,7 @@ import {
   athleteAtMinute,
   athleteFromLive,
   drillAtMinute,
+  fieldSourceLabel,
   firstCrossing,
   frameAt,
   hottestPeakP95,
@@ -159,6 +160,23 @@ describe('live state mapping (GET /live/state)', () => {
     expect(liveApplies(liveState(), { ...PLAN, drills: PLAN.drills.slice(0, 2) })).toBe('other_plan')
     expect(liveApplies(null, PLAN)).toBe('off')
     expect(liveLabel(liveState())).toBe('live · Amazfit Helio Strap')
+  })
+
+  it('appends the live-demo mapping to the strap label, never in place of it', () => {
+    const labels = ['live demo · conditioning', 'live · Amazfit Helio Strap', 'synthetic roster']
+    expect(liveLabel(liveState({ labels }))).toBe('live · Amazfit Helio Strap · live demo · conditioning')
+    const replayed = ['live demo · conditioning', 'replay (hr_bridge) · Amazfit Helio Strap']
+    expect(liveLabel(liveState({ labels: replayed }))).toBe('replay (hr_bridge) · Amazfit Helio Strap · live demo · conditioning')
+    expect(liveLabel(liveState({ labels: ['live demo · conditioning', 'live session — no HR yet'] }))).toBeNull()
+  })
+})
+
+describe('field card source chip', () => {
+  it('says when a live session runs on the time-shifted forecast snapshot', () => {
+    expect(fieldSourceLabel({ source: 'fixture', time_shifted_min: -195 })).toBe('Forecast snapshot (time-shifted)')
+    expect(fieldSourceLabel({ source: 'fixture' })).toBe('NWS fixture')
+    expect(fieldSourceLabel({ source: 'nws_forecast' })).toBe('NWS forecast')
+    expect(fieldSourceLabel(null)).toBe('—')
   })
 })
 

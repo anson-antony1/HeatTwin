@@ -1,11 +1,13 @@
 import { useSyncExternalStore } from 'react'
 import {
   getDemoInputs,
+  getHrRecording,
   getNodeLatest,
   getSettings,
   getSources,
   isUnreachable,
   type DemoInputs,
+  type HrRecording,
   type NodeLatest,
   type SettingsResponse,
   type Sources,
@@ -24,11 +26,13 @@ export interface EngineMeta {
   settings: SettingsResponse | null
   sources: Sources | null
   node: NodeLatest | null
+  /** v1.6: the real strap recording as calibration evidence (null when none). */
+  hrRecording: HrRecording | null
   /** Non-fatal errors (one endpoint failed while the engine is up). */
   errors: string[]
 }
 
-let state: EngineMeta = { link: 'loading', inputs: null, settings: null, sources: null, node: null, errors: [] }
+let state: EngineMeta = { link: 'loading', inputs: null, settings: null, sources: null, node: null, hrRecording: null, errors: [] }
 const listeners = new Set<() => void>()
 
 function set(patch: Partial<EngineMeta>) {
@@ -61,13 +65,14 @@ export const engineMeta = {
     loading = (async () => {
       set({ link: 'loading', errors: [] })
       try {
-        const [inputs, settings, sources, node] = await Promise.all([
+        const [inputs, settings, sources, node, hrRecording] = await Promise.all([
           settle(getDemoInputs(), '/demo/inputs'),
           settle(getSettings(), '/settings'),
           settle(getSources(), '/sources'),
           settle(getNodeLatest(), '/node/latest'),
+          settle(getHrRecording(), '/validation/hr_recording'),
         ])
-        set({ link: 'online', inputs, settings, sources, node })
+        set({ link: 'online', inputs, settings, sources, node, hrRecording })
         return inputs
       } catch (e) {
         if (!isUnreachable(e)) throw e
@@ -99,7 +104,7 @@ export const engineMeta = {
 
   /** Tests only. */
   _reset(next: Partial<EngineMeta> = {}) {
-    state = { link: 'loading', inputs: null, settings: null, sources: null, node: null, errors: [], ...next }
+    state = { link: 'loading', inputs: null, settings: null, sources: null, node: null, hrRecording: null, errors: [], ...next }
     loading = null
     listeners.forEach((fn) => fn())
   },

@@ -367,6 +367,12 @@ shade_model:
   note: "Shaded drills / cooling area: mean radiant temperature = air temperature (canopy blocks all shortwave; hot-ground longwave ignored). Biases in-shade predictions low. See MODEL.md §6.3."
   mrt_equals_air_temp: true
 
+live_demo:   # engine/calibrate.py LiveSession(observe=…): the strap wearer's HR read against the drill they are doing
+  status: DESIGN
+  justification: "Owner decision (polish 4, Oct 4): in a live demo the strap wearer does burpees, which match the plan's conditioning intensity, so their HR is read against that drill, not the plan drill at the clock. A wearer also stands or recovers between sets; reading those minutes as conditioning drives met_scale far below 1 with no way back (the filter has no process noise), so the re-forecast would err cool. Rule (no new number): a window whose mean HR is nearer the model's HR for resting (non_participant.intensity) than for the mapped drill, both at the current ensemble, is skipped and labelled — never assimilated as rest, because the linear MET model is weakest at rest."
+  rule: "skip window when HR_obs < (mean HR_pred(rest MET·θ) + mean HR_pred(drill MET·θ)) / 2"
+  source: "HeatTwin design (polish 4); observation model = constants.hr_model / hr_met (Swain & Leutholtz 1997)"
+
 non_participant:
   status: DESIGN
   justification: "A plan doesn't say where rotated-out athletes stand; resting in the shaded cooling area matches FHSAA cooling-zone practice. It is an AT-owned setting the coach should confirm."

@@ -166,8 +166,30 @@
   color: var(--alert);
 }
 
+.vitals__recorded {
+  width: 100%;
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.vitals__recnote {
+  margin: 0;
+  font-size: 12.5px;
+}
+
 .vitals__cta {
   margin-top: auto;
+}
+
+/* The heads-up sentence is longer than a status word: let the pill wrap inside the card. */
+.vitals__cta.pill {
+  max-width: 100%;
+  height: auto;
+  min-height: 28px;
+  padding-block: 5px;
+  white-space: normal;
 }
 
 .twin__figure {

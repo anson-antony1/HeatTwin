@@ -7,7 +7,7 @@ import { usePlanState } from '../data/planStore'
 import { useEngineMeta } from '../data/engineMeta'
 import { SYNTHETIC_ROSTER_LABEL, useRoster } from '../data/roster'
 import { ESTIMATE_LABEL, zoneColor } from '../data/constants'
-import { acclimatizationDays, drillAtMinute, estimateOverLine, headsUp, minutesOverLine, statusTone, type Tone } from '../data/selectors'
+import { acclimatizationDays, drillAtMinute, estimateOverLine, headsUp, minutesOverLine, SNAPSHOT_LABEL, statusTone, type Tone } from '../data/selectors'
 import { NumberTicker } from '../components/NumberTicker'
 import { StatusPill } from '../components/StatusPill'
 import { TempChart } from '../components/TempChart'
@@ -71,6 +71,7 @@ export function CoachDashboard({ acked, onAck, onOpenAthlete, onCollapse }: Prop
   const provenance = [
     roster.synthetic ? SYNTHETIC_ROSTER_LABEL : null,
     onLive ? s.live.label : s.source === 'engine' && s.replay.status === 'ready' ? s.replay.label : null,
+    onLive ? (s.labels.find((l) => l === SNAPSHOT_LABEL) ?? null) : null,
     s.live.status === 'other_plan' ? `${s.live.label ?? 'live HR'} is running on another plan — not shown` : null,
     held,
     s.source === 'offline' ? 'offline fallback — engine unreachable, no estimates' : ESTIMATE_LABEL,

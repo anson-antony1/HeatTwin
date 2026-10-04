@@ -1,7 +1,7 @@
 import { useSession } from '../data/engine'
 import { useEngineMeta } from '../data/engineMeta'
 import { zoneColor } from '../data/constants'
-import { FHSAA_CITATION, weatherSourceLabel, zoneRule, zoneRuleText, zoneShortText } from '../data/selectors'
+import { FHSAA_CITATION, fieldSourceLabel, SNAPSHOT_LABEL, weatherSourceLabel, zoneRule, zoneRuleText, zoneShortText } from '../data/selectors'
 import { NumberTicker } from './NumberTicker'
 import { OfflineBadge } from './OfflineBadge'
 import { fieldHour, useWeather } from '../data/weather'
@@ -24,13 +24,13 @@ export function FieldCard() {
   const where = weather.location ? `${weather.location.name} · ` : ''
   const coverNote = weather.location ? undefined : s.labels.find((l) => /nearest hours/i.test(l))
   const sourceTitle = hour
-    ? `${where}${hour.source === 'fixture' ? 'cached NWS forecast (fixture)' : weatherSourceLabel(hour.source)} · WBGT and FHSAA zone from the HeatTwin engine${coverNote ? ` · ${coverNote}` : ''}`
+    ? `${where}${hour.time_shifted_min != null ? `${SNAPSHOT_LABEL}: the pinned NWS forecast, shifted ${hour.time_shifted_min} min to this session` : hour.source === 'fixture' ? 'cached NWS forecast (fixture)' : weatherSourceLabel(hour.source)} · WBGT and FHSAA zone from the HeatTwin engine${coverNote ? ` · ${coverNote}` : ''}`
     : undefined
   return (
     <section className="field glass" aria-label="Field conditions">
       <div className="field__top">
         <span className="eyebrow">WBGT · field</span>
-        {offline ? <OfflineBadge /> : <span className="field__src" title={sourceTitle}>{weatherSourceLabel(hour?.source)}</span>}
+        {offline ? <OfflineBadge /> : <span className="field__src" title={sourceTitle}>{fieldSourceLabel(hour)}</span>}
       </div>
       <div className="field__value display-lg">
         <NumberTicker value={hour?.wbgt_f ?? Number.NaN} decimals={1} suffix="°F" />

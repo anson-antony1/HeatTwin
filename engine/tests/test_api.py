@@ -176,8 +176,9 @@ def test_demo_comparison_serves_the_stored_snapshot():
     assert {"peak_zone", "over_before", "over_after", "load_kept_pct", "changes", "feasible"} <= set(j["rows"][0])
 
 
-def test_real_hr_recording_wins_and_is_labelled_with_device_and_date(monkeypatch, tmp_path):
-    """Decision 7: a real fixtures/hr_<date>.csv (hr_bridge) is replayed instead of the synthetic file, labelled."""
+def test_default_replay_is_synthetic_even_with_a_real_recording(monkeypatch, tmp_path):
+    """Polish 3: the demo-plan replay is the synthetic file; a real fixtures/hr_<date>.csv is replayed only when named,
+    and then labelled with its device and date."""
     import shutil
     from engine import demo_data
     shutil.copy(demo_data.FIXTURES / demo_data.SYNTHETIC_HR, tmp_path / demo_data.SYNTHETIC_HR)
@@ -187,8 +188,10 @@ def test_real_hr_recording_wins_and_is_labelled_with_device_and_date(monkeypatch
                     + "".join(f"2026-10-04T09:{m:02d}:00-04:00,a07,{110 + m},Amazfit Helio Strap,false,false,,true\n"
                               for m in range(30)))
     monkeypatch.setattr(demo_data, "FIXTURES", tmp_path)
-    assert demo_data.pick_hr_file() == real and not demo_data.hr_is_synthetic(real)
-    r = client.post("/live/replay?demo=1", json={}).json()   # same body as the cached synthetic run: the file is in the key
+    assert demo_data.pick_hr_file() == tmp_path / demo_data.SYNTHETIC_HR and demo_data.real_hr_files() == [real]
+    d = client.post("/live/replay?demo=1", json={}).json()
+    assert d["source"]["synthetic"] is True and "synthetic HR (not a real athlete)" in d["labels"]
+    r = client.post("/live/replay?demo=1", json={"file": real.name}).json()
     assert r["source"]["synthetic"] is False and r["source"]["aligned_to_plan_start"] is True
     assert any("real HR recording — Amazfit Helio Strap, 2026-10-04" in x for x in r["labels"])
     assert not any("synthetic HR" in x for x in r["labels"])
@@ -261,9 +264,141 @@ def test_live_replay_source_label_says_what_is_replayed():
     j = client.post("/live/replay?demo=1", json={"file": "hr_a07_synthetic.csv"}).json()
     assert j["source"]["label"] == "replay · synthetic HR file (not a real athlete)" and j["source"]["date"] is None
     from engine import demo_data
-    real = sorted(p for p in demo_data.FIXTURES.glob("hr_*.csv") if not demo_data.hr_is_synthetic(p))
-    d = client.post("/live/replay?demo=1", json={}).json()["source"]   # default: newest real recording, else synthetic
-    if real:
-        assert d["synthetic"] is False and d["label"] == f"replay · {d['date']} · {d['device']}"
+    d = client.post("/live/replay?demo=1", json={}).json()["source"]   # default: the synthetic file (polish 3)
+    assert d["synthetic"] is True and d["label"] == "replay · synthetic HR file (not a real athlete)"
+    for p in demo_data.real_hr_files():   # a real recording, when named, says its date and strap
+        r = client.post("/live/replay?demo=1", json={"file": p.name}).json()["source"]
+        assert r["synthetic"] is False and r["label"] == f"replay · {r['date']} · {r['device']}"
+
+
+# ── polish 3: the real Helio recording is calibration evidence, not a demo-plan replay ──
+
+def test_helio_recording_is_calibration_evidence():
+    from engine import demo_data
+    from validation import helio_recording
+    if not any("helio" in demo_data.hr_device(helio_recording._rows(p)).lower() for p in demo_data.real_hr_files()):
+        assert helio_recording.compute()["status"].startswith("no Amazfit Helio Strap recording")
+        return
+    out = helio_recording.compute()
+    assert out["synthetic"] is False and out["replay"] is True and out["device"] == "Amazfit Helio Strap"
+    assert out["n_readings"] == sum(m["n"] for m in out["per_minute_mean_hr_bpm"])
+    h = out["hr_bpm"]
+    assert h["min"] <= h["mean"] <= h["max"] and out["duration_min"] > 0
+    c = out["calibration"]
+    assert c["mapped_drill"]["intensity"] == "max" and "conditioning" in c["mapped_drill"]["name"].lower()
+    assert c["n_updates"] == len(c["trajectory"]) > 0 and c["final_met_scale_sd"] < c["prior_met_scale_sd"]
+    assert any("not replayed on the demo plan's clock" in x for x in out["labels"])
+    assert c["profile_synthetic"] is True and c["n_windows_skipped_rest"] > 0
+    assert helio_recording.compute() | {"computed_at": None} == out | {"computed_at": None}   # deterministic
+
+
+def test_results_json_helio_block_is_what_the_script_computes():
+    """validation/results.json holds only numbers computed by validation/ code (CLAUDE.md rule 3)."""
+    import json
+    from pathlib import Path
+    from validation import helio_recording
+    stored = json.loads((Path(__file__).resolve().parents[2] / "validation" / "results.json").read_text())
+    block = stored.get("helio_recording")
+    assert block is not None
+    now = helio_recording.compute()
+    skip = {"computed_at"}
+    assert {k: v for k, v in block.items() if k not in skip} == {k: v for k, v in now.items() if k not in skip}
+    r = client.get("/validation/hr_recording")
+    if "status" in block:
+        assert r.status_code == 404
     else:
-        assert d["synthetic"] is True
+        assert r.status_code == 200 and r.json()["n_readings"] == block["n_readings"]
+
+
+# ── polish 4: live-demo mapping — the strap wearer's HR is read against the conditioning drill ──
+
+def _live_minutes(bpm: float, minutes: int, start: str):
+    from datetime import timedelta
+    from engine.physio import twonode
+    t0 = twonode.parse_time(start)
+    for s in range(0, minutes * 60):   # BLE HR notifies about once a second (calibration coverage gate)
+        ts = (t0 + timedelta(seconds=s)).isoformat()
+        client.post("/hr", json={"athlete_id": "a07", "ts": ts, "hr_bpm": bpm, "device": "Amazfit Helio Strap"})
+
+
+def test_live_demo_maps_strap_athlete_to_conditioning():
+    r = client.post("/live/start", json={"live_demo": {"a07": "conditioning"}}).json()
+    assert r["labels"][0] == "live demo · conditioning"
+    assert r["live_demo"]["a07"]["drill"] == "Conditioning (gassers)" and r["live_demo"]["a07"]["intensity"] == "max"
+    _live_minutes(165, 6, r["start"])
+    mapped = client.get("/live/state").json()
+    assert mapped["labels"][:2] == ["live demo · conditioning", "live · Amazfit Helio Strap"]
+    a = mapped["athletes"]["a07"]
+    assert a["live_demo"]["drill_id"] == "d6"
+    # the same burpee-level HR read against the plan drill at the clock (warmup) inflates met_scale
+    r2 = client.post("/live/start", json={}).json()
+    _live_minutes(165, 6, r2["start"])
+    unmapped = client.get("/live/state").json()["athletes"]["a07"]
+    assert "live_demo" not in unmapped
+    assert a["calib"]["met_scale"] < unmapped["calib"]["met_scale"]
+    assert not any(x.startswith("live demo") for x in client.get("/live/state").json()["labels"])
+
+
+def test_live_demo_skips_rest_windows_instead_of_reading_them_as_conditioning():
+    """physio-reviewer: rest minutes read as 11 MET collapsed met_scale (~0.3) with no way back; they are skipped."""
+    r = client.post("/live/start", json={"live_demo": {"a07": "conditioning"}}).json()
+    _live_minutes(85, 3, r["start"])
+    a = client.get("/live/state").json()["athletes"]["a07"]
+    assert a["gates"]["message"] == "HR looks like rest — not read against the live-demo drill"
+    assert a["gates"]["n_updates"] == 0
+    from datetime import timedelta
+    from engine.physio import twonode
+    _live_minutes(160, 4, (twonode.parse_time(r["start"]) + timedelta(minutes=3)).isoformat())
+    a = client.get("/live/state").json()["athletes"]["a07"]
+    assert a["calib"]["met_scale"] > 0.8 and a["gates"]["n_updates"] >= 2
+    from engine import api
+    assert any("looked like rest" in x for x in api._LIVE["session"]._labels("a07"))
+
+
+def test_hr_above_the_model_ceiling_is_held_and_said():
+    r = client.post("/live/start", json={"live_demo": {"a07": "conditioning"}}).json()
+    _live_minutes(185, 4, r["start"])
+    a = client.get("/live/state").json()["athletes"]["a07"]
+    assert a["gates"]["message"] == "HR at or above the model's ceiling — calibration held"
+    assert a["calib"]["met_scale"] >= 1.0   # held, never pulled down
+
+
+def test_live_demo_rejects_unknown_athlete_or_drill():
+    assert client.post("/live/start", json={"live_demo": {"zz": "conditioning"}}).status_code == 422
+    assert client.post("/live/start", json={"live_demo": {"a07": "underwater basket weaving"}}).status_code == 422
+
+
+# ── polish 5: live-session weather — live NWS when reachable, else the pinned forecast time-shifted to now ──
+
+def test_live_session_weather_time_shifted_snapshot_when_nws_unreachable():
+    from engine import api, fixtures
+    from engine.physio import twonode
+    before = client.post("/simulate?demo=1", json={}).json()
+    r = client.post("/live/start", json={"start_now": True}).json()   # conftest: NWS unreachable
+    assert api.SNAPSHOT_LABEL in r["labels"] and "live NWS unreachable" in r["labels"]
+    assert not any("nearest hours" in x or x == "forecast is fixture" for x in r["labels"])
+    s = api._LIVE["session"]
+    shift = twonode.parse_time(r["start"]) - twonode.parse_time(fixtures.plan()["start"])
+    pinned = fixtures.forecast()
+    assert [twonode.parse_time(h["time"]) for h in s.weather] == [twonode.parse_time(h["time"]) + shift for h in pinned]
+    assert [h["air_temp_c"] for h in s.weather] == [h["air_temp_c"] for h in pinned]
+    assert all(h["time_shifted_min"] == round(shift.total_seconds() / 60) for h in s.weather)
+    assert api.SNAPSHOT_LABEL in client.get("/live/state").json()["labels"]
+    # ?demo=1 Plan / Optimize stay pinned and unchanged
+    after = client.post("/simulate?demo=1", json={}).json()
+    assert "demo mode: forecast pinned to the cached NWS fixture" in after["labels"]
+    assert api.SNAPSHOT_LABEL not in after["labels"]
+    assert after["weather"] == before["weather"]
+    assert [a["peak_core_c_p95"] for a in after["athletes"]] == [a["peak_core_c_p95"] for a in before["athletes"]]
+
+
+def test_live_session_weather_uses_live_nws_when_reachable(monkeypatch):
+    from datetime import datetime, timedelta
+    from engine import api, fixtures
+    now = datetime.now().astimezone().replace(minute=0, second=0, microsecond=0)
+    hours = [{**h, "time": (now + timedelta(hours=k - 2)).isoformat(), "source": "nws_forecast"}
+             for k, h in enumerate(fixtures.forecast())]
+    monkeypatch.setattr(api, "_live_nws_hours", lambda plan: hours)
+    r = client.post("/live/start", json={"start_now": True}).json()
+    assert api.LIVE_NWS_LABEL in r["labels"] and api.SNAPSHOT_LABEL not in r["labels"]
+    assert api._LIVE["session"].weather == hours

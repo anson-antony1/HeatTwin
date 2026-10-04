@@ -65,6 +65,9 @@ class AthleteState:
     n_updates: int = 0
     last_coverage: float = 0.0
     dropped: int = 0
+    skipped_rest: int = 0       # live demo: windows that looked like rest, not the mapped drill (not assimilated)
+    ceiling_held: int = 0       # windows at/above the modelled HR ceiling for every member (nothing to learn)
+    last_window: str = ""       # "updated" | "rest" | "ceiling" | "" — what the latest window did (gate message)
 
 
 class LiveSession:
@@ -72,7 +75,10 @@ class LiveSession:
 
     def __init__(self, plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]],
                  weather: Sequence[Mapping[str, Any]], *, settings=None, seed: int = 0,
-                 extra_labels: Sequence[str] = ()):
+                 extra_labels: Sequence[str] = (), observe: Mapping[str, Mapping[str, Any]] | None = None):
+        """``observe`` (live demo): athlete id → the plan drill they are actually doing. Their HR is read against that
+        drill's intensity and gear at every minute instead of the plan drill at the clock; the re-forecast still runs
+        the plan as written with the calibrated met_scale."""
         from engine import settings as at_settings
         self.plan, self.weather = dict(plan), list(weather)
         self.roster = [dict(a) for a in roster]
@@ -84,8 +90,15 @@ class LiveSession:
         self.R = twonode.build_roster(self.roster)
         self.tl = twonode.build_timeline(plan["drills"], self.R.ids, 1.0, rest_shade=self.S.non_participant_shade,
                                          gear_cap=twonode.gear_caps(self.roster))
+        self.observe = {aid: dict(d) for aid, d in (observe or {}).items()}
+        one = lambda d, part: twonode.build_timeline([{**d, "duration_min": 1, "participants": part}], self.R.ids,  # noqa: E731
+                                                     1.0, rest_shade=self.S.non_participant_shade,
+                                                     gear_cap=twonode.gear_caps(self.roster))
+        self.obs_tl = {aid: one(d, None) for aid, d in self.observe.items()}     # on the mapped drill
+        self.rest_tl = {aid: one(d, []) for aid, d in self.observe.items()}      # rotated out of it (resting)
         pri = consts.get("ensemble_priors")
         self.state: dict[str, AthleteState] = {}
+        self._last_refc: dict[str, Any] | None = None
         for a in self.roster:
             c = a.get("calib") or {}
             mu, sd = c.get("met_scale", 1.0), c.get("met_scale_sd", pri["met_scale_sd"])
@@ -94,15 +107,18 @@ class LiveSession:
             self.state[a["id"]] = AthleteState(athlete=a, ens=ens)
 
     # model HR for athlete at a plan minute, for each ensemble met_scale
-    def _predict(self, aid: str, minute: int, ens: np.ndarray) -> np.ndarray | None:
+    def _predict(self, aid: str, minute: int, ens: np.ndarray, *, resting: bool = False) -> np.ndarray | None:
         a = self.state[aid].athlete
         if a.get("hr_rest_bpm") is None:
             return None
         i = self.R.ids.index(aid)
-        k = int(np.clip(minute, 0, self.tl.n_steps - 1))
-        met = self.tl.met[i, k] * ens
+        if aid in self.obs_tl:   # live demo: the mapped drill (or resting from it) at every minute
+            tl, k = (self.rest_tl[aid] if resting else self.obs_tl[aid]), 0
+        else:
+            tl, k = self.tl, int(np.clip(minute, 0, self.tl.n_steps - 1))
+        met = tl.met[i, k] * ens
         if self.S.clothing_mode == "conservative":  # the gear surcharge is metabolic: measured HR includes it
-            met = met * (1.0 + twonode.gear_met_surcharge()[self.tl.gear[i, k]])
+            met = met * (1.0 + twonode.gear_met_surcharge()[tl.gear[i, k]])
         met = np.minimum(met, self.R.met_cap[i])
         hr_max = a.get("hr_max_bpm") or metabolic.hr_max_bpm(float(a["age_yr"]))
         # cardiovascular drift is not modelled (constants.hr_model.drift_bpm_per_c_core = 0, status TODO)
@@ -121,14 +137,17 @@ class LiveSession:
             st.readings.append((ts, hr, replay))
         else:
             st.dropped += 1
-        updated = False
+        updated = held = False
         if st.last_update is None or ts - st.last_update >= _c("update_interval_s"):
             updated = self._update(aid, ts)
+            held = st.last_window in ("rest", "ceiling")
         out = {"athlete_id": aid, "calib": self.calib(aid), "updated": updated, "replay": replay,
                "labels": self._labels(aid)}
         if reforecast and (updated or st.n_updates == 0):
-            out["reforecast"] = self.reforecast()
+            out["reforecast"] = self._last_refc = self.reforecast()
             out["gates"] = self.gates(aid, out["reforecast"])
+        elif reforecast and held and self._last_refc is not None:   # say why nothing was learnt from this window
+            out["gates"] = self.gates(aid, self._last_refc)
         return out
 
     def _update(self, aid: str, now: float) -> bool:
@@ -141,15 +160,27 @@ class LiveSession:
             return False
         minute = int((now - self.t0.timestamp()) // 60 - _c("window_s") / 120)  # window midpoint
         y_e = self._predict(aid, minute, st.ens)
-        if y_e is None or np.var(y_e) == 0:
+        if y_e is None:
             return False
         y = float(np.mean(win))
+        if aid in self.observe:   # live demo: a window that looks like rest is not read against the drill
+            y_rest = self._predict(aid, minute, st.ens, resting=True)
+            if y < 0.5 * (float(np.mean(y_rest)) + float(np.mean(y_e))):
+                st.skipped_rest += 1
+                st.last_window = "rest"
+                return False
+        if np.var(y_e) == 0:      # every member at the modelled HR ceiling (aerobic cap): HR cannot tell them apart
+            if y >= float(y_e.max()):
+                st.ceiling_held += 1
+                st.last_window = "ceiling"
+            return False
         r = float(_c("obs_sd_bpm")) ** 2
         cov_xy = float(np.cov(st.ens, y_e)[0, 1])
         k = cov_xy / (float(np.var(y_e, ddof=1)) + r)
         perturbed = y + self.rng.normal(0.0, np.sqrt(r), st.ens.size)
         st.ens = np.maximum(st.ens + k * (perturbed - y_e), consts.get("ensemble_defaults.min_scale"))
         st.n_updates += 1
+        st.last_window = "updated"
         return True
 
     def calib(self, aid: str) -> dict[str, Any]:
@@ -199,7 +230,11 @@ class LiveSession:
         held = [k for k in ("coverage_ok", "crossing", "persistent") if not g[k]]
         g["flag"] = not held
         g["held_by"] = held
-        if not g["coverage_ok"]:
+        if not g["coverage_ok"] and st.last_window == "ceiling":
+            g["message"] = "HR at or above the model's ceiling — calibration held"
+        elif not g["coverage_ok"] and st.last_window == "rest":
+            g["message"] = "HR looks like rest — not read against the live-demo drill"
+        elif not g["coverage_ok"]:
             g["message"] = "not enough data"
         elif g["flag"]:
             g["message"] = "re-forecast shows crossing"
@@ -209,9 +244,25 @@ class LiveSession:
 
     def _labels(self, aid: str) -> list[str]:
         lab = [twonode.ESTIMATE_LABEL, "thermo_scale not updated from HR (no drift term in the HR model)"]
+        st = self.state[aid]
+        if aid in self.observe:
+            d = self.observe[aid]
+            lab.append(f"live demo: HR read against '{d['name']}' ({d['intensity']}), not the plan drill at the clock")
+            if st.skipped_rest:
+                lab.append(f"live demo: {st.skipped_rest} window(s) looked like rest and were not assimilated")
+        if st.ceiling_held:
+            lab.append(f"{st.ceiling_held} window(s) at or above the modelled HR ceiling — met_scale held there")
         if any(r[2] for r in self.state[aid].readings):
             lab.append("replay: true")
         return lab
+
+
+def match_drill(plan: Mapping[str, Any], query: str) -> dict[str, Any] | None:
+    """A plan drill by id, else the first non-break drill whose name contains ``query`` (case-insensitive)."""
+    q = query.strip().lower()
+    by_id = next((d for d in plan["drills"] if d["id"].lower() == q and not d.get("is_break")), None)
+    return dict(by_id) if by_id else next((dict(d) for d in plan["drills"]
+                                           if not d.get("is_break") and q and q in d["name"].lower()), None)
 
 
 # ── replay ──────────────────────────────────────────────────────────────────

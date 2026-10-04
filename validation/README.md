@@ -7,6 +7,7 @@ data never goes in `results.json`.
 |---|---|---|
 | `field_plausibility` | `field_plausibility.py` | Model p50/p95 peaks vs ingestible-pill core temperatures from 5 football-practice studies (NFL, college, high school), plus a sensitivity sweep naming the driver of the gap. |
 | `armstrong_2010` | `armstrong_2010.py` | WS7 item 1. Armstrong et al. 2010 (J Athl Train 45:117) reproduced in twonode-v1 (conservative, ISO-dynamic and Gagge-static clothing) and JOS-3, for control clothing and full uniform. |
+| `helio_recording` | `helio_recording.py` | The real Oct 3 Amazfit Helio Strap recording (rest, then burpees) as calibration evidence: readings, duration, HR min/mean/max, and how met_scale moves when the HR is read against the plan's conditioning drill (the live-demo mapping; rest-like windows skipped). Real data (`synthetic: false`), fed through calibration as a replay (`replay: true`) with roster athlete a07's synthetic profile (`calibration.profile_synthetic: true`). Not replayed on the demo plan's clock. |
 | `wbgt_gap` | `wbgt_gap.py` | Our Liljegren WBGT vs NWS's own WBGT forecast layer for the Gainesville cell, broken down by input (NWS's documented choices swapped in one at a time, Shapley-attributed; nothing tuned). Write-up: `engine/physio/MODEL.md` §12d. |
 
 Run with `python -m validation.armstrong_2010`; `--calibrate` recomputes the conservative mode's gear surcharge.

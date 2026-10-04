@@ -10,7 +10,8 @@ Writes:
   docs/demo_numbers.md     every headline and comparison number + slide data
   PLAN.md §7               regenerated from these numbers (between the demo-numbers markers)
   docs/discord_update.md   short status from these numbers
-  validation/results.json  ["demo"] block (validation/demo_numbers.py; synthetic: true)
+  validation/results.json  ["demo"] block (validation/demo_numbers.py; synthetic: true), ["field_node"], and
+                           ["helio_recording"] (validation/helio_recording.py; real recording, replay: true)
 
 Comparison (decision 2): the same plan and roster, demo mode (fixed seed), three weather inputs —
   saved_forecast  the pinned cached NWS forecast; its wbgt_f is NWS's own WBGT layer (the slide headline)
@@ -258,8 +259,8 @@ only" once, and that the {f['limit']} °C line and the near band are illustrativ
    - **Heat strip:** every athlete's p95 estimate crosses the {f['limit']} °C planning line between minute {f['first_min']:g} and minute {f['last_min']:g}. First: {_join(f['first_names'])} (acclimatization day {_join([str(d) for d in f['first_days']])}) at minute {f['first_min']:g}; then {_join(f['second_names'])} at minute {f['second_min']:g}.
    - **FHSAA:** the engine finds {f['fhsaa']} issues: {'; '.join(f['fhsaa_details'])}.
 3. **(30 s) Watch** — do this BEFORE Optimize (the HR replay was recorded on this plan; after Optimize, Undo first).
-   - Live: a teammate wears the Amazfit Helio Strap (`python -m engine.hr_bridge --map a07=Helio` after `POST /live/start {{"start_now": true}}`); the recording lands in `fixtures/hr_<date>.csv` and becomes the default replay.
-   - Otherwise the replay is `{f['replay']['file']}`, labelled "{f['replay']['labels'][1] if len(f['replay']['labels']) > 1 else 'replay'}". met_scale moves to {lf['met_scale']} over {f['replay']['frames']} one-minute updates; the gate reads "{lf['gate_message']}".
+   - Live: a teammate wears the Amazfit Helio Strap and does burpees (`POST /live/start {{"start_now": true, "live_demo": {{"a07": "conditioning"}}}}`, then `python -m engine.hr_bridge --map a07=Helio`). Their HR is read against the plan's conditioning drill, labelled "live demo · conditioning". Weather is live NWS, or the pinned forecast shifted to now, labelled "forecast snapshot (time-shifted)". The recording lands in `fixtures/hr_<date>.csv` as calibration evidence; it does not replace the replay.
+   - Otherwise the replay is `{f['replay']['file']}`, labelled "{f['replay']['labels'][1] if len(f['replay']['labels']) > 1 else 'replay'}" (synthetic; the real Oct 3 Helio recording is calibration evidence on the Athlete twin, not a replay of this plan). met_scale moves to {lf['met_scale']} over {f['replay']['frames']} one-minute updates; the gate reads "{lf['gate_message']}".
    - Field node: until a node recording exists (`data/node_<date>.csv`), the field panel says "no field recording yet".
 4. **(40 s) Optimize** (max-load preset, warmed).
    - **Engine's change list ({ml['changes']} changes):**
@@ -323,7 +324,20 @@ def main() -> None:
                    "| Hour | Readings | Node WBGT °F | Forecast (our Liljegren) °F | Field − Liljegren | NWS WBGT °F | "
                    f"Field − NWS |\n|---|---|---|---|---|---|---|\n{rows_md}\n\nMean field − Liljegren "
                    f"{fnode['mean_field_minus_liljegren_f']} °F; mean field − NWS {fnode['mean_field_minus_nws_f']} °F.\n")
-    OUT_MD.write_text(md(f, generated, commit) + node_md)
+    from validation import helio_recording as _helio
+    helio = _helio.compute()
+    if "status" in helio:
+        helio_md = f"\n## HR recording (calibration evidence)\n{helio['status']}.\n"
+    else:
+        hb, cal = helio["hr_bpm"], helio["calibration"]
+        cal_md = (f" Live calibration read against '{cal['mapped_drill']['name']}' (the live-demo mapping): met_scale "
+                  f"{cal['prior_met_scale']} ± {cal['prior_met_scale_sd']} → {cal['final_met_scale']} ± "
+                  f"{cal['final_met_scale_sd']} after {cal['n_updates']} updates; {cal['n_windows_skipped_rest']} rest-like "
+                  f"windows skipped; last 5 {cal['last5_met_scale_range'][0]}–{cal['last5_met_scale_range'][1]}).") if cal else ""
+        helio_md = (f"\n## HR recording (calibration evidence) — {helio['date']} · {helio['device']}\n"
+                    f"{helio['n_readings']} readings over {helio['duration_min']} min; HR min / mean / max "
+                    f"{hb['min']:g} / {hb['mean']:g} / {hb['max']:g} bpm.{cal_md}\n\n{'; '.join(helio['labels'])}.\n")
+    OUT_MD.write_text(md(f, generated, commit) + node_md + helio_md)
     p = PLAN.read_text()
     a7, b8 = p.index("## 7. Demo script"), p.index("## 8. ")
     sec = p[a7:b8]
@@ -337,12 +351,13 @@ def main() -> None:
     results = json.loads(vdn.RESULTS.read_text()) if vdn.RESULTS.exists() else {}
     results["demo"] = demo
     results["field_node"] = fn
+    results["helio_recording"] = helio
     vdn.RESULTS.write_text(json.dumps(results, indent=2) + "\n")
     for r in comp["rows"]:
         print(f"{r['key']:15s} zone {r['peak_zone']}  over {r['over_before']}→{r['over_after']}  "
               f"load {r['load_kept_pct']}%  changes {r['changes']}  fetched {r['fetched_at']}")
     print(f"wrote {OUT_JSON.relative_to(ROOT)}, {OUT_MD.relative_to(ROOT)}, PLAN.md §7, "
-          f"{DISCORD.relative_to(ROOT)}, validation/results.json[demo]")
+          f"{DISCORD.relative_to(ROOT)}, validation/results.json[demo, field_node, helio_recording]")
 
 
 if __name__ == "__main__":

@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-10-04T03:04:52+00:00",
-  "engine_commit": "ba710b6",
+  "generated_at": "2026-10-04T04:54:04+00:00",
+  "engine_commit": "9126b3b",
   "demo": {
     "computed_by": "validation/demo_numbers.py via the engine API with ?demo=1",
-    "computed_at": "2026-10-04T03:04:51+00:00",
+    "computed_at": "2026-10-04T04:45:49+00:00",
     "synthetic": true,
     "inputs": {
       "plan_id": "plan-demo-1",
@@ -185,32 +185,31 @@
       }
     },
     "replay": {
-      "file": "fixtures/hr_2026-10-03.csv",
-      "synthetic": false,
-      "date": "2026-10-03",
-      "device": "Amazfit Helio Strap",
-      "label": "replay \u00b7 2026-10-03 \u00b7 Amazfit Helio Strap",
+      "file": "fixtures/hr_a07_synthetic.csv",
+      "synthetic": true,
+      "date": null,
+      "device": null,
+      "label": "replay \u00b7 synthetic HR file (not a real athlete)",
       "athletes": [
         "a07"
       ],
-      "n_readings": 1557,
+      "n_readings": 3600,
       "first_ts": "2026-10-04T15:30:00-04:00",
-      "last_ts": "2026-10-04T15:56:11-04:00",
-      "aligned_to_plan_start": true,
-      "frames": 26,
+      "last_ts": "2026-10-04T16:29:59-04:00",
+      "aligned_to_plan_start": false,
+      "frames": 59,
       "labels": [
         "replay",
-        "real HR recording \u2014 Amazfit Helio Strap, 2026-10-03 (fixtures/hr_2026-10-03.csv)",
+        "synthetic HR (not a real athlete)",
         "synthetic plan (fixture)",
         "synthetic roster",
-        "demo mode: forecast pinned to the cached NWS fixture",
-        "recording clock shifted so its first reading is the plan start"
+        "demo mode: forecast pinned to the cached NWS fixture"
       ],
       "last_frame": {
-        "minute": 26.0,
+        "minute": 59.0,
         "athlete_id": "a07",
-        "met_scale": 1.6344,
-        "peak_p95_c": 42.25,
+        "met_scale": 1.2392,
+        "peak_p95_c": 41.65,
         "status": "over_limit",
         "gate_message": "re-forecast shows crossing"
       }
@@ -291,7 +290,7 @@
       {
         "key": "live_nws_wbgt",
         "input": "Live NWS forecast + NWS WBGT",
-        "fetched_at": "2026-10-04T03:04:52+00:00",
+        "fetched_at": "2026-10-04T04:48:33+00:00",
         "wbgt_f_by_hour": [
           [
             "15:00",
@@ -321,7 +320,7 @@
       {
         "key": "live_liljegren",
         "input": "Live NWS forecast + our Liljegren WBGT",
-        "fetched_at": "2026-10-04T03:04:52+00:00",
+        "fetched_at": "2026-10-04T04:48:33+00:00",
         "wbgt_f_by_hour": [
           [
             "15:00",
@@ -354,7 +353,7 @@
       "estimate \u2014 planning only",
       "same plan and roster (synthetic fixtures), demo mode (fixed seed)",
       "physiology uses air temperature, humidity, wind and sun; WBGT sets the FHSAA zone and its rules",
-      "live rows: NWS forecast fetched 2026-10-04T03:04:52+00:00 (a snapshot; NWS updates its forecast)"
+      "live rows: NWS forecast fetched 2026-10-04T04:48:33+00:00 (a snapshot; NWS updates its forecast)"
     ]
   },
   "live_hours": {
@@ -2472,6 +2471,6 @@
         "fhsaa_zone": 1
       }
     ],
-    "fetched_at": "2026-10-04T03:04:52+00:00"
+    "fetched_at": "2026-10-04T04:48:33+00:00"
   }
 }

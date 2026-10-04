@@ -20,6 +20,8 @@ export interface WeatherHour {
   wbgt_f: number
   fhsaa_zone: FhsaaZone
   source: 'nws_forecast' | 'field_node' | 'assimilated' | 'fixture' | string
+  /** v1.6: a live session on the pinned forecast shifted to now, by this many minutes ("forecast snapshot (time-shifted)"). */
+  time_shifted_min?: number
 }
 
 export interface AtSettings {
@@ -179,6 +181,8 @@ export interface LiveAthlete {
   calib: { met_scale: number; met_scale_sd: number } | null
   gates: Gates | null
   athlete: CalibratedCurve | null
+  /** v1.6 live demo: the plan drill this athlete's HR is read against (e.g. the conditioning drill). */
+  live_demo?: { drill_id: string; drill: string; intensity: string }
 }
 
 export interface LiveState {
@@ -413,6 +417,39 @@ export function optimizePlan(plan: PracticePlan, signal?: AbortSignal, preset: O
 
 export function getSettings(signal?: AbortSignal) {
   return request<SettingsResponse>('GET', '/settings', undefined, signal)
+}
+
+/** v1.6 GET /validation/hr_recording: the real strap recording as calibration evidence (validation/results.json). */
+export interface HrRecording {
+  synthetic: false
+  replay: true
+  file: string
+  device: string
+  date: string
+  athlete_ids: string[]
+  n_readings: number
+  duration_min: number
+  hr_bpm: { min: number; mean: number; max: number }
+  calibration: null | {
+    athlete_id: string
+    mapped_drill: { id: string; name: string; intensity: string }
+    n_updates: number
+    prior_met_scale: number
+    prior_met_scale_sd: number
+    final_met_scale: number
+    final_met_scale_sd: number
+  }
+  labels: string[]
+}
+
+/** null when the engine has no recording (404). */
+export async function getHrRecording(signal?: AbortSignal): Promise<HrRecording | null> {
+  try {
+    return await request<HrRecording>('GET', '/validation/hr_recording', undefined, signal)
+  } catch (e) {
+    if (e instanceof EngineError && e.status === 404) return null
+    throw e
+  }
 }
 
 export function getSources(signal?: AbortSignal) {
