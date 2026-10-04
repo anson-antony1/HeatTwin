@@ -16,7 +16,7 @@ Decisions (the owner's spec):
                                               engine/guard.py: ``check_two_layer`` blocks when EITHER layer flags.
 
 Embeddings: fastembed (ONNX, no torch), model ``FASTEMBED_MODEL`` (default BAAI/bge-small-en-v1.5), cached in
-``FASTEMBED_CACHE_DIR`` (default ``<repo>/.cache/fastembed``, git-ignored). If the model cannot load (not installed, not
+``FASTEMBED_CACHE_DIR`` (default ``~/.cache/heattwin/fastembed``, shared by every checkout; see cache_dir). If the model cannot load (not installed, not
 cached and no network) the layer degrades to a clearly labelled LEXICAL FALLBACK (hashed word/char n-grams) with its own
 calibration; it never raises into the engine. The label travels in every Decision (``backend``).
 
@@ -195,7 +195,13 @@ class Backend:
 
 
 def cache_dir() -> Path:
-    return Path(os.environ.get("FASTEMBED_CACHE_DIR") or ROOT / ".cache" / "fastembed")
+    """FASTEMBED_CACHE_DIR, else the per-user ~/.cache/heattwin/fastembed (one download serves every checkout on a
+    laptop), else <repo>/.cache/fastembed when an older download is already there. Render sets FASTEMBED_CACHE_DIR."""
+    env = os.environ.get("FASTEMBED_CACHE_DIR")
+    if env:
+        return Path(env)
+    user, repo = Path.home() / ".cache" / "heattwin" / "fastembed", ROOT / ".cache" / "fastembed"
+    return repo if (repo.exists() and any(repo.iterdir()) and not user.exists()) else user
 
 
 def model_name() -> str:
@@ -692,7 +698,7 @@ def check_two_layer(text: str, *, source: str = "", log: bool = True, backend: O
             continue
         d = guard_assist(sent, backend=be)
         p_max = max(p_max, d.p_flag)
-        if d.blocks:
+        if d.blocks and be.semantic:   # the lexical fallback (model unavailable) is advisory: it never redacts
             flagged.append({"rule": "semantic", "match": sent, "start": s0, "end": s1, "p_flag": round(d.p_flag, 4),
                             "abstained": d.abstain and d.choice == "pass"})
         if nli.get("enabled") and nli_th is not None and not nli.get("reason"):
@@ -728,7 +734,10 @@ def check_two_layer(text: str, *, source: str = "", log: bool = True, backend: O
     out["ok"] = not blocked_by
     out["blocked_by"] = blocked_by
     out["assist"] = {"backend": be.key, "p_flag_max": round(p_max, 4), "hits": flagged,
-                     "calibrated": calibration_for(be.key, "guard_assist") is not None, "fallback": not be.semantic}
+                     "calibrated": calibration_for(be.key, "guard_assist") is not None, "fallback": not be.semantic,
+                     "active": be.semantic,
+                     "reason": None if be.semantic else ("embedding model unavailable — the lexical fallback is advisory "
+                                                         "only; engine/guard.py's rules still apply")}
     out["nli"] = nli
     return out
 

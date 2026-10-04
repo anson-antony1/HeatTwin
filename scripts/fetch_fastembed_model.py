@@ -4,7 +4,7 @@
 
 Env (same names the engine reads, engine/decide.py):
   FASTEMBED_MODEL      model name (default BAAI/bge-small-en-v1.5; fastembed maps it to a ~64 MB quantised ONNX file)
-  FASTEMBED_CACHE_DIR  where the model files go (default <repo>/.cache/fastembed, git-ignored)
+  FASTEMBED_CACHE_DIR  where the model files go (default ~/.cache/heattwin/fastembed; engine/decide.cache_dir)
 
 The download is the only network call and it happens at build time; at run time set HF_HUB_OFFLINE=1 so the service
 loads the files from FASTEMBED_CACHE_DIR and never reaches for the network. Not a metered API: a public file download.
@@ -18,6 +18,7 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 DEFAULT_MODEL = "BAAI/bge-small-en-v1.5"
 
 
@@ -25,7 +26,8 @@ def main() -> int:
     from fastembed import TextEmbedding
 
     model = os.environ.get("FASTEMBED_MODEL", DEFAULT_MODEL)
-    cache = os.environ.get("FASTEMBED_CACHE_DIR") or str(ROOT / ".cache" / "fastembed")
+    from engine import decide
+    cache = str(decide.cache_dir())
     t = time.perf_counter()
     TextEmbedding(model_name=model, cache_dir=cache)                  # downloads into `cache` if absent
     print(f"fastembed: {model} downloaded to {cache} in {time.perf_counter() - t:.1f} s")

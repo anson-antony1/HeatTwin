@@ -132,3 +132,16 @@ def test_action5_hr_replay_read_one_athlete():
     assert (last["athlete_id"], last["calib"]["met_scale"], round(last["athlete"]["peak_core_c_p95"], 2)) == \
         (d["athlete_id"], d["met_scale"], d["peak_p95_c"])
     assert ("synthetic HR (not a real athlete)" in r["labels"]) == DEMO["replay"]["synthetic"]
+
+
+def test_lexical_fallback_assist_never_redacts_engine_sentences(monkeypatch):
+    """Model unavailable → the lexical assist is advisory only (guard.py still applies): the engine's own
+    fewest-changes note must come through intact (it was redacted as '[removed: semantic]' before)."""
+    from engine import decide
+    monkeypatch.setenv("HEATTWIN_DECIDE_BACKEND", "lexical")
+    note = ("Needs at least 12 changes — no plan within 11 changes met every rule with every athlete under the line "
+            "(caps 6–12 searched one at a time).")
+    r = decide.check_two_layer(note, source="voice", log=False)
+    assert r["ok"] and r["redacted_text"] == note and r["assist"]["active"] is False
+    bad = decide.check_two_layer("He is fine to keep going.", source="voice", log=False)
+    assert bad["ok"] is False and "guard.py" in bad["blocked_by"]          # the rules still block
