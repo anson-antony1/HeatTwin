@@ -9,8 +9,9 @@ GET /demo/comparison. The two optimizer searches are the slow part (about two mi
 results are written to .cache/demo/ (engine/demo_cache.py: keyed by inputs + a hash of the engine code, override the
 directory with HEATTWIN_CACHE_DIR). This is also what compiles the numba kernel into engine/physio/__pycache__.
 
-Then it checks the cache the way a cold start sees it: the in-process caches are emptied and every call must answer
-within WARM_MAX_S (the optimizer results come back from disk). Exit 1 if not, so a broken warm-up fails the build.
+Then it checks the cache the way a cold start sees it: the in-process caches are emptied and the two optimizer calls
+must answer within WARM_MAX_S from the on-disk cache (the other calls have generous limits: /simulate and the HR replay
+are recomputed in about a second on a laptop, once per process). Exit 1 if not, so a broken warm-up fails the build.
 
 Run it with the same environment variables as the service (a different HEATTWIN_PROFILE, for example, is a different
 cache key). Build and start must run from the same checkout, because the cache key hashes the engine source.
@@ -34,7 +35,8 @@ os.environ.setdefault("HEATTWIN_DISABLE_PAID_APIS", "1")   # the build never cal
 os.environ.setdefault("HEATTWIN_NODE", "off")              # no USB sensor bridge on a build or hosted machine
 os.environ["HEATTWIN_INTEGRATOR"] = "auto"                 # numba kernel for the warm-up, whatever the service uses
 
-WARM_MAX_S = 1.0   # a cached call after "restart" (in-process caches emptied) must answer well under a second
+WARM_MAX_S = 1.0   # an optimizer call after "restart" (in-process caches emptied) must answer well under a second
+LIMIT_S = {"/simulate": 5.0, "/live/replay": 10.0}   # recomputed per process, not disk-cached; everything else WARM_MAX_S
 
 
 def headline_differences(got: dict) -> list[str]:
@@ -94,14 +96,15 @@ def main() -> int:
 
     api._DEMO_CACHE.clear()      # what a freshly started engine has in memory: nothing
     api._REPLAY_CACHE.clear()
-    print(f"check, as after a restart (in-process caches emptied; every call must answer within {WARM_MAX_S} s):")
-    slow = [f"{m} {p}" for m, p, b in calls if call(m, p, b)[1] > WARM_MAX_S]
+    print(f"check, as after a restart (in-process caches emptied; optimizer calls must answer within {WARM_MAX_S} s):")
+    slow = [f"{m} {p}" for m, p, b in calls
+            if call(m, p, b)[1] > LIMIT_S.get(p.split("?")[0], WARM_MAX_S)]
     n_files = len(list(demo_cache.cache_dir().glob("*.json")))
     print(f"{n_files} optimizer result(s) on disk in {demo_cache.cache_dir()}")
     if slow or n_files < 2:
         print(f"NOT WARM: slow={slow}, optimizer results on disk={n_files} (need 2)", file=sys.stderr)
         return 1
-    print("warm_build: a cold-started engine answers every demo call from the cache")
+    print("warm_build: after a cold start the optimizer answers from the on-disk cache")
     return 0
 
 
