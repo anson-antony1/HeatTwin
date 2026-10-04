@@ -608,3 +608,24 @@
   font-size: 13.5px;
   color: var(--ink-2);
 }
+
+/* What the coach said (live, normal text) and how it was understood (grey). */
+.dock__caption--heard {
+  color: var(--ink);
+}
+.dock__shimmer-text {
+  color: var(--ink-3);
+}
+.review__heard {
+  color: var(--ink);
+  font-size: 14.5px;
+}
+.review__understood {
+  margin-top: 6px;
+  color: var(--ink-3);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.review__who {
+  font-weight: 600;
+}

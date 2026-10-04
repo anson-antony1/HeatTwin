@@ -31,6 +31,8 @@ const MAX_SECONDS = 180
 export interface VoicePlanOptions {
   /** The Web Speech transcript of the recording that just ended (the latest text of lib/useLiveCaptions). */
   getTranscript?: () => string
+  /** "Start a new plan" is on: send no plan as memory, so the words build a new plan from scratch. */
+  fresh?: () => boolean
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -87,7 +89,7 @@ export function useVoicePlan(ctx: PlanContext = {}, opts: VoicePlanOptions = {})
     lastText.current = text
     const plan = ctxRef.current.current_plan
     if (!plan) throw new Error('There is no plan on screen to ask about.')
-    const out = await runVoiceFlow(text, plan, choices)
+    const out = await runVoiceFlow(text, plan, choices, undefined, undefined, optsRef.current.fresh?.() ?? false)
     setOutcome(out)
     setState('done')
   }, [])
@@ -125,7 +127,8 @@ export function useVoicePlan(ctx: PlanContext = {}, opts: VoicePlanOptions = {})
             if (await geminiConfigured()) {
               // last resort, only when the engine has a key: Gemini hears the audio and returns a plan draft
               wav ??= await toWav(blob)
-              const draft = await parsePlanAudio(wav, ctxRef.current)
+              const { current_plan, ...rest } = ctxRef.current
+              const draft = await parsePlanAudio(wav, optsRef.current.fresh?.() ? rest : { current_plan, ...rest })
               setOutcome({ kind: 'draft', transcript: draft.transcript, draft })
               setState('done')
               return

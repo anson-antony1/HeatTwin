@@ -224,3 +224,16 @@ describe('Gemini reads the words first when it is on', () => {
     expect(d.decide).toHaveBeenCalled()
   })
 })
+
+describe('Start a new plan (no memory)', () => {
+  it('sends no current plan, so the words build a new plan', async () => {
+    const d = deps({ geminiFirst: async () => true, parsePlan: vi.fn(async () => ({ ...DRAFT, about_plan: true })) })
+    await runVoiceFlow('warmups easy for ten then sled pushes super hard for twenty', PLAN, {}, d, undefined, true)
+    expect(d.parsePlan).toHaveBeenCalledWith(expect.any(String), {}, undefined)
+  })
+  it('without it, the plan on screen is the memory', async () => {
+    const d = deps({ geminiFirst: async () => true, parsePlan: vi.fn(async () => ({ ...DRAFT, about_plan: true })) })
+    await runVoiceFlow('twenty more on team period', PLAN, {}, d)
+    expect(d.parsePlan).toHaveBeenCalledWith(expect.any(String), { current_plan: PLAN }, undefined)
+  })
+})

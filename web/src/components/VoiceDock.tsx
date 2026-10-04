@@ -4,7 +4,8 @@ import { NO_RECOGNIZER, useVoicePlan } from '../lib/useVoicePlan'
 import { useMicLevels } from '../lib/useMicLevels'
 import { liveCaptionsSupported, useLiveCaptions } from '../lib/useLiveCaptions'
 import { planStore, usePlanState, type PlanState } from '../data/planStore'
-import type { PlanDraft } from '../data/llmPlan'
+import type { PlanDraft, PracticePlan } from '../data/llmPlan'
+import { interpretation, interpreterName } from '../data/interpretation'
 import { useRoster } from '../data/roster'
 import { hasDigits, kelvin, useKelvinReply } from '../data/voiceReply'
 import { HELD_MESSAGE, provenanceLabels, type VoiceOutcome } from '../data/voiceFlow'
@@ -55,7 +56,13 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
   // Memory: every request carries the plan in use, so "add 20 minutes of jumping
   // jacks at the end" edits it instead of starting over.
   const transcriptRef = useRef<() => string>(() => '')
-  const v = useVoicePlan({ current_plan: p.plan }, { getTranscript: () => transcriptRef.current() })
+  // "Start a new plan" turns memory off for the next request: the words build a plan from scratch. Confirm turns it on.
+  const [fresh, setFresh] = useState(false)
+  const freshRef = useRef(false)
+  useEffect(() => {
+    freshRef.current = fresh
+  }, [fresh])
+  const v = useVoicePlan({ current_plan: p.plan }, { getTranscript: () => transcriptRef.current(), fresh: () => freshRef.current })
   const reduce = useReducedMotion()
   const roster = useRoster()
   const [opened, setOpened] = useState<'result' | 'typing' | null>(null)
@@ -78,6 +85,7 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
     setAppliedDraft(d)
     planStore.confirm(d).then(() => {
       if (planStore.get().phase !== 'ready') return
+      setFresh(false)
       setFlash(true)
       flashTimer.current = window.setTimeout(() => {
         setFlash(false)
@@ -124,6 +132,13 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
     setFlash(false)
     planStore.dismissError()
     v.start()
+  }
+
+  const startNewPlan = () => {
+    planStore.clear()
+    freshRef.current = true
+    setFresh(true)
+    startRecording()
   }
 
   const close = () => {
@@ -185,11 +200,12 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
                 transition={{ duration: 0.24, ease: ease.out }}
               >
                 {sheet === 'review' && v.draft && (
-                  <Review draft={v.draft} onRedo={startRecording} onType={() => openTyping(v.draft?.transcript ?? '')} />
+                  <Review draft={v.draft} before={fresh ? null : p.plan} onRedo={startRecording} onType={() => openTyping(v.draft?.transcript ?? '')} />
                 )}
                 {sheet === 'confirm' && v.draft && (
                   <Confirm
                     draft={v.draft}
+                    before={fresh ? null : p.plan}
                     onConfirm={() => v.draft && confirmDraft(v.draft)}
                     onRedo={startRecording}
                     onType={() => openTyping(v.draft?.transcript ?? '')}
@@ -205,6 +221,7 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
                     }}
                     onType={() => openTyping(p.draft?.transcript ?? '')}
                     onDone={close}
+                    onNewPlan={startNewPlan}
                   />
                 )}
                 {sheet === 'answer' && outcome && (outcome.kind === 'answer' || outcome.kind === 'held') && (
@@ -307,7 +324,7 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
                 exit={{ opacity: 0, transform: 'translateY(-40%)', filter: 'blur(3px)' }}
                 transition={{ duration: 0.22, ease: ease.out }}
               >
-                <BarText bar={bar} p={p} captions={captions} busyLabel={busyLabel} />
+                <BarText bar={bar} p={p} captions={captions} busyLabel={busyLabel} fresh={fresh} />
               </motion.span>
             </AnimatePresence>
           </button>
@@ -363,19 +380,24 @@ function titleCase(name: string) {
   return name.charAt(0).toUpperCase() + name.slice(1)
 }
 
-function BarText({ bar, p, captions, busyLabel }: { bar: Bar; p: PlanState; captions: string; busyLabel: string[] }) {
+function BarText({ bar, p, captions, busyLabel, fresh }: { bar: Bar; p: PlanState; captions: string; busyLabel: string[]; fresh: boolean }) {
   if (bar === 'recording') {
     return (
       <>
-        <span className="dock__title">Listening…</span>
-        <span className="dock__caption">
+        <span className="dock__title">{fresh ? 'New plan · listening…' : 'Listening…'}</span>
+        <span className={`dock__caption ${captions ? 'dock__caption--heard' : ''}`}>
           {captions || (liveCaptionsSupported ? 'Say each drill, how long, and the gear' : 'Tap stop when you’re done')}
         </span>
       </>
     )
   }
   if (bar === 'busy') {
-    return (
+    return captions ? (
+      <>
+        <span className="dock__caption dock__caption--heard">{captions}</span>
+        <span className="dock__caption dock__shimmer-text">{busyLabel[0]}… {busyLabel[1]}</span>
+      </>
+    ) : (
       <>
         <span className="dock__title dock__shimmer">{busyLabel[0]}…</span>
         <span className="dock__caption">{busyLabel[1]}</span>
@@ -397,19 +419,34 @@ function BarText({ bar, p, captions, busyLabel }: { bar: Bar; p: PlanState; capt
   return (
     <>
       <span className="dock__title">Ask {AI_NAME}</span>
-      <span className="dock__caption">{p.source === 'fixture' ? 'Tap mic to plan' : 'Tap mic to change'}</span>
+      <span className="dock__caption">{fresh ? 'Tap mic for a new plan' : p.source === 'fixture' ? 'Tap mic to plan' : 'Tap mic to change'}</span>
     </>
   )
 }
 
-function Review({ draft, onRedo, onType }: { draft: PlanDraft; onRedo: () => void; onType: () => void }) {
+/** The coach's words in normal text, and how the interpreter understood them in grey (built from the drills). */
+function Heard({ draft, before }: { draft: PlanDraft; before: PracticePlan | null }) {
+  if (!draft.transcript) return null
+  const lines = interpretation(draft, draft.edited === false ? null : before)
+  return (
+    <div className="review__quote">
+      <div className="review__heard">“{draft.transcript}”</div>
+      <div className="review__understood">
+        <span className="review__who">{interpreterName(draft)}{before && draft.edited !== false ? '' : ' · new plan'}:</span>{' '}
+        {lines.join(' · ')}
+      </div>
+    </div>
+  )
+}
+
+function Review({ draft, before, onRedo, onType }: { draft: PlanDraft; before: PracticePlan | null; onRedo: () => void; onType: () => void }) {
   return (
     <div className="review">
       <div className="review__head">
         <div className="eyebrow">Didn’t catch a plan</div>
         <span className="review__label">{draft.labels[0] ?? 'parsed by AI'}</span>
       </div>
-      {draft.transcript && <blockquote className="review__quote">“{draft.transcript}”</blockquote>}
+      <Heard draft={draft} before={before} />
       {draft.unclear.filter((u) => !hasDigits(u)).length > 0 && (
         <ul className="review__notes">
           {draft.unclear.filter((u) => !hasDigits(u)).map((u) => (
@@ -432,14 +469,26 @@ function Review({ draft, onRedo, onType }: { draft: PlanDraft; onRedo: () => voi
 }
 
 /** The AI's draft, for the coach to check before anything runs (the engine runs only after Confirm). */
-function Confirm({ draft, onConfirm, onRedo, onType }: { draft: PlanDraft; onConfirm: () => void; onRedo: () => void; onType: () => void }) {
+function Confirm({
+  draft,
+  before,
+  onConfirm,
+  onRedo,
+  onType,
+}: {
+  draft: PlanDraft
+  before: PracticePlan | null
+  onConfirm: () => void
+  onRedo: () => void
+  onType: () => void
+}) {
   return (
     <div className="review">
       <div className="review__head">
         <div className="eyebrow">Check this draft</div>
         <span className="review__label">{draft.labels[0] ?? 'parsed by AI — coach must confirm'}</span>
       </div>
-      {draft.transcript && <blockquote className="review__quote">“{draft.transcript}”</blockquote>}
+      <Heard draft={draft} before={before} />
       <Drills draft={draft} />
       <div className="dock__actions">
         <button className="btn btn--ink pressable" onClick={onConfirm}>
@@ -504,6 +553,7 @@ function Result({
   onSeePlayers,
   onType,
   onDone,
+  onNewPlan,
 }: {
   p: PlanState
   /** Kelvin's approved, engine-written sentence (null while loading, or when held). */
@@ -511,6 +561,7 @@ function Result({
   onSeePlayers: () => void
   onType: () => void
   onDone: () => void
+  onNewPlan: () => void
 }) {
   const reduce = useReducedMotion()
   const sim = p.sim!
@@ -617,7 +668,7 @@ function Result({
           Type a correction
         </button>
         {p.source !== 'fixture' && (
-          <button className="linkbtn" onClick={() => planStore.clear()} disabled={optimizing}>
+          <button className="linkbtn" onClick={onNewPlan} disabled={optimizing}>
             Start a new plan
           </button>
         )}

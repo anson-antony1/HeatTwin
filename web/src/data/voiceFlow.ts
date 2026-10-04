@@ -74,15 +74,18 @@ export async function runVoiceFlow(
   choices: Choices = {},
   deps: FlowDeps = defaultFlowDeps,
   signal?: AbortSignal,
+  /** "Start a new plan": no memory — the words build a plan from scratch instead of editing `plan`. */
+  fresh = false,
 ): Promise<VoiceOutcome> {
   const transcript = text.trim()
+  const planCtx: PlanContext = fresh ? {} : { current_plan: plan }
 
   // Gemini on (key + paid APIs enabled): it reads the coach's words first, however they are phrased ("twenty more on
   // team period this time"), with the plan on screen. A plan change comes back as a draft for Confirm; a question
   // (about_plan: false) goes on to the local router below. If Gemini fails, the local path runs as before.
   if (deps.geminiFirst && Object.keys(choices).length === 0 && (await deps.geminiFirst())) {
     try {
-      const draft = await deps.parsePlan(transcript, { current_plan: plan }, signal)
+      const draft = await deps.parsePlan(transcript, planCtx, signal)
       if (draft.about_plan !== false) return { kind: 'draft', transcript, draft }
     } catch (e) {
       if ((e as Error).name === 'AbortError') throw e
@@ -101,7 +104,7 @@ export async function runVoiceFlow(
   }
 
   if (routed.intent === 'plan_entry') {
-    const draft = await deps.parsePlan(transcript, { current_plan: plan }, signal)
+    const draft = await deps.parsePlan(transcript, planCtx, signal)
     return { kind: 'draft', transcript, draft }
   }
 
