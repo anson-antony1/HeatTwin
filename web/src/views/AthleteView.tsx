@@ -5,6 +5,7 @@ import { useEngineMeta } from '../data/engineMeta'
 import { SYNTHETIC_ROSTER_LABEL, useRoster } from '../data/roster'
 import { ESTIMATE_LABEL, SAFETY_LINE } from '../data/constants'
 import {
+  bodySurfaceAreaM2,
   acclimatizationDays,
   breakWindow,
   drillAtMinute,
@@ -65,7 +66,7 @@ function Picker({ athleteId, onSelect }: { athleteId: string; onSelect: (id: str
     <div className="picker glass" role="tablist" aria-label="Choose athlete">
       {roster.athletes.map((a) => {
         const on = a.id === athleteId
-        const status = statusTone(athleteOf(s, a.id).status)
+        const status = statusTone(athleteOf(s, a.id).status, athleteOf(s, a.id).flag)
         return (
           <button
             key={a.id}
@@ -98,6 +99,7 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
   // p95 − p50 one minute ahead (the engine's band), else at this minute.
   const nextBand = live.band[Math.floor(s.minute) + 1] ?? live.bandC
   const acclimDays = acclimatizationDays(meta.sources)
+  const bsa = a ? bodySurfaceAreaM2(a, meta.sources) : null
   const early = a ? inEarlyPhase(meta.sources?.nata_gear_phasing?.phases, a.acclimatization_day) : null
 
   // Scrubbing the chart drives the whole page: figure, number, and labels read
@@ -107,7 +109,7 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
   const coreShown = scrubbed ? scrubbed.c : live.coreC
   const zoom = useZoom(s.totalMinutes, scrub ?? s.minute)
   if (!a) return null
-  const tone = statusTone(live.status)
+  const tone = statusTone(live.status, live.flag)
   const held = replayHeldNote(s.replay, planState.source)
   const model =
     s.source === 'engine' ? `Engine · ${modelLabel(live)}` : s.source === 'offline' ? 'offline fallback — no estimate' : '—'
@@ -301,8 +303,8 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
               Day <span className="num">{a.acclimatization_day}</span> of {acclimDays ?? '—'}
             </div>
           </div>
-          {/* The engine does not report body surface area. */}
-          <div className="acclim__bsa faint num">BSA — m²</div>
+          {/* DuBois, with the engine's coefficients from /sources. */}
+          <div className="acclim__bsa faint num">BSA {bsa != null ? bsa.toFixed(2) : '—'} m²</div>
         </div>
         <div className="acclim__bar" aria-hidden="true">
           {Array.from({ length: acclimDays ?? 0 }, (_, i) => (

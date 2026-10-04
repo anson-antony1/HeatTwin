@@ -46,7 +46,8 @@ describe('engine result → view values', () => {
     expect(a.hr).toBeNull()
     expect(a.basis).toBe('plan_forecast')
     expect(a.history).toEqual([37.0, 37.0, 37.2, 37.4, 37.6])
-    expect(statusTone(a.status)).toBe('alert')
+    expect(statusTone(a.status)).toBe('watch')        // forecast over the line, not flagged → voice-plan's Watch
+    expect(statusTone(a.status, true)).toBe('alert')  // red row / "Over line" only when the engine flags the athlete
   })
 
   it('summaries are engine fields: over-the-line count, hottest p95', () => {
@@ -55,10 +56,12 @@ describe('engine result → view values', () => {
     expect(overCount(null)).toBeNull()
   })
 
-  it('status tones map the engine statuses; no status → none', () => {
+  it("status tones keep voice-plan's meanings: alert = engine flag, watch = forecast near/over, steady = below", () => {
     expect(statusTone('below_limit')).toBe('steady')
     expect(statusTone('near_limit')).toBe('watch')
-    expect(statusTone('over_limit')).toBe('alert')
+    expect(statusTone('over_limit')).toBe('watch')
+    expect(statusTone('below_limit', true)).toBe('alert')
+    expect(statusTone('over_limit', true)).toBe('alert')
     expect(statusTone(null)).toBe('none')
   })
 
@@ -174,5 +177,14 @@ describe('plan structure', () => {
     expect(nextBreakIn(PLAN.drills, 1)).toBe(3)
     expect(nextBreakIn(PLAN.drills, 5)).toBe(0)
     expect(nextBreakIn(PLAN.drills, 7)).toBeNull()
+  })
+})
+
+describe('body surface area from the engine coefficients', () => {
+  it('uses constants.body_surface_area from /sources (DuBois), null without sources', async () => {
+    const { bodySurfaceAreaM2 } = await import('../selectors')
+    const src = { body_surface_area: { coeff: 0.202, mass_exp: 0.425, height_exp: 0.725 } }
+    expect(bodySurfaceAreaM2({ mass_kg: 125, height_m: 1.88 }, src)).toBeCloseTo(0.202 * 125 ** 0.425 * 1.88 ** 0.725, 10)
+    expect(bodySurfaceAreaM2({ mass_kg: 125, height_m: 1.88 }, null)).toBeNull()
   })
 })

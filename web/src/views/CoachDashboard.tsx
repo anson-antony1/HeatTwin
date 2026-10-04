@@ -25,7 +25,7 @@ import './CoachDashboard.css'
 
 /** Sort bucket: engine flag first, then over / near / below the line. */
 const RANK: Record<Tone, number> = { alert: 1, watch: 2, steady: 3, none: 4 }
-const rankOf = (a: AthleteLive) => (a.flag ? 0 : RANK[statusTone(a.status)])
+const rankOf = (a: AthleteLive) => RANK[statusTone(a.status, a.flag)]
 
 interface Props {
   acked: Set<string>
@@ -57,7 +57,7 @@ export function CoachDashboard({ acked, onAck, onOpenAthlete, onCollapse }: Prop
 
   const counts = roster.athletes.reduce(
     (c, a) => {
-      const tone = statusTone(athleteOf(s, a.id).status)
+      const tone = statusTone(athleteOf(s, a.id).status, athleteOf(s, a.id).flag)
       return tone === 'none' ? c : { ...c, [tone]: c[tone] + 1 }
     },
     { steady: 0, watch: 0, alert: 0 },
@@ -359,7 +359,7 @@ function RosterRow({
   index: number
   onOpen: () => void
 }) {
-  const tone = statusTone(live.status)
+  const tone = statusTone(live.status, live.flag)
   const limit = s.limitC
   return (
     <button

@@ -562,10 +562,15 @@ export function modelLabel(a: Pick<AthleteLive, 'basis' | 'hasHr' | 'calibrated'
   return a.hasHr ? 'HR replay · calibrating…' : 'plan forecast only'
 }
 
-/** Display tone (CSS class) for an engine status. Colour only. */
+/**
+ * Display tone (CSS class) with voice-plan's meanings: 'alert' (red row, "Over line") only when the engine flags the
+ * athlete (`gates.flag`); 'watch' when the engine's p95 forecast is near or over the line (voice-plan's "predicted
+ * peak at the line"); 'steady' below it. Colour only — the numbers are the engine's.
+ */
 export type Tone = 'steady' | 'watch' | 'alert' | 'none'
-export function statusTone(s: AthleteStatus | null | undefined): Tone {
-  return s === 'over_limit' ? 'alert' : s === 'near_limit' ? 'watch' : s === 'below_limit' ? 'steady' : 'none'
+export function statusTone(s: AthleteStatus | null | undefined, flag = false): Tone {
+  if (flag) return 'alert'
+  return s === 'over_limit' || s === 'near_limit' ? 'watch' : s === 'below_limit' ? 'steady' : 'none'
 }
 
 /** Earliest first crossing among the athletes on screen (for "Skip to heat"). */
@@ -573,4 +578,13 @@ export function firstCrossing(athletes: Record<string, Pick<AthleteLive, 'firstC
   let first: number | null = null
   for (const a of Object.values(athletes)) if (a.firstCrossMin != null && (first == null || a.firstCrossMin < first)) first = a.firstCrossMin
   return first
+}
+
+/** Body surface area (DuBois) with the engine's own coefficients from GET /sources (constants.body_surface_area);
+ * null when /sources isn't loaded. Same formula the engine's physiology uses. */
+export function bodySurfaceAreaM2(a: { mass_kg: number; height_m: number }, sources: unknown): number | null {
+  const b = (sources as { body_surface_area?: { coeff?: number; mass_exp?: number; height_exp?: number } } | null)
+    ?.body_surface_area
+  if (!b || b.coeff == null || b.mass_exp == null || b.height_exp == null) return null
+  return b.coeff * a.mass_kg ** b.mass_exp * a.height_m ** b.height_exp
 }
