@@ -247,3 +247,15 @@ endpoint in its WILL column ("row N" references count as that row's endpoint).
 At boot (before any voice plan) no heat, zone, status or HR number on screen came from the engine. After the rewire
 all of them do; the browser keeps only plan-structure arithmetic (minutes, clock times, counts of engine statuses) and
 unit conversion (°C → °F) of engine values.
+
+## Addendum: the free voice path (ws-decide, CONTRACTS v1.7)
+
+Rows added after the audit above (not counted in its totals). Every number the dock shows is still the engine's.
+
+| # | Element | NOW | Source | After |
+|---|---|---|---|---|
+| 139 | Answer sheet: sentence | the engine's `say` | ENG `POST /voice/answer?demo=1` after `POST /voice/decide` | shown and spoken only after `POST /guard` (guard.py AND the embedding assist, `blocked_by` recorded) and the per-answer number check pass; otherwise the fixed "held" message (no number) |
+| 140 | Answer sheet: transcript | "“What if we drop the gassers?”" | browser Web Speech API, offline Whisper (`/voice/transcribe`) or typed | the coach's own words, shown so a mishearing is visible |
+| 141 | Answer sheet: provenance line | "forecast is fixture · synthetic roster" | ENG `labels` of the answer (short synthetic / fixture ones) | same |
+| 142 | "Did you mean…?" options | two buttons | ENG `did_you_mean` (fixed intent labels; athlete and drill names from the roster / plan sent) | the decision layer abstained; nothing runs until one is tapped |
+| 143 | Confirm label for a locally parsed plan | "parsed locally (no AI service) — coach must confirm" | ENG `POST /plan/parse_local` `labels[0]` | same; assumptions (gear, start time, break length, intensity) appear as "Check" notes, digit-free ones only |

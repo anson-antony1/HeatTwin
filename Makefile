@@ -1,9 +1,10 @@
-.PHONY: dev demo sensor-demo warm numbers numbers-check e2e test check-sources setup
+.PHONY: dev demo sensor-demo warm numbers numbers-check e2e test check-sources setup decide-model voice-validate
 # Engine port (default 8010; 8000 is often taken). The web's Vite proxy (/engine) follows it.
 HEATTWIN_PORT ?= 8010
 export HEATTWIN_PORT
 setup:
-	python3 -m venv .venv && . .venv/bin/activate && pip install fastapi uvicorn pydantic numpy scipy pyyaml requests pytest pythermalcomfort httpx bleak pyserial
+	python3 -m venv .venv && . .venv/bin/activate && pip install fastapi uvicorn pydantic numpy scipy pyyaml requests pytest pythermalcomfort httpx bleak pyserial fastembed
+	-. .venv/bin/activate && python -m engine.decide --fetch   # free embedding model (ONNX, ~70 MB) for the voice decision layer; skipped if offline
 	cd web && npm install
 dev:
 	(. .venv/bin/activate && uvicorn engine.api:app --reload --port $(HEATTWIN_PORT)) & (cd web && npm run dev)
@@ -29,3 +30,8 @@ test:
 	cd web && npx vitest run
 check-sources:
 	. .venv/bin/activate && python3 engine/check_sources.py
+# Free voice decision layer (engine/decide.py): download the embedding model once; recompute calibration + results.json[voice_decide].
+decide-model:
+	. .venv/bin/activate && python -m engine.decide --fetch
+voice-validate:
+	. .venv/bin/activate && python -m validation.voice_decide --write-doc

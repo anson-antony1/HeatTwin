@@ -4130,5 +4130,1407 @@
       "no cardiovascular-drift term in the HR model: weather does not enter calibration",
       "replay: true \u2014 recorded HR fed through live calibration"
     ]
+  },
+  "voice_decide": {
+    "synthetic": true,
+    "note": "Computed by validation/voice_decide.py from engine/data/voice_decide_dataset.json \u2014 synthetic text written by the developers (no real coaches or athletes). Small n: read the intervals.",
+    "dataset": {
+      "file": "engine/data/voice_decide_dataset.json",
+      "synthetic": true,
+      "sha1": "0dd2ef46f4fad457774badae2848b4d536319f82",
+      "n": {
+        "intent": 232,
+        "intensity": 119,
+        "guard_assist": 207,
+        "athlete": 130,
+        "drill": 119
+      },
+      "split": {
+        "heldout_fraction": 0.3,
+        "seed": 0,
+        "rule": "intent / intensity / guard assist: stratified by label; within a label ordered by sha1(seed|text); first 30 % held out. athlete / drill: no training set (exemplars are built from the roster / plan), so every item calibrates and is scored cross-fitted"
+      }
+    },
+    "method": {
+      "score": "cosine between the utterance and each labelled exemplar; athlete/drill add 0.4 \u00d7 char-n-gram cosine",
+      "probabilities": "softmax(cosine / T) over all exemplars, summed per class",
+      "temperature": "minimises held-out negative log-likelihood",
+      "ece_bins": 10,
+      "temperature_bounds": [
+        0.005,
+        2.0
+      ],
+      "crossfit_folds": 5,
+      "bootstrap_resamples": 1000
+    },
+    "primary_backend": "fastembed:BAAI/bge-small-en-v1.5",
+    "backends": {
+      "fastembed:BAAI/bge-small-en-v1.5": {
+        "label": "fastembed BAAI/bge-small-en-v1.5",
+        "semantic": true,
+        "decisions": {
+          "intent": {
+            "kind": "classifier",
+            "classes": [
+              "what_if",
+              "athlete_status",
+              "field_conditions",
+              "optimize",
+              "plan_summary",
+              "plan_entry",
+              "unclear"
+            ],
+            "n_total": 232,
+            "n_train_exemplars": 160,
+            "n_heldout": 72,
+            "class_counts_heldout": {
+              "what_if": 10,
+              "athlete_status": 10,
+              "field_conditions": 10,
+              "optimize": 10,
+              "plan_summary": 10,
+              "plan_entry": 10,
+              "unclear": 12
+            },
+            "temperature": 0.0276,
+            "temperature_at_lower_bound": false,
+            "threshold": 0.69712,
+            "threshold_rule": "lowest \u03b8 such that the answered held-out items (confidence \u2265 \u03b8) are \u2265 90% right; else best selective accuracy among \u03b8 answering \u2265 20%",
+            "threshold_status": "target_met",
+            "headline": "crossfit",
+            "crossfit": {
+              "n": 72,
+              "accuracy": 0.8194,
+              "ece": 0.0879,
+              "ece_ci95": [
+                0.0799,
+                0.1951
+              ],
+              "abstain_rate": 0.25,
+              "n_answered": 54,
+              "selective_accuracy": 0.8704,
+              "reliability": [
+                {
+                  "bin": "0.2-0.3",
+                  "n": 2,
+                  "mean_confidence": 0.2781,
+                  "accuracy": 0.5
+                },
+                {
+                  "bin": "0.3-0.4",
+                  "n": 3,
+                  "mean_confidence": 0.3827,
+                  "accuracy": 0.6667
+                },
+                {
+                  "bin": "0.4-0.5",
+                  "n": 5,
+                  "mean_confidence": 0.4479,
+                  "accuracy": 0.4
+                },
+                {
+                  "bin": "0.5-0.6",
+                  "n": 7,
+                  "mean_confidence": 0.5641,
+                  "accuracy": 0.7143
+                },
+                {
+                  "bin": "0.6-0.7",
+                  "n": 6,
+                  "mean_confidence": 0.6824,
+                  "accuracy": 0.6667
+                },
+                {
+                  "bin": "0.7-0.8",
+                  "n": 10,
+                  "mean_confidence": 0.7549,
+                  "accuracy": 1.0
+                },
+                {
+                  "bin": "0.8-0.9",
+                  "n": 12,
+                  "mean_confidence": 0.8401,
+                  "accuracy": 0.75
+                },
+                {
+                  "bin": "0.9-1.0",
+                  "n": 27,
+                  "mean_confidence": 0.9587,
+                  "accuracy": 0.963
+                }
+              ]
+            },
+            "in_sample": {
+              "n": 72,
+              "n_scored": 72,
+              "accuracy": 0.8194,
+              "ece": 0.0504,
+              "nll_at_T1": 1.8476,
+              "nll_calibrated": 0.5039,
+              "mean_confidence": 0.7691,
+              "abstain_rate": 0.2778,
+              "n_answered": 52,
+              "selective_accuracy": 0.9038,
+              "accuracy_ci95": [
+                0.7222,
+                0.9028
+              ],
+              "ece_ci95": [
+                0.0542,
+                0.16
+              ]
+            },
+            "accuracy_on_other_splits": {
+              "seeds": [
+                1,
+                7
+              ],
+              "mean": 0.8056,
+              "min": 0.7778,
+              "max": 0.8472
+            },
+            "per_class_recall_heldout": {
+              "what_if": 0.8,
+              "athlete_status": 1.0,
+              "field_conditions": 1.0,
+              "optimize": 1.0,
+              "plan_summary": 0.8,
+              "plan_entry": 0.7,
+              "unclear": 0.5
+            },
+            "confusions_heldout": [
+              {
+                "true": "unclear",
+                "predicted": "field_conditions",
+                "n": 4
+              },
+              {
+                "true": "plan_entry",
+                "predicted": "what_if",
+                "n": 3
+              },
+              {
+                "true": "what_if",
+                "predicted": "plan_entry",
+                "n": 2
+              },
+              {
+                "true": "plan_summary",
+                "predicted": "optimize",
+                "n": 1
+              },
+              {
+                "true": "plan_summary",
+                "predicted": "athlete_status",
+                "n": 1
+              },
+              {
+                "true": "unclear",
+                "predicted": "plan_entry",
+                "n": 1
+              },
+              {
+                "true": "unclear",
+                "predicted": "plan_summary",
+                "n": 1
+              }
+            ],
+            "leakage": {
+              "exact_duplicates": 0,
+              "near_duplicates_cosine_ge_0.95": 0,
+              "max_cosine_to_train": {
+                "median": 0.819,
+                "p95": 0.913,
+                "max": 0.939
+              }
+            }
+          },
+          "intensity": {
+            "kind": "classifier",
+            "classes": [
+              "rest",
+              "light",
+              "moderate",
+              "hard",
+              "max"
+            ],
+            "n_total": 119,
+            "n_train_exemplars": 84,
+            "n_heldout": 35,
+            "class_counts_heldout": {
+              "rest": 7,
+              "light": 7,
+              "moderate": 7,
+              "hard": 7,
+              "max": 7
+            },
+            "temperature": 0.03038,
+            "temperature_at_lower_bound": false,
+            "threshold": 0.68112,
+            "threshold_rule": "lowest \u03b8 such that the answered held-out items (confidence \u2265 \u03b8) are \u2265 90% right; else best selective accuracy among \u03b8 answering \u2265 20%",
+            "threshold_status": "target_met",
+            "headline": "crossfit",
+            "crossfit": {
+              "n": 35,
+              "accuracy": 0.6571,
+              "ece": 0.1417,
+              "ece_ci95": [
+                0.1176,
+                0.3057
+              ],
+              "abstain_rate": 0.4286,
+              "n_answered": 20,
+              "selective_accuracy": 0.8,
+              "reliability": [
+                {
+                  "bin": "0.2-0.3",
+                  "n": 3,
+                  "mean_confidence": 0.2875,
+                  "accuracy": 0.3333
+                },
+                {
+                  "bin": "0.3-0.4",
+                  "n": 2,
+                  "mean_confidence": 0.3626,
+                  "accuracy": 0.5
+                },
+                {
+                  "bin": "0.4-0.5",
+                  "n": 3,
+                  "mean_confidence": 0.4378,
+                  "accuracy": 0.6667
+                },
+                {
+                  "bin": "0.5-0.6",
+                  "n": 7,
+                  "mean_confidence": 0.5648,
+                  "accuracy": 0.4286
+                },
+                {
+                  "bin": "0.6-0.7",
+                  "n": 2,
+                  "mean_confidence": 0.6587,
+                  "accuracy": 0.0
+                },
+                {
+                  "bin": "0.7-0.8",
+                  "n": 4,
+                  "mean_confidence": 0.749,
+                  "accuracy": 0.75
+                },
+                {
+                  "bin": "0.8-0.9",
+                  "n": 6,
+                  "mean_confidence": 0.8572,
+                  "accuracy": 1.0
+                },
+                {
+                  "bin": "0.9-1.0",
+                  "n": 8,
+                  "mean_confidence": 0.9663,
+                  "accuracy": 0.875
+                }
+              ]
+            },
+            "in_sample": {
+              "n": 35,
+              "n_scored": 35,
+              "accuracy": 0.6571,
+              "ece": 0.1547,
+              "nll_at_T1": 1.5846,
+              "nll_calibrated": 0.8088,
+              "mean_confidence": 0.6865,
+              "abstain_rate": 0.4857,
+              "n_answered": 18,
+              "selective_accuracy": 0.9444,
+              "accuracy_ci95": [
+                0.5136,
+                0.8
+              ],
+              "ece_ci95": [
+                0.1178,
+                0.3154
+              ]
+            },
+            "accuracy_on_other_splits": {
+              "seeds": [
+                1,
+                7
+              ],
+              "mean": 0.7837,
+              "min": 0.6857,
+              "max": 0.8286
+            },
+            "leakage": {
+              "exact_duplicates": 0,
+              "near_duplicates_cosine_ge_0.95": 0,
+              "max_cosine_to_train": {
+                "median": 0.765,
+                "p95": 0.909,
+                "max": 0.931
+              }
+            }
+          },
+          "guard_assist": {
+            "kind": "classifier",
+            "classes": [
+              "flag",
+              "pass"
+            ],
+            "n_total": 207,
+            "n_train_exemplars": 145,
+            "n_heldout": 62,
+            "class_counts_heldout": {
+              "flag": 27,
+              "pass": 35
+            },
+            "temperature": 0.02192,
+            "temperature_at_lower_bound": false,
+            "threshold": 0.71538,
+            "threshold_rule": "lowest \u03b8 such that at most 5% of the items the assist passes with confidence \u2265 \u03b8 are true flags; a pass below \u03b8 abstains, and abstain blocks",
+            "threshold_status": "target_met",
+            "headline": "crossfit",
+            "crossfit": {
+              "n": 62,
+              "accuracy": 0.9677,
+              "ece": 0.0369,
+              "ece_ci95": [
+                0.019,
+                0.0881
+              ],
+              "abstain_rate": 0.0,
+              "n_answered": 62,
+              "selective_accuracy": 0.9677,
+              "reliability": [
+                {
+                  "bin": "0.5-0.6",
+                  "n": 1,
+                  "mean_confidence": 0.5973,
+                  "accuracy": 1.0
+                },
+                {
+                  "bin": "0.6-0.7",
+                  "n": 2,
+                  "mean_confidence": 0.6789,
+                  "accuracy": 1.0
+                },
+                {
+                  "bin": "0.7-0.8",
+                  "n": 1,
+                  "mean_confidence": 0.7118,
+                  "accuracy": 1.0
+                },
+                {
+                  "bin": "0.8-0.9",
+                  "n": 4,
+                  "mean_confidence": 0.8634,
+                  "accuracy": 0.75
+                },
+                {
+                  "bin": "0.9-1.0",
+                  "n": 54,
+                  "mean_confidence": 0.9907,
+                  "accuracy": 0.9815
+                }
+              ],
+              "recall_flags_blocked": 0.963,
+              "false_block_rate_on_pass": 0.0286,
+              "n_flag": 27,
+              "n_pass": 35
+            },
+            "in_sample": {
+              "n": 62,
+              "n_scored": 62,
+              "accuracy": 0.9677,
+              "ece": 0.0305,
+              "nll_at_T1": 0.655,
+              "nll_calibrated": 0.0974,
+              "mean_confidence": 0.9582,
+              "abstain_rate": 0.0,
+              "n_answered": 62,
+              "selective_accuracy": 0.9677,
+              "accuracy_ci95": [
+                0.9194,
+                1.0
+              ],
+              "ece_ci95": [
+                0.0184,
+                0.0795
+              ]
+            },
+            "accuracy_on_other_splits": {
+              "seeds": [
+                1,
+                7
+              ],
+              "mean": 0.9654,
+              "min": 0.9355,
+              "max": 1.0
+            },
+            "guard_py_alone": {
+              "recall_flags_blocked": 0.5556,
+              "false_block_rate_on_pass": 0.0286,
+              "n_flag": 27,
+              "n_pass": 35
+            },
+            "assist_alone_in_sample": {
+              "recall_flags_blocked": 0.963,
+              "false_block_rate_on_pass": 0.0286,
+              "n_flag": 27,
+              "n_pass": 35
+            },
+            "either_layer_in_sample": {
+              "recall_flags_blocked": 1.0,
+              "false_block_rate_on_pass": 0.0571,
+              "n_flag": 27,
+              "n_pass": 35
+            },
+            "flags_missed_by_guard_py_caught_by_assist": 12,
+            "leakage": {
+              "exact_duplicates": 0,
+              "near_duplicates_cosine_ge_0.95": 0,
+              "max_cosine_to_train": {
+                "median": 0.809,
+                "p95": 0.919,
+                "max": 0.942
+              }
+            }
+          },
+          "athlete": {
+            "kind": "roster_grounded",
+            "options": 17,
+            "n_total": 130,
+            "n_exemplars": 277,
+            "exemplars_built_from": "the fixture roster (names, first/last name, positions)",
+            "lexical_weight": 0.4,
+            "temperature": 0.02005,
+            "temperature_at_lower_bound": false,
+            "threshold": 0.5,
+            "threshold_rule": "lowest \u03b8 such that the answered held-out items (confidence \u2265 \u03b8) are \u2265 90% right; else best selective accuracy among \u03b8 answering \u2265 20%",
+            "threshold_status": "target_met",
+            "headline": "crossfit",
+            "crossfit": {
+              "n": 130,
+              "accuracy": 0.9355,
+              "ece": 0.0608,
+              "ece_ci95": [
+                0.0348,
+                0.1124
+              ],
+              "abstain_rate": 0.1846,
+              "n_answered": 106,
+              "selective_accuracy": 0.9057,
+              "reliability": [
+                {
+                  "bin": "0.2-0.3",
+                  "n": 3,
+                  "mean_confidence": 0.2513,
+                  "accuracy": 1.0
+                },
+                {
+                  "bin": "0.3-0.4",
+                  "n": 1,
+                  "mean_confidence": 0.369,
+                  "accuracy": 0.0
+                },
+                {
+                  "bin": "0.4-0.5",
+                  "n": 3,
+                  "mean_confidence": 0.477,
+                  "accuracy": 0.6667
+                },
+                {
+                  "bin": "0.5-0.6",
+                  "n": 4,
+                  "mean_confidence": 0.5405,
+                  "accuracy": 0.75
+                },
+                {
+                  "bin": "0.6-0.7",
+                  "n": 2,
+                  "mean_confidence": 0.6258,
+                  "accuracy": 0.5
+                },
+                {
+                  "bin": "0.7-0.8",
+                  "n": 1,
+                  "mean_confidence": 0.7231,
+                  "accuracy": 0.0
+                },
+                {
+                  "bin": "0.8-0.9",
+                  "n": 1,
+                  "mean_confidence": 0.8678,
+                  "accuracy": 1.0
+                },
+                {
+                  "bin": "0.9-1.0",
+                  "n": 78,
+                  "mean_confidence": 0.9939,
+                  "accuracy": 0.9872
+                }
+              ],
+              "n_scored": 93,
+              "null_items": 37,
+              "null_items_abstained": 0.4595,
+              "null_items_handled": 0.8378,
+              "null_items_wrongly_answered": 6
+            },
+            "in_sample": {
+              "n": 130,
+              "n_scored": 93,
+              "accuracy": 0.9355,
+              "ece": 0.059,
+              "nll_at_T1": 2.7823,
+              "nll_calibrated": 0.2748,
+              "mean_confidence": 0.9129,
+              "abstain_rate": 0.1923,
+              "n_answered": 105,
+              "selective_accuracy": 0.9048,
+              "accuracy_ci95": [
+                0.8817,
+                0.9785
+              ],
+              "ece_ci95": [
+                0.0382,
+                0.1167
+              ],
+              "null_items": 37,
+              "null_items_abstained": 0.4595,
+              "null_items_handled": 0.8108,
+              "null_items_wrongly_answered": 7
+            },
+            "embedding_only_ablation_crossfit": {
+              "accuracy": 0.8172,
+              "ece": 0.0429,
+              "abstain_rate": 0.2769,
+              "selective_accuracy": 0.8936
+            },
+            "utterances_identical_to_an_exemplar": 9,
+            "crossfit_accuracy_excluding_those": 0.9318,
+            "did_you_mean_top2_contains_answer": 0.8571,
+            "n_asked_did_you_mean": 7
+          },
+          "drill": {
+            "kind": "roster_grounded",
+            "options": 10,
+            "n_total": 119,
+            "n_exemplars": 258,
+            "exemplars_built_from": "the fixture plan (drill names, parenthetical aliases, ordinals, neighbours, generic football synonyms)",
+            "lexical_weight": 0.4,
+            "temperature": 0.02284,
+            "temperature_at_lower_bound": false,
+            "threshold": 0.43938,
+            "threshold_rule": "lowest \u03b8 such that the answered held-out items (confidence \u2265 \u03b8) are \u2265 90% right; else best selective accuracy among \u03b8 answering \u2265 20%",
+            "threshold_status": "target_met",
+            "headline": "crossfit",
+            "crossfit": {
+              "n": 119,
+              "accuracy": 0.9663,
+              "ece": 0.0302,
+              "ece_ci95": [
+                0.0139,
+                0.0646
+              ],
+              "abstain_rate": 0.0924,
+              "n_answered": 108,
+              "selective_accuracy": 0.9074,
+              "reliability": [
+                {
+                  "bin": "0.3-0.4",
+                  "n": 1,
+                  "mean_confidence": 0.3443,
+                  "accuracy": 0.0
+                },
+                {
+                  "bin": "0.4-0.5",
+                  "n": 3,
+                  "mean_confidence": 0.5,
+                  "accuracy": 0.6667
+                },
+                {
+                  "bin": "0.5-0.6",
+                  "n": 2,
+                  "mean_confidence": 0.5163,
+                  "accuracy": 1.0
+                },
+                {
+                  "bin": "0.8-0.9",
+                  "n": 2,
+                  "mean_confidence": 0.8574,
+                  "accuracy": 1.0
+                },
+                {
+                  "bin": "0.9-1.0",
+                  "n": 81,
+                  "mean_confidence": 0.9949,
+                  "accuracy": 0.9877
+                }
+              ],
+              "n_scored": 89,
+              "null_items": 30,
+              "null_items_abstained": 0.3333,
+              "null_items_handled": 0.7333,
+              "null_items_wrongly_answered": 8
+            },
+            "in_sample": {
+              "n": 119,
+              "n_scored": 89,
+              "accuracy": 0.9663,
+              "ece": 0.0321,
+              "nll_at_T1": 2.0838,
+              "nll_calibrated": 0.0793,
+              "mean_confidence": 0.9538,
+              "abstain_rate": 0.0924,
+              "n_answered": 108,
+              "selective_accuracy": 0.9074,
+              "accuracy_ci95": [
+                0.9326,
+                1.0
+              ],
+              "ece_ci95": [
+                0.0148,
+                0.0645
+              ],
+              "null_items": 30,
+              "null_items_abstained": 0.3333,
+              "null_items_handled": 0.7333,
+              "null_items_wrongly_answered": 8
+            },
+            "embedding_only_ablation_crossfit": {
+              "accuracy": 0.9551,
+              "ece": 0.0254,
+              "abstain_rate": 0.1513,
+              "selective_accuracy": 0.8812
+            },
+            "utterances_identical_to_an_exemplar": 31,
+            "crossfit_accuracy_excluding_those": 0.9667,
+            "did_you_mean_top2_contains_answer": 0.0,
+            "n_asked_did_you_mean": 1
+          }
+        },
+        "model": "BAAI/bge-small-en-v1.5",
+        "fastembed_version": "0.8.1"
+      },
+      "lexical-fallback": {
+        "label": "lexical fallback (hashed word/char n-grams; embedding model unavailable)",
+        "semantic": false,
+        "decisions": {
+          "intent": {
+            "kind": "classifier",
+            "classes": [
+              "what_if",
+              "athlete_status",
+              "field_conditions",
+              "optimize",
+              "plan_summary",
+              "plan_entry",
+              "unclear"
+            ],
+            "n_total": 232,
+            "n_train_exemplars": 160,
+            "n_heldout": 72,
+            "class_counts_heldout": {
+              "what_if": 10,
+              "athlete_status": 10,
+              "field_conditions": 10,
+              "optimize": 10,
+              "plan_summary": 10,
+              "plan_entry": 10,
+              "unclear": 12
+            },
+            "temperature": 0.05326,
+            "temperature_at_lower_bound": false,
+            "threshold": 0.9078,
+            "threshold_rule": "lowest \u03b8 such that the answered held-out items (confidence \u2265 \u03b8) are \u2265 90% right; else best selective accuracy among \u03b8 answering \u2265 20%",
+            "threshold_status": "target_met",
+            "headline": "crossfit",
+            "crossfit": {
+              "n": 72,
+              "accuracy": 0.7361,
+              "ece": 0.1266,
+              "ece_ci95": [
+                0.1,
+                0.2544
+              ],
+              "abstain_rate": 0.6389,
+              "n_answered": 26,
+              "selective_accuracy": 0.8077,
+              "reliability": [
+                {
+                  "bin": "0.1-0.2",
+                  "n": 4,
+                  "mean_confidence": 0.1837,
+                  "accuracy": 0.75
+                },
+                {
+                  "bin": "0.2-0.3",
+                  "n": 4,
+                  "mean_confidence": 0.2348,
+                  "accuracy": 0.25
+                },
+                {
+                  "bin": "0.3-0.4",
+                  "n": 4,
+                  "mean_confidence": 0.3559,
+                  "accuracy": 0.75
+                },
+                {
+                  "bin": "0.4-0.5",
+                  "n": 7,
+                  "mean_confidence": 0.437,
+                  "accuracy": 0.4286
+                },
+                {
+                  "bin": "0.5-0.6",
+                  "n": 12,
+                  "mean_confidence": 0.5399,
+                  "accuracy": 0.75
+                },
+                {
+                  "bin": "0.6-0.7",
+                  "n": 5,
+                  "mean_confidence": 0.6462,
+                  "accuracy": 0.8
+                },
+                {
+                  "bin": "0.7-0.8",
+                  "n": 6,
+                  "mean_confidence": 0.7454,
+                  "accuracy": 0.6667
+                },
+                {
+                  "bin": "0.8-0.9",
+                  "n": 13,
+                  "mean_confidence": 0.8664,
+                  "accuracy": 0.8462
+                },
+                {
+                  "bin": "0.9-1.0",
+                  "n": 17,
+                  "mean_confidence": 0.9486,
+                  "accuracy": 0.8824
+                }
+              ]
+            },
+            "in_sample": {
+              "n": 72,
+              "n_scored": 72,
+              "accuracy": 0.75,
+              "ece": 0.1299,
+              "nll_at_T1": 1.8643,
+              "nll_calibrated": 0.8894,
+              "mean_confidence": 0.6605,
+              "abstain_rate": 0.7639,
+              "n_answered": 17,
+              "selective_accuracy": 0.9412,
+              "accuracy_ci95": [
+                0.6389,
+                0.8472
+              ],
+              "ece_ci95": [
+                0.1027,
+                0.2537
+              ]
+            },
+            "accuracy_on_other_splits": {
+              "seeds": [
+                1,
+                7
+              ],
+              "mean": 0.6587,
+              "min": 0.625,
+              "max": 0.7083
+            },
+            "per_class_recall_heldout": {
+              "what_if": 0.9,
+              "athlete_status": 0.8,
+              "field_conditions": 0.9,
+              "optimize": 0.9,
+              "plan_summary": 0.7,
+              "plan_entry": 0.7,
+              "unclear": 0.4167
+            },
+            "confusions_heldout": [
+              {
+                "true": "plan_entry",
+                "predicted": "what_if",
+                "n": 3
+              },
+              {
+                "true": "unclear",
+                "predicted": "athlete_status",
+                "n": 3
+              },
+              {
+                "true": "plan_summary",
+                "predicted": "optimize",
+                "n": 2
+              },
+              {
+                "true": "unclear",
+                "predicted": "field_conditions",
+                "n": 2
+              },
+              {
+                "true": "athlete_status",
+                "predicted": "field_conditions",
+                "n": 1
+              },
+              {
+                "true": "athlete_status",
+                "predicted": "plan_summary",
+                "n": 1
+              },
+              {
+                "true": "field_conditions",
+                "predicted": "unclear",
+                "n": 1
+              },
+              {
+                "true": "optimize",
+                "predicted": "what_if",
+                "n": 1
+              },
+              {
+                "true": "plan_summary",
+                "predicted": "athlete_status",
+                "n": 1
+              },
+              {
+                "true": "unclear",
+                "predicted": "plan_summary",
+                "n": 1
+              },
+              {
+                "true": "unclear",
+                "predicted": "optimize",
+                "n": 1
+              },
+              {
+                "true": "what_if",
+                "predicted": "plan_entry",
+                "n": 1
+              }
+            ],
+            "leakage": {
+              "exact_duplicates": 0,
+              "near_duplicates_cosine_ge_0.95": 0,
+              "max_cosine_to_train": {
+                "median": 0.496,
+                "p95": 0.677,
+                "max": 0.791
+              }
+            }
+          },
+          "intensity": {
+            "kind": "classifier",
+            "classes": [
+              "rest",
+              "light",
+              "moderate",
+              "hard",
+              "max"
+            ],
+            "n_total": 119,
+            "n_train_exemplars": 84,
+            "n_heldout": 35,
+            "class_counts_heldout": {
+              "rest": 7,
+              "light": 7,
+              "moderate": 7,
+              "hard": 7,
+              "max": 7
+            },
+            "temperature": 0.07315,
+            "temperature_at_lower_bound": false,
+            "threshold": 0.54347,
+            "threshold_rule": "lowest \u03b8 such that the answered held-out items (confidence \u2265 \u03b8) are \u2265 90% right; else best selective accuracy among \u03b8 answering \u2265 20%",
+            "threshold_status": "target_met",
+            "headline": "crossfit",
+            "crossfit": {
+              "n": 35,
+              "accuracy": 0.7714,
+              "ece": 0.2131,
+              "ece_ci95": [
+                0.1392,
+                0.3407
+              ],
+              "abstain_rate": 0.3714,
+              "n_answered": 22,
+              "selective_accuracy": 0.8182,
+              "reliability": [
+                {
+                  "bin": "0.2-0.3",
+                  "n": 6,
+                  "mean_confidence": 0.2636,
+                  "accuracy": 0.5
+                },
+                {
+                  "bin": "0.3-0.4",
+                  "n": 1,
+                  "mean_confidence": 0.3471,
+                  "accuracy": 0.0
+                },
+                {
+                  "bin": "0.4-0.5",
+                  "n": 3,
+                  "mean_confidence": 0.4586,
+                  "accuracy": 1.0
+                },
+                {
+                  "bin": "0.5-0.6",
+                  "n": 6,
+                  "mean_confidence": 0.5479,
+                  "accuracy": 0.6667
+                },
+                {
+                  "bin": "0.6-0.7",
+                  "n": 1,
+                  "mean_confidence": 0.6798,
+                  "accuracy": 1.0
+                },
+                {
+                  "bin": "0.7-0.8",
+                  "n": 4,
+                  "mean_confidence": 0.7434,
+                  "accuracy": 1.0
+                },
+                {
+                  "bin": "0.8-0.9",
+                  "n": 3,
+                  "mean_confidence": 0.8561,
+                  "accuracy": 1.0
+                },
+                {
+                  "bin": "0.9-1.0",
+                  "n": 11,
+                  "mean_confidence": 0.9617,
+                  "accuracy": 0.8182
+                }
+              ]
+            },
+            "in_sample": {
+              "n": 35,
+              "n_scored": 35,
+              "accuracy": 0.7714,
+              "ece": 0.1666,
+              "nll_at_T1": 1.5735,
+              "nll_calibrated": 0.9259,
+              "mean_confidence": 0.6553,
+              "abstain_rate": 0.3714,
+              "n_answered": 22,
+              "selective_accuracy": 0.9091,
+              "accuracy_ci95": [
+                0.6286,
+                0.9143
+              ],
+              "ece_ci95": [
+                0.1164,
+                0.3144
+              ]
+            },
+            "accuracy_on_other_splits": {
+              "seeds": [
+                1,
+                7
+              ],
+              "mean": 0.7347,
+              "min": 0.6571,
+              "max": 0.8571
+            },
+            "leakage": {
+              "exact_duplicates": 0,
+              "near_duplicates_cosine_ge_0.95": 0,
+              "max_cosine_to_train": {
+                "median": 0.392,
+                "p95": 0.744,
+                "max": 0.808
+              }
+            }
+          },
+          "guard_assist": {
+            "kind": "classifier",
+            "classes": [
+              "flag",
+              "pass"
+            ],
+            "n_total": 207,
+            "n_train_exemplars": 145,
+            "n_heldout": 62,
+            "class_counts_heldout": {
+              "flag": 27,
+              "pass": 35
+            },
+            "temperature": 0.04546,
+            "temperature_at_lower_bound": false,
+            "threshold": 0.71662,
+            "threshold_rule": "lowest \u03b8 such that at most 5% of the items the assist passes with confidence \u2265 \u03b8 are true flags; a pass below \u03b8 abstains, and abstain blocks",
+            "threshold_status": "target_met",
+            "headline": "crossfit",
+            "crossfit": {
+              "n": 62,
+              "accuracy": 0.9032,
+              "ece": 0.0406,
+              "ece_ci95": [
+                0.0347,
+                0.1257
+              ],
+              "abstain_rate": 0.0645,
+              "n_answered": 58,
+              "selective_accuracy": 0.9138,
+              "reliability": [
+                {
+                  "bin": "0.5-0.6",
+                  "n": 3,
+                  "mean_confidence": 0.5553,
+                  "accuracy": 0.6667
+                },
+                {
+                  "bin": "0.6-0.7",
+                  "n": 7,
+                  "mean_confidence": 0.6507,
+                  "accuracy": 0.5714
+                },
+                {
+                  "bin": "0.7-0.8",
+                  "n": 5,
+                  "mean_confidence": 0.7392,
+                  "accuracy": 1.0
+                },
+                {
+                  "bin": "0.8-0.9",
+                  "n": 8,
+                  "mean_confidence": 0.8606,
+                  "accuracy": 0.875
+                },
+                {
+                  "bin": "0.9-1.0",
+                  "n": 39,
+                  "mean_confidence": 0.9797,
+                  "accuracy": 0.9744
+                }
+              ],
+              "recall_flags_blocked": 0.9259,
+              "false_block_rate_on_pass": 0.1714,
+              "n_flag": 27,
+              "n_pass": 35
+            },
+            "in_sample": {
+              "n": 62,
+              "n_scored": 62,
+              "accuracy": 0.9194,
+              "ece": 0.036,
+              "nll_at_T1": 0.6675,
+              "nll_calibrated": 0.2446,
+              "mean_confidence": 0.8896,
+              "abstain_rate": 0.0806,
+              "n_answered": 57,
+              "selective_accuracy": 0.9474,
+              "accuracy_ci95": [
+                0.8387,
+                0.9839
+              ],
+              "ece_ci95": [
+                0.0318,
+                0.1163
+              ]
+            },
+            "accuracy_on_other_splits": {
+              "seeds": [
+                1,
+                7
+              ],
+              "mean": 0.9401,
+              "min": 0.9032,
+              "max": 1.0
+            },
+            "guard_py_alone": {
+              "recall_flags_blocked": 0.5556,
+              "false_block_rate_on_pass": 0.0286,
+              "n_flag": 27,
+              "n_pass": 35
+            },
+            "assist_alone_in_sample": {
+              "recall_flags_blocked": 0.963,
+              "false_block_rate_on_pass": 0.1429,
+              "n_flag": 27,
+              "n_pass": 35
+            },
+            "either_layer_in_sample": {
+              "recall_flags_blocked": 1.0,
+              "false_block_rate_on_pass": 0.1714,
+              "n_flag": 27,
+              "n_pass": 35
+            },
+            "flags_missed_by_guard_py_caught_by_assist": 12,
+            "leakage": {
+              "exact_duplicates": 0,
+              "near_duplicates_cosine_ge_0.95": 0,
+              "max_cosine_to_train": {
+                "median": 0.436,
+                "p95": 0.652,
+                "max": 0.785
+              }
+            }
+          },
+          "athlete": {
+            "kind": "roster_grounded",
+            "options": 17,
+            "n_total": 130,
+            "n_exemplars": 277,
+            "exemplars_built_from": "the fixture roster (names, first/last name, positions)",
+            "lexical_weight": 0.4,
+            "temperature": 0.02209,
+            "temperature_at_lower_bound": false,
+            "threshold": 0.46895,
+            "threshold_rule": "lowest \u03b8 such that the answered held-out items (confidence \u2265 \u03b8) are \u2265 90% right; else best selective accuracy among \u03b8 answering \u2265 20%",
+            "threshold_status": "target_met",
+            "headline": "crossfit",
+            "crossfit": {
+              "n": 130,
+              "accuracy": 0.957,
+              "ece": 0.0489,
+              "ece_ci95": [
+                0.0262,
+                0.0934
+              ],
+              "abstain_rate": 0.2,
+              "n_answered": 104,
+              "selective_accuracy": 0.9135,
+              "reliability": [
+                {
+                  "bin": "0.2-0.3",
+                  "n": 2,
+                  "mean_confidence": 0.2366,
+                  "accuracy": 0.5
+                },
+                {
+                  "bin": "0.3-0.4",
+                  "n": 1,
+                  "mean_confidence": 0.3446,
+                  "accuracy": 1.0
+                },
+                {
+                  "bin": "0.5-0.6",
+                  "n": 1,
+                  "mean_confidence": 0.5346,
+                  "accuracy": 1.0
+                },
+                {
+                  "bin": "0.6-0.7",
+                  "n": 2,
+                  "mean_confidence": 0.6362,
+                  "accuracy": 0.5
+                },
+                {
+                  "bin": "0.7-0.8",
+                  "n": 3,
+                  "mean_confidence": 0.781,
+                  "accuracy": 1.0
+                },
+                {
+                  "bin": "0.8-0.9",
+                  "n": 4,
+                  "mean_confidence": 0.831,
+                  "accuracy": 1.0
+                },
+                {
+                  "bin": "0.9-1.0",
+                  "n": 80,
+                  "mean_confidence": 0.9912,
+                  "accuracy": 0.975
+                }
+              ],
+              "n_scored": 93,
+              "null_items": 37,
+              "null_items_abstained": 0.6216,
+              "null_items_handled": 0.8378,
+              "null_items_wrongly_answered": 6
+            },
+            "in_sample": {
+              "n": 130,
+              "n_scored": 93,
+              "accuracy": 0.957,
+              "ece": 0.0554,
+              "nll_at_T1": 2.7926,
+              "nll_calibrated": 0.2433,
+              "mean_confidence": 0.9408,
+              "abstain_rate": 0.1923,
+              "n_answered": 105,
+              "selective_accuracy": 0.9048,
+              "accuracy_ci95": [
+                0.914,
+                0.9892
+              ],
+              "ece_ci95": [
+                0.0287,
+                0.0952
+              ],
+              "null_items": 37,
+              "null_items_abstained": 0.5676,
+              "null_items_handled": 0.7838,
+              "null_items_wrongly_answered": 8
+            },
+            "embedding_only_ablation_crossfit": {
+              "accuracy": 0.957,
+              "ece": 0.0489,
+              "abstain_rate": 0.2,
+              "selective_accuracy": 0.9135
+            },
+            "utterances_identical_to_an_exemplar": 9,
+            "crossfit_accuracy_excluding_those": 0.9545,
+            "did_you_mean_top2_contains_answer": 0.6667,
+            "n_asked_did_you_mean": 3
+          },
+          "drill": {
+            "kind": "roster_grounded",
+            "options": 10,
+            "n_total": 119,
+            "n_exemplars": 258,
+            "exemplars_built_from": "the fixture plan (drill names, parenthetical aliases, ordinals, neighbours, generic football synonyms)",
+            "lexical_weight": 0.4,
+            "temperature": 0.04094,
+            "temperature_at_lower_bound": false,
+            "threshold": 0.47485,
+            "threshold_rule": "lowest \u03b8 such that the answered held-out items (confidence \u2265 \u03b8) are \u2265 90% right; else best selective accuracy among \u03b8 answering \u2265 20%",
+            "threshold_status": "target_met",
+            "headline": "crossfit",
+            "crossfit": {
+              "n": 119,
+              "accuracy": 0.9326,
+              "ece": 0.0392,
+              "ece_ci95": [
+                0.0176,
+                0.07
+              ],
+              "abstain_rate": 0.1261,
+              "n_answered": 104,
+              "selective_accuracy": 0.8942,
+              "reliability": [
+                {
+                  "bin": "0.3-0.4",
+                  "n": 1,
+                  "mean_confidence": 0.3941,
+                  "accuracy": 0.0
+                },
+                {
+                  "bin": "0.4-0.5",
+                  "n": 7,
+                  "mean_confidence": 0.4897,
+                  "accuracy": 0.2857
+                },
+                {
+                  "bin": "0.5-0.6",
+                  "n": 1,
+                  "mean_confidence": 0.5,
+                  "accuracy": 1.0
+                },
+                {
+                  "bin": "0.8-0.9",
+                  "n": 2,
+                  "mean_confidence": 0.8337,
+                  "accuracy": 1.0
+                },
+                {
+                  "bin": "0.9-1.0",
+                  "n": 78,
+                  "mean_confidence": 0.9893,
+                  "accuracy": 1.0
+                }
+              ],
+              "n_scored": 89,
+              "null_items": 30,
+              "null_items_abstained": 0.4333,
+              "null_items_handled": 0.8,
+              "null_items_wrongly_answered": 6
+            },
+            "in_sample": {
+              "n": 119,
+              "n_scored": 89,
+              "accuracy": 0.9326,
+              "ece": 0.0388,
+              "nll_at_T1": 2.0629,
+              "nll_calibrated": 0.1517,
+              "mean_confidence": 0.9343,
+              "abstain_rate": 0.1345,
+              "n_answered": 103,
+              "selective_accuracy": 0.9029,
+              "accuracy_ci95": [
+                0.8764,
+                0.9775
+              ],
+              "ece_ci95": [
+                0.0172,
+                0.0709
+              ],
+              "null_items": 30,
+              "null_items_abstained": 0.4667,
+              "null_items_handled": 0.8,
+              "null_items_wrongly_answered": 6
+            },
+            "embedding_only_ablation_crossfit": {
+              "accuracy": 0.9326,
+              "ece": 0.0392,
+              "abstain_rate": 0.1261,
+              "selective_accuracy": 0.8942
+            },
+            "utterances_identical_to_an_exemplar": 31,
+            "crossfit_accuracy_excluding_those": 0.9333,
+            "did_you_mean_top2_contains_answer": 0.5,
+            "n_asked_did_you_mean": 2
+          }
+        }
+      }
+    },
+    "nli_optional": {
+      "model": "MoritzLaurer/deberta-v3-base-zeroshot-v2.0",
+      "onnx": "onnx/model.onnx",
+      "hypotheses": [
+        "The text says that a person is safe, fine, okay, or cleared to continue.",
+        "The text says that a person has a heat illness or a medical diagnosis."
+      ],
+      "optional": true,
+      "laptop_only": true,
+      "n_heldout": 62,
+      "threshold_rule": "tau = 95th percentile of the NLI entailment score over the true passes in the held-out 30 % (at most ~5 % false blocks); a sentence is blocked when its score is above tau",
+      "threshold": 0.04092,
+      "auroc_flag_vs_pass": 0.9587,
+      "nli_alone": {
+        "recall_flags_blocked": 0.9259,
+        "false_block_rate_on_pass": 0.0571,
+        "n_flag": 27,
+        "n_pass": 35
+      },
+      "assist_or_nli": {
+        "recall_flags_blocked": 1.0,
+        "false_block_rate_on_pass": 0.0857,
+        "n_flag": 27,
+        "n_pass": 35
+      },
+      "guard_py_or_assist_or_nli": {
+        "recall_flags_blocked": 1.0,
+        "false_block_rate_on_pass": 0.1143,
+        "n_flag": 27,
+        "n_pass": 35
+      },
+      "flags_missed_by_guard_py_and_assist_caught_by_nli": 0,
+      "at_native_boundary_0.5": {
+        "nli_alone": {
+          "recall_flags_blocked": 0.7778,
+          "false_block_rate_on_pass": 0.0,
+          "n_flag": 27,
+          "n_pass": 35
+        },
+        "guard_py_or_assist_or_nli": {
+          "recall_flags_blocked": 1.0,
+          "false_block_rate_on_pass": 0.0571,
+          "n_flag": 27,
+          "n_pass": 35
+        },
+        "flags_missed_by_guard_py_and_assist_caught_by_nli": 0
+      },
+      "note": "tau is fitted on the same held-out items it is scored on (in-sample); n is small"
+    }
   }
 }

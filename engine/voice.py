@@ -229,14 +229,19 @@ def ask_back(missing: Sequence[str]) -> str:
 
 def finish(intent: str, say: str, data: Mapping[str, Any], labels: Sequence[str],
            question: Optional[str] = None) -> dict[str, Any]:
+    from engine import decide
     b = boundary_for(question)
     if b:  # asked to clear, diagnose, treat or medicate: state the boundary first (the estimate follows, if any)
         say = f"{b[1]} The estimate: {say}" if numbers_in(say) else f"{b[1]} {say}"
         labels = [*labels, f"boundary stated ({b[0]})"]
-    g = guard.check(say, source=f"voice.answer.{intent}")
+    g = decide.check_two_layer(say, source=f"voice.answer.{intent}")   # v1.7: guard.py AND the assist; either blocks
     say = g["redacted_text"]
+    note = ("guard redacted part of this sentence" if g["blocked_by"] == ["guard.py"] else
+            "the decision layer's guard assist removed part of this sentence" if g["blocked_by"] == ["assist"] else
+            "guard.py and the decision layer's guard assist removed part of this sentence")
     return {"intent": intent, "say": say, "numbers": numbers_in(say), "data": dict(data),
-            "labels": list(labels) + ([] if g["ok"] else ["guard redacted part of this sentence"])}
+            "labels": list(labels) + ([] if g["ok"] else [note]),
+            "guard": {"ok": g["ok"], "blocked_by": g["blocked_by"], "assist": g["assist"]}}
 
 
 # ── text-to-speech ───────────────────────────────────────────────────────────

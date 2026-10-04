@@ -323,7 +323,11 @@ export interface Sources {
 export interface GuardResult {
   ok: boolean
   redacted_text: string
+  /** guard.py's own hits (rule redactions). The assist's are in `assist.hits`. */
   hits: { rule: string; [k: string]: unknown }[]
+  /** v1.7: which layer blocked — "guard.py" (rules) and/or "assist" (the decision layer's embedding classifier). */
+  blocked_by?: ('guard.py' | 'assist')[]
+  assist?: { backend: string; p_flag_max: number; hits: { rule: string; [k: string]: unknown }[]; calibrated: boolean; fallback: boolean }
 }
 
 export type VoiceIntentName = 'plan_summary' | 'optimize' | 'what_if' | 'athlete_status' | 'field_conditions' | 'unknown'
@@ -347,6 +351,8 @@ export interface VoiceAnswer {
   numbers: string[]
   data: Record<string, unknown>
   labels: string[]
+  /** v1.7: the engine's own two-layer verdict on `say` (the app still asks /guard before showing or speaking it). */
+  guard?: { ok: boolean; blocked_by: ('guard.py' | 'assist')[] }
 }
 
 /** v1.2 POST /what_if team summaries. */
@@ -554,6 +560,67 @@ export function getWeather(lat: number, lon: number, date: string | null, signal
 /** engine/guard.py over HTTP: {ok, redacted_text, hits}. */
 export function guardText(text: string, signal?: AbortSignal) {
   return request<GuardResult>('POST', '/guard', { text }, signal, 20_000)
+}
+
+// ── v1.7: the FREE voice path (engine/decide_routes.py) — no paid API; Gemini stays optional ──
+
+/** What the decision layer routes to: the engine's intents plus `plan_entry` (handled by /plan/parse_local, not /voice/answer). */
+export type DecideIntent = VoiceIntentName | 'plan_entry'
+
+export interface DecisionInfo {
+  decision: string
+  choice: string | null
+  probabilities: Record<string, number>
+  confidence: number
+  abstain: boolean
+  top2: string[]
+  backend: string
+  calibrated: boolean
+  note?: string
+}
+
+/** One of the two options of "Did you mean …?"; `choices` is sent back to /voice/decide to confirm it. */
+export interface DidYouMeanOption {
+  label: string
+  choices: DecideChoices
+  p: number
+}
+
+export interface DecideChoices {
+  intent?: string
+  athlete_id?: string
+  drill_id?: string
+}
+
+export interface DecideResult {
+  transcript: string
+  intent: DecideIntent
+  slots: VoiceSlots
+  unresolved: string[]
+  /** True → do not act: ask `asking` ("intent" | "athlete" | "drill") with `did_you_mean` (the two most probable options). */
+  abstain: boolean
+  asking: 'intent' | 'athlete' | 'drill' | null
+  did_you_mean: DidYouMeanOption[]
+  decisions: Record<string, DecisionInfo | null>
+  source: 'local'
+  backend: string
+  labels: string[]
+}
+
+export interface VoiceStatus {
+  decide: { backend: string; label: string; fallback: boolean; reason: string | null; calibrated: boolean }
+  gemini: { configured: boolean; paid_apis_disabled: boolean }
+  stt: { whisper: { installed: boolean; cached: boolean; ready: boolean; model: string } }
+  tts: { elevenlabs: boolean; fallback: string }
+}
+
+export function voiceStatus(signal?: AbortSignal) {
+  return request<VoiceStatus>('GET', '/voice/status', undefined, signal, 10_000)
+}
+
+/** Transcript → typed routing (engine/decide.py). `choices` = the coach's answers to an earlier "Did you mean …?". */
+export function voiceDecide(req: { text: string; plan?: PracticePlan; choices?: DecideChoices }, signal?: AbortSignal) {
+  return request<DecideResult>('POST', '/voice/decide', req, signal, 20_000)
 }
 
 export interface VoiceAnswerRequest {

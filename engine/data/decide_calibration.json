@@ -1,0 +1,78 @@
+{
+  "backends": {
+    "fastembed:BAAI/bge-small-en-v1.5": {
+      "intent": {
+        "temperature": 0.0276,
+        "threshold": 0.69712,
+        "threshold_status": "target_met",
+        "n_calibration": 72
+      },
+      "intensity": {
+        "temperature": 0.03038,
+        "threshold": 0.68112,
+        "threshold_status": "target_met",
+        "n_calibration": 35
+      },
+      "guard_assist": {
+        "temperature": 0.02192,
+        "threshold": 0.71538,
+        "threshold_status": "target_met",
+        "n_calibration": 62
+      },
+      "athlete": {
+        "temperature": 0.02005,
+        "threshold": 0.5,
+        "threshold_status": "target_met",
+        "n_calibration": 130
+      },
+      "drill": {
+        "temperature": 0.02284,
+        "threshold": 0.43938,
+        "threshold_status": "target_met",
+        "n_calibration": 119
+      }
+    },
+    "lexical-fallback": {
+      "intent": {
+        "temperature": 0.05326,
+        "threshold": 0.9078,
+        "threshold_status": "target_met",
+        "n_calibration": 72
+      },
+      "intensity": {
+        "temperature": 0.07315,
+        "threshold": 0.54347,
+        "threshold_status": "target_met",
+        "n_calibration": 35
+      },
+      "guard_assist": {
+        "temperature": 0.04546,
+        "threshold": 0.71662,
+        "threshold_status": "target_met",
+        "n_calibration": 62
+      },
+      "athlete": {
+        "temperature": 0.02209,
+        "threshold": 0.46895,
+        "threshold_status": "target_met",
+        "n_calibration": 130
+      },
+      "drill": {
+        "temperature": 0.04094,
+        "threshold": 0.47485,
+        "threshold_status": "target_met",
+        "n_calibration": 119
+      }
+    }
+  },
+  "synthetic": true,
+  "generated_by": "python -m validation.voice_decide",
+  "dataset": "engine/data/voice_decide_dataset.json",
+  "dataset_sha1": "0dd2ef46f4fad457774badae2848b4d536319f82",
+  "nli": {
+    "model": "MoritzLaurer/deberta-v3-base-zeroshot-v2.0",
+    "onnx": "onnx/model.onnx",
+    "threshold": 0.04092,
+    "n_calibration": 62
+  }
+}

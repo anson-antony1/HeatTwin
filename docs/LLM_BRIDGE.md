@@ -1,5 +1,9 @@
 # Coach plan entry by voice or text (Gemini bridge)
 
+> Gemini is optional and off by default. The free path (browser speech → `engine/decide.py` → engine-written sentences, local plan
+> parser) works with no key: see `docs/VOICE.md`. Without a key, `/plan/parse*` still answers 503 as documented below; the web
+> uses `/plan/parse_local` instead.
+
 The coach says or types today's practice → Gemini returns a **draft** `PracticePlan` (CONTRACTS.md shape) → the
 coach reviews and confirms → the app sends `plan` to `/simulate` or `/optimize` as usual.
 

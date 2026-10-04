@@ -753,8 +753,8 @@ def voice_answer(req: VoiceAnswerRequest, demo_mode: bool = Query(False, alias="
 def voice_tts(req: TtsRequest):
     """ElevenLabs TTS for an approved sentence. Re-guarded here: 422 on a guard hit; 503 when TTS is unavailable."""
     from fastapi.responses import Response
-    from engine import guard, voice
-    g = guard.check(req.text, source="voice.tts")
+    from engine import decide, voice
+    g = decide.check_two_layer(req.text, source="voice.tts")
     if not g["ok"]:
         raise HTTPException(422, "text did not pass the language guard")
     try:
@@ -839,8 +839,10 @@ def live_replay(req: LiveReplayRequest | None = None, demo_mode: bool = Query(Fa
 
 @app.post("/guard")
 def guard_text(req: GuardRequest) -> dict[str, Any]:
-    from engine import guard
-    return guard.check(req.text, source="api")
+    """engine/guard.py + (v1.7) the embedding-classifier assist: ``{ok, redacted_text, hits[], blocked_by[], assist}``.
+    ``ok`` is false when EITHER layer flags; ``blocked_by`` names the layer(s): "guard.py" and/or "assist"."""
+    from engine import decide
+    return decide.check_two_layer(req.text, source="api")
 
 
 @app.get("/settings")
@@ -857,6 +859,11 @@ def sources() -> dict[str, Any]:
 # Coach plan entry by text/voice via Gemini (engine/llm_routes.py)
 from engine import llm_routes  # noqa: E402
 app.include_router(llm_routes.router)
+
+# The free voice path (v1.7): /voice/status, /voice/decide, /voice/transcribe, /plan/parse_local (engine/decide_routes.py)
+from engine import decide_routes  # noqa: E402
+
+app.include_router(decide_routes.router)
 
 from engine import weather_routes  # noqa: E402 — live conditions for the web app (WS1 forecast)
 
@@ -915,5 +922,12 @@ def _stop_node_bridge() -> None:
     node_autostart.stop()
 
 
+def _warm_decision_layer() -> None:
+    """Load the free voice decision layer's model in a background thread (never blocks startup; engine/decide.py)."""
+    from engine import decide
+    decide.warm_in_background()
+
+
 app.router.on_startup.append(_start_node_bridge)
+app.router.on_startup.append(_warm_decision_layer)
 app.router.on_shutdown.append(_stop_node_bridge)

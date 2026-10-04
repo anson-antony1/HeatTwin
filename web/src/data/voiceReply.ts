@@ -63,7 +63,12 @@ export async function approveAnswer(answer: VoiceAnswer, guard: (text: string) =
   try {
     const g = await guard(say)
     if (!g || typeof g.ok !== 'boolean') reasons.push('the language guard gave no verdict')
-    else if (!g.ok) reasons.push(`the language guard flagged it (${[...new Set((g.hits ?? []).map((h) => h.rule))].join(', ') || 'rule'})`)
+    else if (!g.ok) {
+      // v1.7: say which layer blocked — "guard.py" (rules) and/or "assist" (the decision layer's embedding classifier)
+      const rules = [...new Set([...(g.hits ?? []), ...(g.assist?.hits ?? [])].map((h) => h.rule))].join(', ') || 'rule'
+      const layers = g.blocked_by?.length ? ` by ${g.blocked_by.join(' + ')}` : ''
+      reasons.push(`the language guard flagged it${layers} (${rules})`)
+    }
   } catch {
     reasons.push('the language guard could not be reached')
   }

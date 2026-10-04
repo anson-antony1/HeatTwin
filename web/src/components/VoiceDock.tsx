@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { useVoicePlan } from '../lib/useVoicePlan'
+import { NO_RECOGNIZER, useVoicePlan } from '../lib/useVoicePlan'
 import { useMicLevels } from '../lib/useMicLevels'
 import { liveCaptionsSupported, useLiveCaptions } from '../lib/useLiveCaptions'
 import { planStore, usePlanState, type PlanState } from '../data/planStore'
 import type { PlanDraft } from '../data/llmPlan'
 import { useRoster } from '../data/roster'
 import { hasDigits, kelvin, useKelvinReply } from '../data/voiceReply'
+import { HELD_MESSAGE, provenanceLabels, type VoiceOutcome } from '../data/voiceFlow'
+import { speakSentence, speechAvailable, stopSpeaking } from '../lib/speak'
 import { dockSheet } from '../lib/dockSheet'
 import { fmtCore, fmtLimit } from '../lib/format'
 import { mmss } from '../lib/heat'
@@ -29,6 +31,13 @@ import './VoiceDock.css'
 // The AI only structures the coach's words; every heat number is the engine's,
 // and Kelvin's sentence is engine-written (/voice/answer), guarded and
 // number-checked before it is shown (data/voiceReply.ts).
+//
+// Free path (no paid API; Gemini is optional and off): the transcript comes from
+// the browser's Web Speech API (or the engine's offline Whisper), the engine's
+// decision layer (engine/decide.py) routes it — a plan to confirm, a question
+// answered by the engine's own sentence (guarded, number-checked, then spoken by
+// the browser's voice), or "Did you mean …?" with the two most probable options
+// when it is not sure (data/voiceFlow.ts).
 
 type Bar = 'idle' | 'recording' | 'busy' | 'done'
 
@@ -45,14 +54,18 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
   const p = usePlanState()
   // Memory: every request carries the plan in use, so "add 20 minutes of jumping
   // jacks at the end" edits it instead of starting over.
-  const v = useVoicePlan({ current_plan: p.plan })
+  const transcriptRef = useRef<() => string>(() => '')
+  const v = useVoicePlan({ current_plan: p.plan }, { getTranscript: () => transcriptRef.current() })
   const reduce = useReducedMotion()
   const roster = useRoster()
   const [opened, setOpened] = useState<'result' | 'typing' | null>(null)
   const [flash, setFlash] = useState(false)
   const [text, setText] = useState('')
   const recording = v.state === 'recording'
-  const captions = useLiveCaptions(recording)
+  const { text: captions, latest: latestCaptions } = useLiveCaptions(recording)
+  useEffect(() => {
+    transcriptRef.current = () => latestCaptions.current
+  }, [latestCaptions])
   const { containerRef } = useMicLevels(recording, BARS)
   const [appliedDraft, setAppliedDraft] = useState<PlanDraft | null>(null)
   const flashTimer = useRef<number | null>(null)
@@ -81,7 +94,17 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
   const bar: Bar = recording ? 'recording' : busy && !opened ? 'busy' : flash ? 'done' : 'idle'
   const errorMsg = v.state === 'error' ? v.error : p.phase === 'error' ? p.error : null
 
-  const sheet = dockSheet({ errorMsg, draft: v.draft, appliedDraft, opened, hasSim: !!p.sim })
+  const outcome = v.outcome && v.outcome.kind !== 'draft' ? v.outcome : null
+  const sheet = dockSheet({ errorMsg, draft: v.draft, appliedDraft, opened, hasSim: !!p.sim, voice: outcome?.kind ?? null })
+
+  // An approved answer is spoken once (browser voice; the engine's ElevenLabs voice only if it has a key). Never anything else.
+  const spokenRef = useRef<VoiceOutcome | null>(null)
+  useEffect(() => {
+    if (outcome?.kind !== 'answer' || spokenRef.current === outcome) return
+    spokenRef.current = outcome
+    void speakSentence(outcome.say)
+  }, [outcome])
+  useEffect(() => () => stopSpeaking(), [])
 
   // Kelvin's sentence for the result on screen: engine-written, then /guard + number check (else held: nothing new).
   const replyKey = sheet === 'result' ? p.sim : null
@@ -96,6 +119,7 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
   const kelvinSay = reply.status === 'shown' && reply.key === p.sim ? reply.say : null
 
   const startRecording = () => {
+    stopSpeaking()
     setOpened(null)
     setFlash(false)
     planStore.dismissError()
@@ -103,6 +127,7 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
   }
 
   const close = () => {
+    stopSpeaking()
     setOpened(null)
     if (v.state !== 'processing') v.reset()
   }
@@ -129,7 +154,7 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
 
   const busyLabel =
     v.state === 'processing'
-      ? ['Thinking', `${AI_NAME} · ${p.source === 'fixture' ? 'new plan' : 'editing plan'}`]
+      ? ['Thinking', AI_NAME]
       : p.phase === 'optimizing'
         ? ['Optimizing', AI_NAME]
         : ['Modeling', `${roster.athletes.length} athletes`]
@@ -182,6 +207,18 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
                     onDone={close}
                   />
                 )}
+                {sheet === 'answer' && outcome && (outcome.kind === 'answer' || outcome.kind === 'held') && (
+                  <Answer
+                    outcome={outcome}
+                    onAgain={startRecording}
+                    onSay={() => outcome.kind === 'answer' && void speakSentence(outcome.say)}
+                    onType={() => openTyping()}
+                    onDone={close}
+                  />
+                )}
+                {sheet === 'choose' && outcome?.kind === 'choose' && (
+                  <Choose outcome={outcome} onPick={(o) => void v.choose(o)} onRedo={startRecording} onType={() => openTyping(outcome.transcript)} />
+                )}
                 {sheet === 'error' && (
                   <ErrorView
                     message={errorMsg ?? 'Something went wrong'}
@@ -194,7 +231,7 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
                 )}
                 {sheet === 'typing' && (
                   <div className="dock__typing">
-                    <div className="eyebrow">Type today's practice</div>
+                    <div className="eyebrow">Ask a question or type today's practice</div>
                     <textarea
                       autoFocus
                       value={text}
@@ -202,12 +239,12 @@ export function VoiceDock({ onSeePlayers }: { onSeePlayers: () => void }) {
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submitTyped()
                       }}
-                      placeholder="10 min warm-up in helmets, 20 min individual in full pads, water break, 25 min team period…"
+                      placeholder="What if we cut the gassers?  ·  10 min warm-up in helmets, 20 min individual in full pads, water break, 25 min team period…"
                       rows={4}
                     />
                     <div className="dock__actions">
                       <button className="btn btn--ink pressable" onClick={submitTyped} disabled={!text.trim()}>
-                        Build plan
+                        Send
                       </button>
                       <button className="btn btn--quiet pressable" onClick={close}>
                         Cancel
@@ -594,19 +631,108 @@ function Result({
   )
 }
 
+/** The engine's sentence for a question (already guarded and number-checked), or the fixed message when the checks held it. */
+function Answer({
+  outcome,
+  onAgain,
+  onSay,
+  onType,
+  onDone,
+}: {
+  outcome: Extract<VoiceOutcome, { kind: 'answer' | 'held' }>
+  onAgain: () => void
+  onSay: () => void
+  onType: () => void
+  onDone: () => void
+}) {
+  const answered = outcome.kind === 'answer'
+  const prov = answered ? provenanceLabels(outcome.labels) : []
+  return (
+    <div className="result">
+      <div className="review__head">
+        <div className="eyebrow">{answered ? `${AI_NAME} · answer` : `${AI_NAME} · held`}</div>
+        <span className="review__label">{answered ? (outcome.labels[0] ?? 'estimate — planning only') : 'not shown'}</span>
+      </div>
+      {outcome.transcript && (
+        <blockquote className="review__quote">
+          <span className="eyebrow">{AI_NAME} heard</span> “{outcome.transcript}”
+        </blockquote>
+      )}
+      <p className="result__changes">{answered ? outcome.say : HELD_MESSAGE}</p>
+      {prov.length > 0 && <p className="faint result__kept">{prov.join(' · ')}</p>}
+      <div className="dock__actions">
+        <button className="btn btn--ink pressable" onClick={onAgain}>
+          Ask another
+        </button>
+        {answered && speechAvailable() && (
+          <button className="btn btn--quiet pressable" onClick={onSay}>
+            Say it again
+          </button>
+        )}
+        <button className="btn btn--quiet pressable" onClick={onDone}>
+          Done
+        </button>
+      </div>
+      <div className="result__quiet">
+        <button className="linkbtn" onClick={onType}>
+          Type a question
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/** "Did you mean …?": the decision layer was not sure; two options, nothing runs until one is tapped. */
+function Choose({
+  outcome,
+  onPick,
+  onRedo,
+  onType,
+}: {
+  outcome: Extract<VoiceOutcome, { kind: 'choose' }>
+  onPick: (o: Extract<VoiceOutcome, { kind: 'choose' }>['options'][number]) => void
+  onRedo: () => void
+  onType: () => void
+}) {
+  const what = outcome.asking === 'athlete' ? 'Which athlete?' : outcome.asking === 'drill' ? 'Which drill?' : 'Did you mean…?'
+  return (
+    <div className="review">
+      <div className="review__head">
+        <div className="eyebrow">{what}</div>
+        <span className="review__label">{AI_NAME} wasn’t sure</span>
+      </div>
+      {outcome.transcript && <blockquote className="review__quote">“{outcome.transcript}”</blockquote>}
+      <div className="dock__actions">
+        {outcome.options.map((o, i) => (
+          <button key={o.label} className={`btn ${i === 0 ? 'btn--ink' : 'btn--quiet'} pressable`} onClick={() => onPick(o)}>
+            {o.label}
+          </button>
+        ))}
+        <button className="btn btn--quiet pressable" onClick={onRedo}>
+          Neither — try again
+        </button>
+        <button className="btn btn--quiet pressable" onClick={onType}>
+          Edit as text
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function ErrorView({ message, onRetry, onType }: { message: string; onRetry: () => void; onType: () => void }) {
-  const friendly = /permission|NotAllowed/i.test(message)
-    ? 'Microphone access was blocked. Allow it in the browser, or type the plan instead.'
-    : /Failed to fetch|NetworkError|Load failed|reach the engine|ECONNREFUSED|HTTP 50[02]: ?$|^Internal Server Error$/i.test(message)
-      ? 'Can’t reach the HeatTwin engine. Start it from the repo root with `make dev` (engine on port 8010), then try again.'
-      : /timed out|took too long|TimeoutError/i.test(message)
-        ? 'That took too long — the engine or Gemini didn’t answer within a minute. Try again.'
-      : /GEMINI_API_KEY/i.test(message)
-        ? 'The engine has no Gemini key. Add GEMINI_API_KEY to .env at the repo root and restart the engine.'
-        : message
+  const friendly =
+    message === NO_RECOGNIZER
+      ? 'This browser has no speech recognition (try Chrome, Edge or Safari) and the engine has no offline Whisper model. Type your question or plan instead.'
+      : /permission|NotAllowed/i.test(message)
+        ? 'Microphone access was blocked. Allow it in the browser, or type it instead.'
+        : /Failed to fetch|NetworkError|Load failed|reach the engine|ECONNREFUSED|HTTP 50[02]: ?$|^Internal Server Error$/i.test(message)
+          ? 'Can’t reach the HeatTwin engine. Start it from the repo root with `make dev` (engine on port 8010), then try again.'
+          : /timed out|took too long|TimeoutError/i.test(message)
+            ? 'That took too long — the engine didn’t answer within a minute. Try again.'
+            : message
   return (
     <div className="dock__error">
-      <div className="eyebrow">Couldn’t build the plan</div>
+      <div className="eyebrow">Couldn’t do that</div>
       <p>{friendly}</p>
       <div className="dock__actions">
         <button className="btn btn--ink pressable" onClick={onRetry}>
