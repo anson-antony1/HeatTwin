@@ -282,7 +282,9 @@ def parse_audio(audio: bytes, mime_type: str, current_plan: Optional[dict[str, A
         raise ValueError("audio too long; keep the description under ~5 minutes")
     ctx = _current_plan_part(current_plan)
     ask = ("The audio is the coach describing changes to the current plan. Transcribe it and return the updated drills."
-           if ctx else "The audio is the coach describing today's practice. Transcribe it and extract the drills.")
+           if ctx else ("The audio is the coach describing today's practice. Transcribe EXACTLY what is said, word for word, then extract "
+                       "the drills. If the audio is silent, noise, or you cannot make out the words, return an empty transcript, "
+                       "no drills, and say so in \"unclear\". Never invent words or drills that were not spoken."))
     parts = ctx + [{"inline_data": {"mime_type": mime, "data": base64.b64encode(audio).decode()}}, {"text": ask}]
     return draft_plan(_parse(parts, editing=bool(ctx)), current_plan=current_plan if ctx else None, **plan_kw)
 
