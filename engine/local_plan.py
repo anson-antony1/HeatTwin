@@ -44,7 +44,8 @@ _OPTIONAL = re.compile(r"\b(optional|if (?:we have )?time|if there'?s time|can c
 _GEAR_WORDS = re.compile(r"\b(?:in |with |wearing |all in |everything in )?(?:full (?:pads?|gear|equipment)|shells?|shoulder pads?|"
                          r"helmets? and (?:shoulder )?pads?|helmets? and shoulders?|helmets?(?: only)?|shorts|no pads|no gear|"
                          r"t-?shirts?|jerseys?|no equipment|pads)\b", re.I)
-_LEAD = re.compile(r"^(?:\s*(?:okay|ok|so|um|uh|alright|first|also|today|tonight|we(?:'re|'ll|'d)?|let'?s|going to|gonna|will|do|"
+_LEAD = re.compile(r"^(?:\s*(?:okay|ok|so|um|uh|alright|all right|guys|everyone|everybody|folks|y'?all|boys|girls|"
+                   r"first|also|today|tonight|we(?:'re|'ll|'d)?|let'?s|going to|gonna|will|do|"
                    r"doing|run|running|start(?:ing)?|begin(?:ning)?|open(?:ing)?|have|having|go|get|put|add|make|plan|practice|"
                    r"then|and|please|can you|could you|new|short|quick|little)\b)+", re.I)
 _FILLER = re.compile(r"\b(?:with|of|for|a|an|the|about|around|some|just|like|maybe|plus|to|in|at|our|their|into|straight|"
@@ -52,6 +53,58 @@ _FILLER = re.compile(r"\b(?:with|of|for|a|an|the|about|around|some|just|like|may
 _POSITION = re.compile(r"\b(?:at|to|on)\s+the\s+(?:very\s+)?(?:end|start|beginning)\b|\bat the very end\b|\blast\b|\bfirst\b|"
                        r"\bto (?:start|open|finish|end|close)\b|\balways (?:start|open|begin|end|finish|close)(?: with)?\b", re.I)
 _FOR_NUM = re.compile(r"\bfor\s+(\d{1,3})\b(?!\s*(?:yards?|reps?|plays?|snaps?|times|rounds?|min|hours?|hrs?))", re.I)
+
+
+# ── what the coach says about effort: read it before the embedding model guesses from the drill's name ───────────
+# Order matters: negations, then an intensifier on a hard word ("super intense" → max), then the plain words. Each entry
+# is (level, pattern); the matched words are also removed from the drill title.
+_INT_WORD = r"(?:intense|intensity|hard|tough|heavy|brutal|grueling|gruelling|demanding|strenuous|vigorous)"
+_MAX_WORD = r"(?:brutal|grueling|gruelling|killer|insane|punishing|exhausting|all[- ]?out)"     # strong on their own
+_BOOST = r"(?:super|very|really|extremely|incredibly|insanely|crazy|seriously|ultra|extra|mega)"
+_INTENSITY_RULES: list[tuple[str, "re.Pattern[str]"]] = [(lvl, re.compile(rx, re.I)) for lvl, rx in [
+    ("light", rf"\bnot\s+(?:too|very|that|super|so|overly)?\s*{_INT_WORD}\b"),
+    ("light", r"\bnice and (?:easy|light|slow)\b|\btake it easy\b|\blow[- ]?(?:intensity|effort|key)\b"),
+    ("max", rf"\b{_BOOST}[- ]?{_INT_WORD}\b|\b(?:max(?:imum)?|all[- ]?out|flat[- ]?out|full[- ]?(?:speed|go|tilt|blast|effort|send))"
+            r"(?:\s+(?:effort|intensity|speed|pace))?\b|\b(?:100|hundred)\s*(?:percent|%)|\bas hard as (?:you|they|we) can\b|"
+            rf"\bmaximal\b|\ball in\b|\bgo(?:ing)? all\b|\bbeast mode\b|\bleave it all\b|\b{_MAX_WORD}\b"),
+    ("hard", r"\bhigh[- ]?(?:intensity|effort|tempo)\b|\bgame[- ]?(?:speed|tempo|intensity)\b|\bpretty (?:hard|intense|tough)\b|"
+             r"\b(?:fast|quick|up)[- ]?(?:paced?|tempo)\b|\blive\b|\bcompetitive\b"),
+    ("moderate", r"\b(?:moderate(?:ly)?|medium|mid|middle|regular|normal|average|steady|half[- ]?speed|three[- ]?quarter(?:s)?"
+                 r"(?:[- ]?speed)?|75\s*(?:percent|%))(?:[- ]?(?:intensity|effort|pace|speed|level|tempo))?\b"),
+    ("light", r"\b(?:light(?:ly)?|easy|easier|gentle|chill|relaxed|mellow|slow|low|recovery|soft)(?:[- ]?(?:intensity|effort|pace|"
+              r"speed|level|tempo))?\b"),
+    ("hard", r"\b(?:intense|hard|tough|heavy|brutal|grueling|gruelling|demanding|strenuous|vigorous)\b"),   # bare word, last
+]]
+_EFFORT_WORDS = re.compile(r"\b(?:intensity|effort|pace|speed|tempo|level|pretty|kinda|kind of|sort of|nice|going|gonna|"
+                           r"finish(?:ing)?|end(?:ing)?|wrap(?:ping)? up|close out|closing|work(?:ing)? on|session of|"
+                           r"shade|shaded|tent|under|percent)\b", re.I)
+
+
+def explicit_intensity(clause: str) -> tuple[Optional[str], str]:
+    """(level said by the coach | None, the clause with those effort words removed)."""
+    for level, rx in _INTENSITY_RULES:
+        m = rx.search(clause)
+        if m:
+            return level, (clause[:m.start()] + " " + clause[m.end():])
+    return None, clause
+
+
+def short_title(name: str, is_break: bool) -> str:
+    """A short drill title (≤ 4 words, sentence case) from what is left of the coach's clause."""
+    t = _EFFORT_WORDS.sub(" ", name)
+    t = re.sub(r"\b(\d+|one) on (?:(\d+)|ones?)(s?)\b", lambda m: f"{1 if m.group(1) == 'one' else m.group(1)}-on-"
+               f"{m.group(2) or 1}{'s' if (m.group(3) or m.group(0).endswith('ones')) else ''}", t)
+    t = re.sub(r"\bwarm[- ]up\b", "warmup", t)
+    t = re.sub(r"\s+", " ", t).strip(" -'")
+    if is_break:
+        t = re.sub(r"\b(?:water|hydration|drink|rest)?\s*breaks?\b", " ", t).strip()
+        kind = "water break" if re.search(r"\b(?:water|hydrat|drink)", name) or not re.search(r"\brest\b", name) else "rest"
+        t = kind if not t or t in ("water", "rest", "hydration") else f"{t} {kind}"
+    words = t.split()
+    if len(words) > 4:
+        words = words[-4:]                     # the drill noun is usually last ("… position drills")
+    t = " ".join(words) or ("water break" if is_break else "drill")
+    return t[:1].upper() + t[1:]
 
 
 def _norm(text: str) -> str:
@@ -105,9 +158,11 @@ def _start_time(t: str, assumptions: list[str]) -> tuple[Optional[str], str]:
     return f"{h:02d}:{mi:02d}", (t[:m.start()] + " " + t[m.end():])
 
 
-def _intensity(name: str, is_break: bool, assumptions: list[str]) -> str:
+def _intensity(name: str, is_break: bool, assumptions: list[str], said: Optional[str] = None) -> str:
     if is_break:
         return "rest"
+    if said:                                  # the coach said how hard it is: that wins over any model guess
+        return said
     d = decide.decide_intensity(name)
     if not d.abstain and d.choice:
         return d.choice
@@ -119,17 +174,15 @@ def _intensity(name: str, is_break: bool, assumptions: list[str]) -> str:
 
 def _drill(clause: str, gear: Optional[str], assumptions: list[str], unclear: list[str]) -> Optional[dict[str, Any]]:
     mins = _minutes(clause)
-    name = _strip(clause)
-    is_break = bool(_BREAK.search(clause)) or bool(_BREAK.fullmatch(name or ""))
-    if not name and mins is None:
+    said, without_effort = explicit_intensity(clause)
+    raw = _strip(without_effort)
+    is_break = bool(_BREAK.search(clause)) or bool(_BREAK.fullmatch(raw or ""))
+    if is_break and said == "light" and re.search(r"\brest\b", clause, re.I) and not re.search(r"\blight\b", clause, re.I):
+        said = None                           # "rest" is a break, not an effort word
+    if not raw and mins is None:
         return None
-    if is_break and not name:
-        name = "water break"
-    if not name:
-        name = "drill"
-    if is_break and "break" not in name and "rest" not in name and "water" not in name:
-        name = f"{name} break"
-    return {"name": name[:80], "duration_min": mins or 0.0, "intensity": _intensity(name, is_break, assumptions),
+    name = short_title(raw, is_break) if (raw or is_break) else "Drill"
+    return {"name": name[:80], "duration_min": mins or 0.0, "intensity": _intensity(raw or name, is_break, assumptions, said),
             "gear": gear or DEFAULT_GEAR, "is_break": is_break, "shade": bool(is_break and _SHADE.search(clause)),
             "priority": 1 if _MUST.search(clause) else 3 if _OPTIONAL.search(clause) else 2,
             "movable": not (_FIRST.search(clause) or _LAST.search(clause)), "_gear_said": gear is not None}

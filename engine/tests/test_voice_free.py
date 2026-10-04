@@ -143,7 +143,7 @@ def test_local_plan_parses_a_described_practice_into_a_draft():
                                                   "team period in full pads, a five minute water break, then conditioning for "
                                                   "twelve minutes"}).json()
     assert d["needs_confirmation"] is True and d["model"] == local_plan.LOCAL_MODEL and d["labels"] == [local_plan.LOCAL_LABEL]
-    assert _names(d) == [("warmup", 10.0), ("team period", 20.0), ("water break", 5.0), ("conditioning", 12.0)]
+    assert _names(d) == [("Warmup", 10.0), ("Team period", 20.0), ("Water break", 5.0), ("Conditioning", 12.0)]
     p = d["plan"]
     assert p["start"][11:16] == "16:00" and [x["gear"] for x in p["drills"]] == ["helmet", "full_pads", "full_pads", "full_pads"]
     assert [x["is_break"] for x in p["drills"]] == [False, False, True, False] and p["drills"][2]["intensity"] == "rest"
@@ -163,8 +163,8 @@ def test_local_plan_states_what_it_assumed():
 
 def test_local_plan_leaves_out_drills_with_no_duration_and_says_so():
     d = c.post("/plan/parse_local", json={"text": "ten minutes of warmup in helmets then a water break then 20 minutes of team"}).json()
-    assert [x["name"] for x in d["plan"]["drills"]] == ["warmup", "team"]
-    assert any('No duration for "water break"' in u for u in d["unclear"])
+    assert [x["name"] for x in d["plan"]["drills"]] == ["Warmup", "Team"]
+    assert any('No duration for "Water break"' in u for u in d["unclear"])
 
 
 def test_low_confidence_intensity_becomes_a_confirm_screen_assumption_leaning_harder(monkeypatch):
@@ -180,14 +180,14 @@ def test_low_confidence_intensity_becomes_a_confirm_screen_assumption_leaning_ha
 
 
 @pytest.mark.parametrize("text,check", [
-    ("add fifteen minutes of jumping jacks at the end", lambda n, d: n[-1] == ("jumping jacks", 15.0) and len(n) == 10),
+    ("add fifteen minutes of jumping jacks at the end", lambda n, d: n[-1] == ("Jumping jacks", 15.0) and len(n) == 10),
     ("make team period thirty minutes", lambda n, d: ("Team period", 30.0) in n),
     ("drop special teams from the plan", lambda n, d: "Special teams" not in [x[0] for x in n] and len(n) == 8),
     ("make the warmup five minutes shorter", lambda n, d: n[0] == ("Dynamic warmup", 5.0)),
     ("cut individual period down to fifteen minutes", lambda n, d: ("Individual period", 15.0) in n),
     ("extend the team period to forty minutes", lambda n, d: ("Team period", 40.0) in n),
-    ("replace conditioning with ten minutes of sprints", lambda n, d: ("sprints", 10.0) in n and len(n) == 9),
-    ("add a ten minute film session at the start", lambda n, d: n[0] == ("film session", 10.0)),
+    ("replace conditioning with ten minutes of sprints", lambda n, d: ("Sprints", 10.0) in n and len(n) == 9),
+    ("add a ten minute film session at the start", lambda n, d: n[0] == ("Film session", 10.0)),
 ])
 @needs_embeddings
 def test_local_plan_edits_the_current_plan_and_keeps_the_rest(text, check):

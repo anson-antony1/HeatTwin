@@ -133,11 +133,20 @@ Only structure what the coach said. Do not add, remove, reorder, lengthen or sho
 heat or medical advice.
 
 For each drill, in the order the coach said them:
-- name: short, the coach's own words ("Individual period", "Inside run", "Water break").
-- duration_min: minutes as stated. If a duration is missing, do not guess: use 0 and list it in "unclear".
-- intensity: rest (standing, water break, walkthrough at a stand), light (warmup, stretching, calisthenics,
-  walkthrough), moderate (individual/position drills, special teams, 7-on-7), hard (team period, inside run,
-  scrimmage, live tackling), max (conditioning, sprints, gassers).
+- name: a SHORT title, 1-4 words, sentence case, naming the activity only ("Individual period", "Inside run",
+  "Weightlifting", "Water break", "7-on-7"). Leave out effort words (light, super intense, all out, easy), durations,
+  gear, filler ("we're going to do some…", "finish with…") and the coach's phrasing around the activity.
+- duration_min: minutes as stated ("a quarter hour" = 15, "half an hour" = 30, "for twenty" = 20). If a duration is
+  missing, do not guess: use 0 and list it in "unclear".
+- intensity: if the coach SAYS how hard a drill is, that wins over the drill type. Map their words:
+  max: max, maximum, all out, full speed, 100 percent, flat out, as hard as you can, and any intensifier + hard word
+  ("super intense", "really hard", "very tough", "extremely heavy"), brutal, grueling, killer;
+  hard: hard, intense, tough, heavy, high intensity, game speed, live, competitive, fast paced;
+  moderate: moderate, medium, normal, regular, steady, half speed, three-quarter speed;
+  light: light, easy, chill, relaxed, gentle, slow, low intensity, recovery, nice and easy, "not too hard".
+  Only when the coach says nothing about effort, use the drill type: rest (water break, standing), light (warmup,
+  stretching, calisthenics, walkthrough, cool down), moderate (individual/position drills, special teams, 7-on-7), hard
+  (team period, inside run, scrimmage, live tackling), max (conditioning, sprints, gassers).
 - gear: none (shorts/t-shirt), helmet (helmets only), helmet_shoulder_pads ("shells", helmet and shoulder pads),
   full_pads (full pads / full gear). If the coach states gear once for the practice, apply it to every drill until they
   change it. Water breaks keep the gear of the drill before them.
