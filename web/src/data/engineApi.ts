@@ -165,6 +165,27 @@ export interface LiveReplay {
   labels: string[]
 }
 
+/** v1.4 GET /demo/comparison — the same plan under three weather inputs. A stored snapshot (scripts/demo_numbers.py). */
+export interface DemoComparisonRow {
+  key: 'saved_forecast' | 'live_nws_wbgt' | 'live_liljegren'
+  input: string
+  fetched_at: string | null
+  wbgt_f_by_hour: [string, number][]
+  peak_zone: number
+  over_before: number
+  over_after: number
+  load_kept_pct: number
+  changes: number
+  feasible: boolean
+}
+
+export interface DemoComparison {
+  plan_id: string
+  rows: DemoComparisonRow[]
+  headline: 'saved_forecast'
+  labels: string[]
+}
+
 /** v1.3 GET /node/latest. */
 export interface NodeLatest {
   reading: null | {
@@ -299,6 +320,11 @@ export function getSources(signal?: AbortSignal) {
 /** v1.3: replay the HR file through live calibration on this plan (deterministic in demo mode). */
 export function liveReplay(plan: PracticePlan, signal?: AbortSignal) {
   return request<LiveReplay>('POST', '/live/replay?demo=1', { plan }, signal)
+}
+
+/** v1.4: 404 until scripts/demo_numbers.py has written the snapshot. */
+export function getDemoComparison(signal?: AbortSignal) {
+  return request<DemoComparison>('GET', '/demo/comparison', undefined, signal)
 }
 
 export function getNodeLatest(signal?: AbortSignal) {

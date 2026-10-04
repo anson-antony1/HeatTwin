@@ -25,6 +25,7 @@ import { VoicePanel } from '../voice'
 import { NumberTicker } from '../components/NumberTicker'
 import { OfflineBadge, OfflineBanner } from '../components/OfflineBadge'
 import { ProvenanceLabels } from '../components/ProvenanceLabels'
+import { WeatherComparison } from '../components/WeatherComparison'
 import { IconCheck, IconClose, IconSpark } from '../components/Icons'
 import { clockLabel, heatColor, type HeatScale } from '../lib/heat'
 import { useHeatScale, useNearMargin } from '../lib/useHeatScale'
@@ -494,6 +495,8 @@ export function PlanView() {
           </motion.section>
         )}
       </AnimatePresence>
+
+      {!editing && !offline && <WeatherComparison />}
     </div>
   )
 }
