@@ -21,7 +21,10 @@ Protocol (per decision, per backend):
     count of utterances identical to an exemplar are reported.
   * ECE: 10 equal-width confidence bins; 95 % intervals are bootstrap (1000 resamples, seed 0). n is small — read the
     intervals, not the third decimal.
-  * Leakage: exact duplicates and near duplicates (cosine ≥ 0.95) between exemplars and held-out items are counted.
+  * The intent classifier masks athlete and drill names (decide.mask_entities) before embedding — exemplars with the fixture
+    roster/plan they were written against, queries with the current ones — so unseen names route like seen ones.
+  * Leakage: exact duplicates and near duplicates (cosine ≥ 0.95) between exemplars and held-out items are counted, on the
+    masked text (two utterances that differ only by a name are the same utterance).
   * Guard assist is also compared with engine/guard.py alone and with both ("either flags").
 """
 from __future__ import annotations
@@ -65,6 +68,12 @@ def _bootstrap(values_fn, n: int, resamples: int = decide.BOOTSTRAP_RESAMPLES) -
     return [_r(np.percentile(vals, 2.5)), _r(np.percentile(vals, 97.5))]
 
 
+def _target(y: np.ndarray, labels: list[str]) -> np.ndarray:
+    """What counts as right: the label; for items labelled null (ambiguous / not on the roster / no one named), the "none"
+    class — or abstaining, which is never counted wrong."""
+    return np.where(y < 0, labels.index(decide.NONE), y) if decide.NONE in labels else y
+
+
 def _scores(sims: decide.Sims, y: np.ndarray, T: float, theta: float, kind: str, labels: list[str]) -> dict[str, np.ndarray]:
     P = sims.probs(T)
     conf, pred = P.max(axis=1), P.argmax(axis=1)
@@ -72,7 +81,7 @@ def _scores(sims: decide.Sims, y: np.ndarray, T: float, theta: float, kind: str,
         abstain = (pred == labels.index("pass")) & (conf < theta)
     else:
         abstain = conf < theta
-    return {"P": P, "conf": conf, "pred": pred, "abstain": abstain, "correct": pred == y}
+    return {"P": P, "conf": conf, "pred": pred, "abstain": abstain, "correct": pred == _target(y, labels)}
 
 
 def _fit(sims: decide.Sims, y: np.ndarray, kind: str, labels: list[str]) -> tuple[float, float, str]:
@@ -83,7 +92,7 @@ def _fit(sims: decide.Sims, y: np.ndarray, kind: str, labels: list[str]) -> tupl
     if kind == "guard":
         th, st = decide.choose_guard_threshold(conf, pred == labels.index("pass"), y == labels.index("flag"))
     else:
-        th, st = decide.choose_abstain_threshold(conf, pred == y)
+        th, st = decide.choose_abstain_threshold(conf, pred == _target(y, labels))
     return T, th, st
 
 
@@ -109,9 +118,11 @@ def _metrics(sims: decide.Sims, y: np.ndarray, T: float, theta: float, kind: str
         out["accuracy_ci95"] = _bootstrap(lambda i: corr_v[i].mean(), nv)
         out["ece_ci95"] = _bootstrap(lambda i: decide.expected_calibration_error(conf_v[i], corr_v[i]), nv)
     if (~valid).any():
+        none = labels.index(decide.NONE) if decide.NONE in labels else -2
         out["null_items"] = int((~valid).sum())
         out["null_items_abstained"] = _r(sc["abstain"][~valid].mean())
-        out["null_items_wrongly_answered"] = int((answered & ~valid).sum())
+        out["null_items_handled"] = _r((sc["abstain"] | (sc["pred"] == none))[~valid].mean())
+        out["null_items_wrongly_answered"] = int((answered & ~valid & (sc["pred"] != none)).sum())
     return out
 
 
@@ -135,7 +146,7 @@ def _crossfit(sims: decide.Sims, y: np.ndarray, texts: list[str], kind: str, lab
         sc = _scores(sims.take(te), y[te], T, th, kind, labels)
         conf[te], pred[te], abstain[te] = sc["conf"], sc["pred"], sc["abstain"]
     valid = y >= 0
-    correct = pred == y
+    correct = pred == _target(y, labels)
     answered = ~abstain
     out = {"n": len(y), "accuracy": _r(correct[valid].mean()),
            "ece": _r(decide.expected_calibration_error(conf[valid], correct[valid])),
@@ -148,9 +159,11 @@ def _crossfit(sims: decide.Sims, y: np.ndarray, texts: list[str], kind: str, lab
         blocks = (pred == flag) | abstain
         out.update(_guard_rates(blocks, y == flag))
     if (~valid).any():
+        none = labels.index(decide.NONE) if decide.NONE in labels else -2
         out.update({"n_scored": int(valid.sum()), "null_items": int((~valid).sum()),
                     "null_items_abstained": _r(abstain[~valid].mean()),
-                    "null_items_wrongly_answered": int((answered & ~valid).sum())})
+                    "null_items_handled": _r((abstain | (pred == none))[~valid].mean()),
+                    "null_items_wrongly_answered": int((answered & ~valid & (pred != none)).sum())})
     return out, {"conf": conf, "pred": pred, "abstain": abstain}
 
 
@@ -178,8 +191,11 @@ def eval_classifier(key: str, be: decide.Backend) -> tuple[dict[str, Any], dict[
     kind = "guard" if key == "guard_assist" else "classifier"
     ds = decide.load_dataset()[key]
     train, held = decide.assign_splits(ds)
-    ex = [(str(i["label"]), str(i["text"])) for i in train]
-    texts = [str(i["text"]) for i in held]
+    # the intent classifier masks names (decide.mask_entities) in exemplars and queries, exactly as at run time
+    froster, fplan = fixtures.roster(), fixtures.plan()
+    prep = (lambda t: decide.mask_entities(str(t), froster, fplan)) if key == "intent" else (lambda t: str(t))   # noqa: E731
+    ex = [(str(i["label"]), prep(i["text"])) for i in train]
+    texts = [prep(i["text"]) for i in held]
     S = decide.class_sims(be, texts, ex, labels)
     y = np.array([labels.index(i["label"]) for i in held])
     T, th, st = _fit(S, y, kind, labels)
@@ -193,6 +209,15 @@ def eval_classifier(key: str, be: decide.Backend) -> tuple[dict[str, Any], dict[
         "threshold": _r(th, 5), "threshold_rule": _rule(kind), "threshold_status": st,
         "headline": "crossfit", "crossfit": {k: v for k, v in cf.items()}, "in_sample": in_sample,
     }
+    # how much the headline depends on which 30 % was held out: top-1 accuracy over seven other seeds of the same split rule
+    others = []
+    for seed in range(1, 8):
+        tr2, ho2 = decide.assign_splits(ds, seed=seed)
+        ex2 = [(str(i["label"]), prep(i["text"])) for i in tr2]
+        s2 = decide.class_sims(be, [prep(i["text"]) for i in ho2], ex2, labels)
+        y2 = np.array([labels.index(i["label"]) for i in ho2])
+        others.append(float((s2.S.shape[0] and (s2.probs(decide.fit_temperature(s2, y2)).argmax(axis=1) == y2).mean())))
+    res["accuracy_on_other_splits"] = {"seeds": [1, 7], "mean": _r(np.mean(others)), "min": _r(min(others)), "max": _r(max(others))}
     if key == "intent":
         res["per_class_recall_heldout"] = {c: _r((sc["pred"][y == i] == i).mean()) for i, c in enumerate(labels) if (y == i).any()}
         res["confusions_heldout"] = _confusions(sc["pred"], y, labels)
@@ -205,7 +230,7 @@ def eval_classifier(key: str, be: decide.Backend) -> tuple[dict[str, Any], dict[
         res["assist_alone_in_sample"] = _guard_rates(a_block, truth_flag)
         res["either_layer_in_sample"] = _guard_rates(a_block | ~g_ok, truth_flag)
         res["flags_missed_by_guard_py_caught_by_assist"] = int((truth_flag & g_ok & a_block).sum())
-    leak = _near_duplicates(be, train, held)
+    leak = _near_duplicates(be, [{**i, "text": prep(i["text"])} for i in train], [{**i, "text": prep(i["text"])} for i in held])
     res["leakage"] = {k: v for k, v in leak.items() if k != "_pairs"}
     cal = {"temperature": _r(T, 5), "threshold": _r(th, 5), "threshold_status": st, "n_calibration": len(held)}
     res["_pairs"] = leak["_pairs"]
@@ -236,7 +261,8 @@ def eval_entity(key: str, be: decide.Backend) -> tuple[dict[str, Any], dict[str,
         ex, ids = decide.athlete_exemplars(fixtures.roster()), [str(a["id"]) for a in fixtures.roster()]
     else:
         ex, ids = decide.drill_exemplars(fixtures.plan()), [str(d["id"]) for d in fixtures.plan()["drills"]]
-    ids = list(dict.fromkeys(ids))
+    ids = [*dict.fromkeys(ids), decide.NONE]
+    ex = [*ex, *((decide.NONE, f) for f in (decide.ATHLETE_NONE_FRAMES if key == "athlete" else decide.DRILL_NONE_FRAMES))]
     texts = [str(i["text"]) for i in ds]
     y = np.array([ids.index(i["label"]) if i["label"] is not None else -1 for i in ds])
 
@@ -253,8 +279,8 @@ def eval_entity(key: str, be: decide.Backend) -> tuple[dict[str, Any], dict[str,
     valid = y >= 0
     ans_ok = valid & ~exact
     sc = _scores(sims, y, T, th, "entity", ids)
-    top2 = np.argsort(-sc["P"], axis=1)[:, :2]
     asked = np.where(arr["abstain"] & valid)[0]
+    top2 = np.array([[j for j in np.argsort(-sc["P"][i]) if j != len(ids) - 1][:2] for i in range(len(y))])   # options offered: never "none"
     res = {
         "kind": "roster_grounded", "options": len(ids), "n_total": len(ds), "n_exemplars": len(ex),
         "exemplars_built_from": "the fixture roster (names, first/last name, positions)" if key == "athlete" else

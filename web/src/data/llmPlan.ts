@@ -109,6 +109,16 @@ export async function parsePlanAudio(wav: Blob, ctx: PlanContext = {}, signal?: 
   return post<PlanDraft>('/plan/parse_audio', { audio_b64, mime_type: wav.type || 'audio/wav', ...ctx }, signal)
 }
 
+/** v1.7 POST /plan/parse_local: the same draft, from the engine's rules + intensity decision — no AI service, no key. */
+export function parsePlanLocal(text: string, ctx: PlanContext = {}, signal?: AbortSignal): Promise<PlanDraft> {
+  return post<PlanDraft>('/plan/parse_local', { text, ...ctx }, signal)
+}
+
+/** v1.7 POST /voice/transcribe: offline speech-to-text on the laptop running the engine (faster-whisper); 503 when it isn't installed. */
+export async function transcribeWav(wav: Blob, signal?: AbortSignal): Promise<{ text: string; backend: string }> {
+  return post<{ text: string; backend: string }>('/voice/transcribe', { audio_b64: await blobToBase64(wav), mime_type: wav.type || 'audio/wav' }, signal)
+}
+
 async function blobToBase64(b: Blob): Promise<string> {
   const bytes = new Uint8Array(await b.arrayBuffer())
   let s = ''

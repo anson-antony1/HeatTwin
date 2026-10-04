@@ -5,6 +5,7 @@ import pytest
 
 os.environ["HEATTWIN_NODE"] = "off"   # never let the engine's built-in bridge grab a real Arduino during tests
 os.environ["HEATTWIN_DISABLE_PAID_APIS"] = "1"   # no Gemini / ElevenLabs request from any test (engine/paid_api.py)
+os.environ.setdefault("HF_HUB_OFFLINE", "1")     # the decision layer's embedding model loads from the local cache or not at all
 
 
 def pytest_configure(config):

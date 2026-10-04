@@ -2,14 +2,14 @@
   "backends": {
     "fastembed:BAAI/bge-small-en-v1.5": {
       "intent": {
-        "temperature": 0.02861,
-        "threshold": 0.79407,
+        "temperature": 0.02762,
+        "threshold": 0.69701,
         "threshold_status": "target_met",
         "n_calibration": 72
       },
       "intensity": {
-        "temperature": 0.03052,
-        "threshold": 0.67674,
+        "temperature": 0.03038,
+        "threshold": 0.68112,
         "threshold_status": "target_met",
         "n_calibration": 35
       },
@@ -20,28 +20,28 @@
         "n_calibration": 62
       },
       "athlete": {
-        "temperature": 0.01959,
-        "threshold": 0.50003,
-        "threshold_status": "target_met",
-        "n_calibration": 121
-      },
-      "drill": {
-        "temperature": 0.01273,
+        "temperature": 0.02005,
         "threshold": 0.5,
         "threshold_status": "target_met",
-        "n_calibration": 111
+        "n_calibration": 130
+      },
+      "drill": {
+        "temperature": 0.02284,
+        "threshold": 0.43938,
+        "threshold_status": "target_met",
+        "n_calibration": 119
       }
     },
     "lexical-fallback": {
       "intent": {
-        "temperature": 0.05843,
-        "threshold": 0.79534,
-        "threshold_status": "target_not_met",
+        "temperature": 0.05399,
+        "threshold": 0.90345,
+        "threshold_status": "target_met",
         "n_calibration": 72
       },
       "intensity": {
-        "temperature": 0.07365,
-        "threshold": 0.54077,
+        "temperature": 0.07315,
+        "threshold": 0.54347,
         "threshold_status": "target_met",
         "n_calibration": 35
       },
@@ -52,21 +52,21 @@
         "n_calibration": 62
       },
       "athlete": {
-        "temperature": 0.01129,
-        "threshold": 0.64633,
+        "temperature": 0.02209,
+        "threshold": 0.46895,
         "threshold_status": "target_met",
-        "n_calibration": 121
+        "n_calibration": 130
       },
       "drill": {
-        "temperature": 0.03831,
-        "threshold": 0.49951,
+        "temperature": 0.04094,
+        "threshold": 0.47485,
         "threshold_status": "target_met",
-        "n_calibration": 111
+        "n_calibration": 119
       }
     }
   },
   "synthetic": true,
   "generated_by": "python -m validation.voice_decide",
   "dataset": "engine/data/voice_decide_dataset.json",
-  "dataset_sha1": "1ec74327ac7d07d0d62a6de9ccb0e83cc3714e33"
+  "dataset_sha1": "89cdb7e81ae9944b43c36bafe3f7564cbb014bec"
 }

@@ -52,6 +52,7 @@ LEXICAL_KEY = "lexical-fallback"
 INTENTS = ("what_if", "athlete_status", "field_conditions", "optimize", "plan_summary", "plan_entry", "unclear")
 INTENSITIES = ("rest", "light", "moderate", "hard", "max")
 GUARD_CLASSES = ("flag", "pass")
+NONE = "none"          # (b)/(c) only: "nobody / no drill in particular" ("how is he doing", "who is over the line")
 
 # ── design parameters (not physiology; documented in docs/VOICE.md and echoed into validation/results.json) ──
 HELDOUT_FRAC = 0.30            # 70/30 split; the 30 % calibrates (temperature, threshold)
@@ -438,8 +439,6 @@ def _decide(decision: str, be: Backend, sims: Optional[Sims], labels: Sequence[s
     note = None
     if cal is None:
         abstain, note = True, "no calibration for this backend: abstaining"
-    elif len(labels) < 2 and decision in ("athlete", "drill"):
-        abstain, note = True, "single option: cannot tell a match from a miss"
     else:
         abstain = conf < float(cal["threshold"])
         if len(order) > 1 and float(p[order[0]] - p[order[1]]) < TIE_MARGIN:
@@ -448,13 +447,43 @@ def _decide(decision: str, be: Backend, sims: Optional[Sims], labels: Sequence[s
                     round(temperature, 5) if cal else None, round(float(cal["threshold"]), 5) if cal else None, note)
 
 
+ATHLETE_TOKEN, DRILL_TOKEN = "the player", "the drill"
+
+
+def mask_entities(text: str, roster: Optional[Sequence[Mapping[str, Any]]] = None, plan: Optional[Mapping[str, Any]] = None) -> str:
+    """Replace the names in ``roster`` and the drill names in ``plan`` with a neutral token, so the INTENT classifier does
+    not depend on which names are on screen ("how hot does Priya get" ≈ "how hot does Isaiah get"). The labelled exemplars are
+    masked the same way with the fixture roster/plan their utterances were written against."""
+    out = str(text)
+    for d in sorted((plan or {}).get("drills") or [], key=lambda x: -len(str(x.get("name", "")))):
+        name = str(d.get("name", ""))
+        for n in dict.fromkeys([name, re.sub(r"\s*\(.*?\)\s*", " ", name).strip(), *re.findall(r"\((.*?)\)", name)]):
+            if len(n) >= 4:
+                out = re.sub(rf"(?:\bthe\s+)?\b{re.escape(n.strip())}\b", DRILL_TOKEN, out, flags=re.I)
+    for a in roster or []:
+        full = plain_name(a.get("name"))
+        for n in dict.fromkeys([full, *full.split()]):
+            if len(n) >= 3:
+                out = re.sub(rf"\b{re.escape(n)}(?:'s)?\b", ATHLETE_TOKEN, out, flags=re.I)
+    return out
+
+
 _exemplar_cache: dict[str, list[tuple[str, str]]] = {}
+
+
+def _fixture_context() -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    from engine import fixtures
+    return fixtures.roster(), fixtures.plan()
 
 
 def _train_exemplars(key: str) -> list[tuple[str, str]]:
     if key not in _exemplar_cache:
         train, _ = assign_splits(load_dataset()[key])
-        _exemplar_cache[key] = [(str(i["label"]), str(i["text"])) for i in train]
+        if key == "intent":      # utterances were written against the fixture roster / plan: mask those names
+            roster, plan = _fixture_context()
+            _exemplar_cache[key] = [(str(i["label"]), mask_entities(str(i["text"]), roster, plan)) for i in train]
+        else:
+            _exemplar_cache[key] = [(str(i["label"]), str(i["text"])) for i in train]
     return _exemplar_cache[key]
 
 
@@ -463,9 +492,13 @@ def _classify(decision: str, key: str, labels: Sequence[str], text: str, backend
     return _decide(decision, be, class_sims(be, [text], _train_exemplars(key), labels), labels)
 
 
-def decide_intent(text: str, *, backend: Optional[Backend] = None) -> Decision:
-    """(a) What the coach is asking for."""
-    return _classify("intent", "intent", INTENTS, text, backend)
+def decide_intent(text: str, roster: Optional[Sequence[Mapping[str, Any]]] = None, plan: Optional[Mapping[str, Any]] = None, *,
+                  backend: Optional[Backend] = None) -> Decision:
+    """(a) What the coach is asking for. Names on the current ``roster`` / ``plan`` (and the fixture's, which the labelled
+    utterances use) are masked first, so a roster the classifier has never seen routes like the fixture one."""
+    froster, fplan = _fixture_context()
+    masked = mask_entities(mask_entities(text, roster, plan), froster, fplan)
+    return _classify("intent", "intent", INTENTS, masked, backend)
 
 
 def decide_intensity(text: str, *, backend: Optional[Backend] = None) -> Decision:
@@ -556,8 +589,6 @@ def drill_exemplars(plan: Mapping[str, Any]) -> list[tuple[str, str]]:
             k = same.index(i)
             if k < len(_ORDINALS):
                 out += [(did, f"the {_ORDINALS[k]} {bare}"), (did, f"{_ORDINALS[k]} {bare}")]
-            if k == len(same) - 1:
-                out.append((did, f"the last {bare}"))
         if i > 0:
             out += [(did, f"the {bare} after {norm[i - 1]}"), (did, f"{bare} after the {norm[i - 1]}")]
         if i + 1 < len(drills):
@@ -565,23 +596,48 @@ def drill_exemplars(plan: Mapping[str, Any]) -> list[tuple[str, str]]:
     return out
 
 
-def _entity(decision: str, text: str, exemplars: list[tuple[str, str]], ids: Sequence[str],
+# what the coach says when no one / no drill in particular is meant: the "none" class of (b) and (c)
+ATHLETE_NONE_FRAMES = ["how is he doing", "how is she doing", "tell me about him", "tell me about her", "check on him", "his numbers",
+                       "her numbers", "how is the player doing", "how is the athlete doing", "check on someone", "the whole team",
+                       "everyone", "who is over the line", "who crosses the planning line first", "who gets the hottest",
+                       "how many players are over the limit", "the plan", "the practice", "the weather", "the forecast",
+                       "the field conditions", "the roster"]
+DRILL_NONE_FRAMES = ["that one", "it", "this period", "the plan", "everything", "the practice", "the whole practice", "the team",
+                     "an athlete", "the player", "the field", "the weather", "the forecast", "who", "how many", "the roster",
+                     "how is he doing", "how hot does he get"]
+
+
+def _entity(decision: str, text: str, exemplars: list[tuple[str, str]], ids: Sequence[str], none_frames: Sequence[str],
             backend: Optional[Backend]) -> Decision:
     be = backend or get_backend()
-    labels = list(dict.fromkeys(ids))
-    if not labels:
+    labels = [*dict.fromkeys(ids), NONE]
+    if len(labels) == 1:
         return _decide(decision, be, None, [])
-    return _decide(decision, be, class_sims(be, [text], exemplars, labels, lex_weight=ENTITY_LEX_WEIGHT), labels)
+    ex = [*exemplars, *((NONE, f) for f in none_frames)]
+    return _decide(decision, be, class_sims(be, [text], ex, labels, lex_weight=ENTITY_LEX_WEIGHT), labels)
 
 
 def decide_athlete(text: str, roster: Sequence[Mapping[str, Any]], *, backend: Optional[Backend] = None) -> Decision:
-    """(b) Which athlete on THIS roster. Ambiguous ("the linebacker" with two) or unknown names abstain."""
-    return _entity("athlete", text, athlete_exemplars(roster), [str(a["id"]) for a in roster], backend)
+    """(b) Which athlete on THIS roster. ``choice`` is an athlete id, or ``"none"`` when nobody in particular is meant ("how
+    is he doing", a question about the whole plan). Ambiguous ("the linebacker" with two) or unknown names abstain."""
+    return _entity("athlete", text, athlete_exemplars(roster), [str(a["id"]) for a in roster], ATHLETE_NONE_FRAMES, backend)
+
+
+_ORDER_CUE = re.compile(r"\b(first|second|third|fourth|fifth|last|next|previous|1st|2nd|3rd|4th|before|after|earlier|later|other|another)\b", re.I)
 
 
 def decide_drill(text: str, plan: Mapping[str, Any], *, backend: Optional[Backend] = None) -> Decision:
-    """(c) Which drill of THIS plan."""
-    return _entity("drill", text, drill_exemplars(plan), [str(d["id"]) for d in plan.get("drills") or []], backend)
+    """(c) Which drill of THIS plan (or ``"none"``). Two drills with the same name ("Water break" twice) can only be told apart
+    by their order or neighbours, so if the two most probable options are such twins and the coach gave neither ("the water
+    break"), the decision abstains instead of guessing between them."""
+    d = _entity("drill", text, drill_exemplars(plan), [str(x["id"]) for x in plan.get("drills") or []], DRILL_NONE_FRAMES, backend)
+    if not d.abstain and len(d.top2) == 2 and not _ORDER_CUE.search(text):
+        name = {str(x["id"]): re.sub(r"\s*\(.*?\)\s*", " ", str(x.get("name", ""))).strip().lower() for x in plan.get("drills") or []}
+        a, b = d.top2
+        if a in name and b in name and name[a] == name[b]:
+            return Decision(d.decision, d.choice, d.probabilities, d.confidence, True, d.top2, d.backend, d.calibrated,
+                            d.temperature, d.threshold, "two drills share this name: say which (first or second, or after …)")
+    return d
 
 
 # ══ guard: engine/guard.py + the assist, blocking when EITHER flags ═════════════════════════════════════════════

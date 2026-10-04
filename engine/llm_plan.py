@@ -275,7 +275,7 @@ def draft_plan(p: Parsed, site: Optional[dict[str, Any]] = None, date: Optional[
     date and start default to the fixture plan's. Drills with no stated duration are dropped from the plan and named
     in ``unclear`` so the coach fills them in.
     """
-    from engine import fixtures, guard
+    from engine import decide, fixtures
 
     base = fixtures.plan()
     site = site or (current_plan or {}).get("site") or base["site"]
@@ -307,7 +307,8 @@ def draft_plan(p: Parsed, site: Optional[dict[str, Any]] = None, date: Optional[
                        "intensity": "rest" if d.is_break else d.intensity, "gear": d.gear, "shade": d.shade,
                        "is_break": d.is_break, "priority": d.priority, "movable": d.movable})
 
-    g = lambda items, src: [guard.check(s, source=src)["redacted_text"] for s in items]  # noqa: E731
+    # LLM-facing free text: engine/guard.py AND the decision layer's assist (engine/decide.py); either one redacts
+    g = lambda items, src: [decide.check_two_layer(s, source=src)["redacted_text"] for s in items]  # noqa: E731
     return {
         "plan": {"id": plan_id, "site": site, "start": start, "drills": drills},
         "transcript": p.transcript,

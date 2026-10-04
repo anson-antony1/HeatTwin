@@ -62,7 +62,7 @@
   {"text": "how close is Jordan to the line", "label": "athlete_status"},
   {"text": "does the middle linebacker cross the line", "label": "athlete_status"},
   {"text": "what is Caleb's peak at the 95th percentile", "label": "athlete_status"},
-  {"text": "I want to know about Xavier", "label": "athlete_status"},
+  {"text": "where does Xavier end up by the end of practice", "label": "athlete_status"},
   {"text": "show me Mason's curve", "label": "athlete_status"},
   {"text": "how much does Noah heat up during team period", "label": "athlete_status"},
   {"text": "is Tyler in the red", "label": "athlete_status"},
@@ -314,7 +314,6 @@
   {"text": "scrimmage", "label": "hard"},
   {"text": "live tackling", "label": "hard"},
   {"text": "eleven on eleven at full speed", "label": "hard"},
-  {"text": "goal line live", "label": "hard"},
   {"text": "red zone period", "label": "hard"},
   {"text": "live scrimmage in full pads", "label": "hard"},
   {"text": "Oklahoma drill", "label": "hard"},
@@ -688,7 +687,16 @@
   {"text": "Sarah", "label": null},
   {"text": "the trainer", "label": null},
   {"text": "the new kid", "label": null},
-  {"text": "Mr. Lopez", "label": null}
+  {"text": "Mr. Lopez", "label": null},
+  {"text": "how is he doing today", "label": null},
+  {"text": "who is over the line", "label": null},
+  {"text": "how's everybody", "label": null},
+  {"text": "give me the numbers", "label": null},
+  {"text": "what about him", "label": null},
+  {"text": "who crosses first in this practice", "label": null},
+  {"text": "how hot does it get out there", "label": null},
+  {"text": "is anyone in trouble", "label": null},
+  {"text": "tell me how the team is doing", "label": null}
  ],
  "drill": [
   {"text": "the gassers", "label": "d6"},
@@ -801,6 +809,14 @@
   {"text": "gear check", "label": null},
   {"text": "the bus ride home", "label": null},
   {"text": "the new drill", "label": null},
-  {"text": "the one in the middle", "label": null}
+  {"text": "the one in the middle", "label": null},
+  {"text": "how hot does he get", "label": null},
+  {"text": "who is over the line", "label": null},
+  {"text": "what is the forecast", "label": null},
+  {"text": "what if we change it", "label": null},
+  {"text": "fix the whole thing", "label": null},
+  {"text": "how many athletes are over", "label": null},
+  {"text": "make it shorter", "label": null},
+  {"text": "which one is hardest", "label": null}
  ]
 }
