@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useEngineMeta, type EngineMeta } from './engineMeta'
+import { useLiveState } from './liveStore'
 import { FIXTURE_ROSTER, ROSTER_IS_SYNTHETIC } from './fixtures'
 import type { RosterAthlete } from './engineApi'
 import { shortName } from './selectors'
@@ -41,12 +42,19 @@ function view(athletes: RosterAthlete[], synthetic: boolean, fromEngine: boolean
  * The roster the engine simulated (GET /demo/inputs). Until it answers, and while it is unreachable, the local
  * fixture copy — names and positions only; every number on those rows is "—" (and badged offline).
  */
-export function rosterView(meta: Pick<EngineMeta, 'inputs'>): RosterView {
-  if (meta.inputs) return view(meta.inputs.roster, meta.inputs.synthetic.roster, true)
+export function rosterView(meta: Pick<EngineMeta, 'inputs'>, liveExtra: RosterAthlete[] = []): RosterView {
+  if (meta.inputs) {
+    const ids = new Set(meta.inputs.roster.map((a) => a.id))
+    const extra = liveExtra.filter((a) => !ids.has(a.id) && ids.add(a.id))
+    return view([...meta.inputs.roster, ...extra], meta.inputs.synthetic.roster, true)
+  }
   return view(FIXTURE_ROSTER, ROSTER_IS_SYNTHETIC, false)
 }
 
+/** v1.7: while a live session receives HR, its live-only athletes (the live-demo profile) join the roster. */
 export function useRoster(): RosterView {
   const { inputs } = useEngineMeta()
-  return useMemo(() => rosterView({ inputs }), [inputs])
+  const live = useLiveState()
+  const extra = live?.active && live.receiving ? live.roster_extra : undefined
+  return useMemo(() => rosterView({ inputs }, extra ?? []), [inputs, extra])
 }

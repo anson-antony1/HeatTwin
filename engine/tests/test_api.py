@@ -359,8 +359,19 @@ def test_hr_above_the_model_ceiling_is_held_and_said():
     r = client.post("/live/start", json={"live_demo": {"a07": "conditioning"}}).json()
     _live_minutes(185, 4, r["start"])
     a = client.get("/live/state").json()["athletes"]["a07"]
-    assert a["gates"]["message"] == "HR at or above the model's ceiling — calibration held"
     assert a["calib"]["met_scale"] >= 1.0   # held, never pulled down
+    # windows at the ceiling are data: the gate judges the re-forecast instead of waiting for "enough data"
+    assert a["gates"]["coverage_ok"] is True and a["gates"]["n_windows"] >= 2
+    from engine import api
+    assert any("modelled HR ceiling" in x for x in api._LIVE["session"]._labels("a07"))
+    r = client.post("/live/start", json={"live_demo": {"a07": "conditioning"}}).json()
+    _live_minutes(185, 1, r["start"])          # the first window alone, at the ceiling → held and said
+    from datetime import timedelta
+    from engine.physio import twonode
+    t1 = (twonode.parse_time(r["start"]) + timedelta(seconds=61)).isoformat()
+    client.post("/hr", json={"athlete_id": "a07", "ts": t1, "hr_bpm": 185, "device": "Amazfit Helio Strap"})
+    a = client.get("/live/state").json()["athletes"]["a07"]
+    assert a["gates"]["message"] in ("HR at or above the model's ceiling — calibration held", "not enough data")
 
 
 def test_live_demo_rejects_unknown_athlete_or_drill():

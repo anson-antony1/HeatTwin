@@ -367,6 +367,15 @@ shade_model:
   note: "Shaded drills / cooling area: mean radiant temperature = air temperature (canopy blocks all shortwave; hot-ground longwave ignored). Biases in-shade predictions low. See MODEL.md §6.3."
   mrt_equals_air_temp: true
 
+live_suggest:   # engine/suggest.py: the fast re-plan offered when a live athlete's re-forecast crosses the line
+  status: DESIGN
+  justification: "Owner spec (overnight item 3, Oct 4): a fast, targeted re-plan for the flagged athlete only, for the rest of the session — at most 2 changes, at most 3 s of search, every sentence through the guard. A suggestion the coach applies, never an automatic change. The rest block is one FHSAA rest-break length (fhsaa_wbgt_zones, 4 min) and the look-ahead covers the next three blocks so a suggestion acts soon."
+  source: "HeatTwin design (owner spec); rest block = FHSAA Policy 41 §41.8.3 break length"
+  max_changes: 2
+  budget_s: 3.0
+  lookahead_blocks: 3
+  rest_block_from: fhsaa_wbgt_zones.zones.1.break_min   # 4 min (zone 2 rest break)
+
 live_demo:   # engine/calibrate.py LiveSession(observe=…): the strap wearer's HR read against the drill they are doing
   status: DESIGN
   justification: "Owner decision (polish 4, Oct 4): in a live demo the strap wearer does burpees, which match the plan's conditioning intensity, so their HR is read against that drill, not the plan drill at the clock. A wearer also stands or recovers between sets; reading those minutes as conditioning drives met_scale far below 1 with no way back (the filter has no process noise), so the re-forecast would err cool. Rule (no new number): a window whose mean HR is nearer the model's HR for resting (non_participant.intensity) than for the mapped drill, both at the current ensemble, is skipped and labelled — never assimilated as rest, because the linear MET model is weakest at rest."

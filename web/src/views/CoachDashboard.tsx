@@ -1,7 +1,8 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'motion/react'
 import type { AthleteLive } from '../data/types'
-import type { RosterAthlete } from '../data/engineApi'
+import type { LiveSuggestion, RosterAthlete } from '../data/engineApi'
+import { applyLiveSuggestion } from '../data/liveApply'
 import { athleteOf, replayHeldNote, useSession, type SessionState } from '../data/engine'
 import { usePlanState } from '../data/planStore'
 import { useEngineMeta } from '../data/engineMeta'
@@ -55,6 +56,8 @@ export function CoachDashboard({ acked, onAck, onOpenAthlete, onCollapse }: Prop
   // voice-plan's red alert card: only when the estimate itself is over the line now (the engine's early warning is amber).
   const alerts = order.filter((a) => overLineNow(athleteOf(s, a.id), s.limitC) && !acked.has(a.id))
   const lead = alerts[0]
+  // v1.7: on a live session, the engine's athlete-only re-plan for an amber heads-up (never alongside the red alert).
+  const suggested = lead || s.clock !== 'live' ? null : order.find((a) => athleteOf(s, a.id).suggestion)
 
   const counts = roster.athletes.reduce(
     (c, a) => {
@@ -79,7 +82,7 @@ export function CoachDashboard({ acked, onAck, onOpenAthlete, onCollapse }: Prop
   return (
     <div className="coach">
       <LayoutGroup>
-        <div className={`coach__top ${lead ? 'has-alert' : ''}`}>
+        <div className={`coach__top ${lead ? 'has-alert' : suggested ? 'has-suggestion' : ''}`}>
           <AnimatePresence mode="popLayout">
             {lead && (
               <AlertCard
@@ -96,10 +99,18 @@ export function CoachDashboard({ acked, onAck, onOpenAthlete, onCollapse }: Prop
             )}
           </AnimatePresence>
 
-          <SessionHeader s={s} compact={!!lead} counts={hasCounts ? counts : null} />
+          <SessionHeader s={s} compact={!!lead || !!suggested} counts={hasCounts ? counts : null} />
 
           <AnimatePresence mode="popLayout">
             {lead && <GuidanceCard key="guide" />}
+            {suggested && (
+              <SuggestionCard
+                key={`suggest-${suggested.id}`}
+                name={roster.name(suggested.id)}
+                sug={athleteOf(s, suggested.id).suggestion!}
+                onApply={() => applyLiveSuggestion(suggested.id)}
+              />
+            )}
           </AnimatePresence>
         </div>
       </LayoutGroup>
@@ -300,7 +311,8 @@ function AlertCard({
         <NumberTicker value={tickerCore(live.coreC, limit, 1)} decimals={1} suffix="°C" />
       </div>
       <div className="alertcard__meta muted">
-        Est. over {fmtLimit(limit)}° for <span className="num">{minutesOverLine(live, limit)}</span> min
+        p95 <span className="num">{fmtCore(live.coreC != null ? live.coreC + (live.bandC ?? 0) : null, limit)}</span>° ≥{' '}
+        {fmtLimit(limit)}° for <span className="num">{minutesOverLine(live, limit)}</span> min
         {' '}· peak <span className="num">{fmtCore(live.peakP95C, limit)}</span>° (p95)
       </div>
       <div className="alertcard__actions">
@@ -310,6 +322,49 @@ function AlertCard({
         <button className="btn btn--quiet pressable" onClick={onAck}>
           Pulled & checked
         </button>
+      </div>
+    </motion.section>
+  )
+}
+
+/** v1.7: the heads-up card carrying the engine's suggested change for one athlete, with Apply (same layout as below). */
+function SuggestionCard({ name, sug, onApply }: { name: string; sug: LiveSuggestion; onApply: () => Promise<void> }) {
+  const reduce = useReducedMotion()
+  const [state, setState] = useState<'idle' | 'busy' | 'error'>('idle')
+  const apply = async () => {
+    setState('busy')
+    try {
+      await onApply()
+    } catch {
+      setState('error')
+    }
+  }
+  return (
+    <motion.section
+      layout
+      className="guide glass"
+      initial={reduce ? { opacity: 0 } : { opacity: 0, transform: 'translateX(24px)', filter: 'blur(6px)' }}
+      animate={{ opacity: 1, transform: 'translateX(0px)', filter: 'blur(0px)' }}
+      exit={reduce ? { opacity: 0 } : { opacity: 0, transform: 'translateX(24px)', filter: 'blur(6px)', transition: { duration: 0.18 } }}
+      transition={{ duration: 0.36, ease: ease.out, delay: reduce ? 0 : 0.06, layout: spring.move }}
+      title={sug.labels.join(' · ')}
+    >
+      <div className="eyebrow" style={{ color: 'var(--watch)' }}>
+        Heads-up · suggested for {name}
+      </div>
+      <ol className="guide__steps">
+        {sug.changes.map((c) => (
+          <li key={`${c.kind}-${c.drill_id}`}>{c.detail.charAt(0).toUpperCase() + c.detail.slice(1)}</li>
+        ))}
+      </ol>
+      <div className="guide__foot">
+        {sug.outcome}
+        <div className="guide__actions">
+          <button className="btn btn--ink pressable" onClick={apply} disabled={state === 'busy'}>
+            {state === 'busy' ? 'Applying…' : 'Apply'}
+          </button>
+          {state === 'error' && <span className="faint">Couldn’t apply — the engine didn’t answer.</span>}
+        </div>
       </div>
     </motion.section>
   )

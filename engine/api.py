@@ -302,6 +302,11 @@ class LiveStart(SimulateRequest):
         default=None, description="v1.6: athlete id → plan drill (id, or a word of its name, e.g. 'conditioning') the "
                                   "strap wearer is actually doing; their HR is read against that drill's intensity. "
                                   "Labelled 'live demo · <word>'. The re-forecast still runs the plan as written.")
+    profile: bool = Field(default=False, description="v1.7: add the live-demo athlete (engine/profiles.py: git-ignored "
+                                                     "profiles/local/*.json, else the fictional 'Demo athlete (live)') "
+                                                     "to the roster; the strap maps to them on the conditioning drill")
+    plan_preset: Optional[Literal["optimized"]] = Field(default=None, description="v1.7: run the session on the "
+                                                       "optimized (?demo=1, max_load) version of the plan")
 
 
 _LIVE: dict[str, Any] = {}
@@ -380,6 +385,22 @@ def live_start(req: LiveStart | None = None) -> dict[str, Any]:
     from engine.calibrate import LiveSession, match_drill
     req = req or LiveStart()
     plan, roster, weather, labels = _inputs(req, node_scenario=True)   # Live mode: node demo scenario if running
+    _LIVE["plan_start_as_given"] = plan["start"]   # the web's plan keeps this start; only the session runs on now
+    if req.plan_preset == "optimized":
+        opt = optimize(OptimizeRequest(plan=plan), demo_mode=True, preset="max_load", source="auto")
+        plan = opt["plan"]
+        labels = [*labels, "live session on the optimized plan (max_load, demo mode)"]
+    extra: list[dict] = []
+    if req.profile:
+        from engine import profiles
+        prof, plabels = profiles.load()
+        if prof["id"] in {a["id"] for a in roster}:
+            raise HTTPException(422, f"live profile id {prof['id']} is already on the roster")
+        extra = [prof]
+        roster = [*roster, prof]
+        labels = [*labels, *plabels]
+        if req.live_demo is None:
+            req = req.model_copy(update={"live_demo": {prof["id"]: "conditioning"}})
     if req.start_now:
         from datetime import datetime
         pinned_start = plan["start"]
@@ -403,6 +424,7 @@ def live_start(req: LiveStart | None = None) -> dict[str, Any]:
         labels = [*(f"live demo · {w}" for w in dict.fromkeys(words)), *labels]
     _LIVE["session"] = LiveSession(plan, roster, weather, settings=_settings(req), seed=req.seed, extra_labels=labels,
                                    observe=observe)
+    _LIVE["roster_extra"], _LIVE["suggestions"] = extra, {}
     _LIVE["last"], _LIVE["prior"] = {}, _guard(_LIVE["session"].reforecast())   # plan forecast before any HR
     return {"ok": True, "plan_id": plan["id"], "start": plan["start"], "athletes": [a["id"] for a in roster],
             "live_demo": {aid: {"drill_id": d["id"], "drill": d["name"], "intensity": d["intensity"]}
@@ -421,7 +443,62 @@ def hr(reading: HrReading) -> dict[str, Any]:
         out["reforecast"] = _guard(out["reforecast"])
     out["labels"] = __import__("engine.guard", fromlist=["guard_strings"]).guard_strings(out["labels"], "hr")
     _remember_hr(reading, out)
+    _maybe_suggest(reading, out)
     return out
+
+
+def _maybe_suggest(reading: "HrReading", out: dict[str, Any]) -> None:
+    """v1.7: while an athlete's live gate flags a crossing, keep a fast athlete-only re-plan ready (engine/suggest.py),
+    refreshed after each calibration update; cleared when the gate stops flagging."""
+    from engine import suggest
+    s, aid = _LIVE.get("session"), reading.athlete_id
+    sugg = _LIVE.setdefault("suggestions", {})
+    gates = out.get("gates")
+    if s is None or gates is None:
+        return
+    if not gates.get("flag"):
+        sugg.pop(aid, None)
+        return
+    if "reforecast" not in out and aid in sugg:
+        return                                       # no new calibration since the last suggestion
+    refc = out.get("reforecast") or _LIVE.get("reforecast") or {}
+    before = next((a for a in refc.get("athletes", []) if a["id"] == aid), None)
+    now_min = (twonode.parse_time(reading.ts) - twonode.parse_time(s.plan["start"])).total_seconds() / 60.0
+    res = suggest.suggest(s.plan, s.roster_with_calib(), s.weather, aid, now_min, settings=s.S, seed=s.seed,
+                          before=before)
+    if res is None:
+        sugg.pop(aid, None)
+    else:
+        sugg[aid] = {**res, "at_minute": round(now_min, 2), "computed_at": reading.ts}
+
+
+class LiveApply(_Model):
+    athlete_id: str
+
+
+@app.post("/live/apply")
+def live_apply(req: LiveApply) -> dict[str, Any]:
+    """v1.7: the coach applies the live suggestion for one athlete: the session keeps every calibration, runs the
+    changed plan, and returns it so the web's plan view shows the same plan."""
+    s = _LIVE.get("session")
+    sug = (_LIVE.get("suggestions") or {}).get(req.athlete_id)
+    if s is None or sug is None:
+        raise HTTPException(404, f"no live suggestion for {req.athlete_id}")
+    s.replace_plan(sug["plan"])
+    rf = _guard(s.reforecast())
+    _LIVE["reforecast"] = rf
+    for aid, v in _LIVE.get("last", {}).items():
+        a = next((x for x in rf["athletes"] if x["id"] == aid), None)
+        if a is not None:
+            v["athlete"] = {k: a.get(k) for k in ("core_c_p50", "core_c_p95", "peak_core_c_p95", "status",
+                                                  "first_cross_min")}
+            v["gates"] = s.gates(aid, rf)
+    _LIVE["suggestions"].pop(req.athlete_id, None)
+    from engine import guard
+    # The web's plan view keeps the plan's own start (the session runs it on today's clock).
+    plan_out = {**s.plan, "start": _LIVE.get("plan_start_as_given", s.plan["start"])}
+    return {"ok": True, "plan": plan_out, "applied": {k: sug[k] for k in ("text", "changes", "before", "after")},
+            "labels": guard.guard_strings(["live suggestion applied by the coach", *sug["labels"]], "live_apply")}
 
 
 def _device_label(device: str | None) -> str:
@@ -464,6 +541,8 @@ def live_state() -> dict[str, Any]:
         age = (now - twonode.parse_time(v["ts"])).total_seconds()
         athletes[aid] = {**v, "age_s": round(age, 1), "receiving": age <= stale,
                          "minute": round((twonode.parse_time(v["ts"]) - t0).total_seconds() / 60.0, 2)}
+        if aid in _LIVE.get("suggestions", {}):   # v1.7: the athlete-only re-plan on offer (plan sent on apply)
+            athletes[aid]["suggestion"] = {k: v for k, v in _LIVE["suggestions"][aid].items() if k != "plan"}
         if aid in s.observe:   # v1.6: HR read against this drill (live demo)
             athletes[aid]["live_demo"] = {"drill_id": s.observe[aid]["id"], "drill": s.observe[aid]["name"],
                                           "intensity": s.observe[aid]["intensity"]}
@@ -474,6 +553,7 @@ def live_state() -> dict[str, Any]:
     return {"active": True, "receiving": receiving, "plan_id": s.plan["id"], "plan_start": s.plan["start"],
             "now": now.isoformat(), "minute": round((now - t0).total_seconds() / 60.0, 2), "athletes": athletes,
             "reforecast": _LIVE.get("reforecast", _LIVE["prior"]),
+            "roster_extra": _LIVE.get("roster_extra", []),
             "labels": [*(x for x in s.extra_labels if x.startswith("live demo · ")), *labels,
                        *(x for x in s.extra_labels if not x.startswith("live demo · "))]}
 

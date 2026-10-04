@@ -36,6 +36,8 @@ async function poll() {
 }
 
 export const liveStore = {
+  /** Re-read /live/state now (after an Apply). */
+  refresh: () => poll(),
   subscribe(fn: () => void) {
     listeners.add(fn)
     return () => listeners.delete(fn)
@@ -82,3 +84,4 @@ export function liveApplies(s: LiveState | null, plan: Pick<PracticePlan, 'id' |
   const span = Math.round(s.reforecast.times.length * s.reforecast.step_min)
   return span === Math.round(planMinutes(plan)) ? 'on' : 'other_plan'
 }
+

@@ -15,6 +15,7 @@ import { ease, spring } from '../lib/motion'
 import { gearFor, usePlanState } from '../data/planStore'
 import { AI_NAME } from '../lib/brand'
 import { fmtCore, fmtLimit, tickerCore } from '../lib/format'
+import { applyLiveSuggestion } from '../data/liveApply'
 import './AthleteView.css'
 
 /** "2026-10-03" → "Oct 3". */
@@ -200,6 +201,9 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
             <span className="pill__label">{hu}</span>
           </span>
         ) : null}
+
+        {/* v1.7: the engine's suggested change for this athlete while live HR flags a crossing. */}
+        {live.suggestion && !overLineNow(live, limit) && <SuggestionBlock athleteId={a.id} sug={live.suggestion} />}
 
         {/* The real strap recording for this athlete id: calibration evidence (validation/results.json), not a replay of this plan. */}
         {rec && rec.athlete_ids.includes(a.id) && (
@@ -611,5 +615,35 @@ function AthletePlanCard({ athleteId, minute }: { athleteId: string; minute: num
         {p.draft?.transcript && p.source !== 'fixture' && <span className="dayplan__quote"> “{p.draft.transcript}”</span>}
       </div>
     </section>
+  )
+}
+
+/** v1.7: the live suggestion in the vitals card: the engine's changes, its result sentence, and Apply. */
+function SuggestionBlock({ athleteId, sug }: { athleteId: string; sug: NonNullable<ReturnType<typeof athleteOf>['suggestion']> }) {
+  const [state, setState] = useState<'idle' | 'busy' | 'error'>('idle')
+  const apply = async () => {
+    setState('busy')
+    try {
+      await applyLiveSuggestion(athleteId)
+    } catch {
+      setState('error')
+    }
+  }
+  return (
+    <div className="vitals__suggest" title={sug.labels.join(' · ')}>
+      <div className="eyebrow">Suggested change · rest of session</div>
+      <ul className="vitals__suggest-list">
+        {sug.changes.map((c) => (
+          <li key={`${c.kind}-${c.drill_id}`}>{c.detail.charAt(0).toUpperCase() + c.detail.slice(1)}</li>
+        ))}
+      </ul>
+      <p className="vitals__recnote faint">{sug.outcome}</p>
+      <div className="vitals__suggest-actions">
+        <button className="btn btn--ink pressable" onClick={apply} disabled={state === 'busy'}>
+          {state === 'busy' ? 'Applying…' : 'Apply'}
+        </button>
+        {state === 'error' && <span className="faint">Couldn’t apply — the engine didn’t answer.</span>}
+      </div>
+    </div>
   )
 }
