@@ -192,9 +192,12 @@ def field_active() -> bool:
     return age is not None and not _field["ended"] and age < consts.get("field_node.stale_after_s")
 
 
-def field_reading() -> Optional[dict[str, Any]]:
-    """The fresh field reading (raw fields + ``_field``), else None — what a live session's weather chain asks for."""
-    return _field["reading"] if field_active() else None
+def field_reading(include_rejected: bool = False) -> Optional[dict[str, Any]]:
+    """The fresh field reading (raw fields + ``_field``), else None — what a live session's weather chain asks for. A
+    reading further than constants.field_node.max_forecast_gap_c from the forecast is not used (mis-sited box) unless
+    ``include_rejected`` (the chain asks, to say why it isn't used)."""
+    r = _field["reading"] if field_active() else None
+    return r if r is not None and (include_rejected or r["_field"].get("gap_ok", True)) else None
 
 
 def source_info() -> dict[str, Any]:
@@ -211,6 +214,12 @@ def source_info() -> dict[str, Any]:
         return {**base, "id": "demo_scenario", "label": DEMO_LABEL, "sensor_fresh": True,
                 "reading_age_s": round(max(0.0, time.time() - _demo["received"]), 1)}
     fresh, age = field_active(), field_age_s()
+    if fresh and not _field["reading"]["_field"].get("gap_ok", True):
+        f = _field["reading"]["_field"]
+        ok = field_sensor.nws_status(SITE["lat"], SITE["lon"]) == "ok"
+        return {**base, "id": "nws" if ok else "snapshot", "sensor_fresh": True, "reading_age_s": age,
+                "label": (f"{field_sensor.LIVE_NWS_LABEL if ok else field_sensor.SNAPSHOT_LABEL} — field sensor "
+                          f"{f['gap_c']:+.1f} °C from the forecast, not used")}
     if fresh:
         src = _field["reading"]["_field"]["weather_from"]
         return {**base, "id": f"field_sensor_{src}", "label": field_sensor.label_for(src), "sensor_fresh": True,
@@ -333,14 +342,19 @@ def node_latest() -> dict[str, Any]:
 
 
 def _field_assimilated(last: dict[str, Any]) -> list[dict[str, Any]]:
-    """Field mode: the next 3 h of hourly weather with the Arduino air temperature held (what a live session would use)."""
+    """Field mode: the next 3 h of hourly weather with the Arduino's offset from the forecast applied to the forecast
+    trend (what a live session would use); none when the reading is too far from the forecast to use."""
     now = field_sensor.now()
     f = last["_field"]
     base = field_sensor.nws_hours(SITE["lat"], SITE["lon"]) if f["weather_from"] == "nws" else None
     src = "nws" if base else "snapshot"
-    hours = field_sensor.apply_air_temp(base or field_sensor.snapshot_hours(now), f["air_temp_c"], SITE["lat"], SITE["lon"],
-                                        now, now + timedelta(hours=3), src)
-    return [h for h in hours if h.get("field_mode")]
+    rows = base or field_sensor.snapshot_hours(now)
+    t_read = datetime.fromisoformat(last["ts"])
+    off = field_sensor.offset_at(rows, f["air_temp_c"], t_read)
+    if off is None or not field_sensor.gap_ok(off):
+        return []
+    hours = field_sensor.apply_offset(rows, off, t_read, SITE["lat"], SITE["lon"], src)
+    return [h for h in hours if h.get("field_mode") and datetime.fromisoformat(h["time"]) <= now + timedelta(hours=3)]
 
 
 def _node_latest() -> dict[str, Any]:

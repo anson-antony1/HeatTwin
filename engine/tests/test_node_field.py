@@ -18,6 +18,7 @@ c = TestClient(app)
 SITE = node_routes.SITE
 PORT_A, PORT_B = "/dev/cu.usbmodem1101", "/dev/cu.usbmodem2301"
 RH, WIND, CLOUD = 61.0, 2.2, 35.0           # the synthetic "NWS" values: constant, so interpolation is exact
+NWS_AIR = 30.0                               # within field_node.max_forecast_gap_c of the 33 °C test readings
 
 
 def now():
@@ -27,7 +28,7 @@ def now():
 def nws_rows(**over):
     """Synthetic hourly NWS rows around now (36 h), constant weather. Stands in for field_sensor._fetch."""
     t0 = now().replace(minute=0, second=0, microsecond=0) - timedelta(hours=6)
-    row = {"air_temp_c": 27.0, "rh_pct": RH, "wind_m_s": WIND, "cloud_cover_pct": CLOUD, "source": "nws_forecast", **over}
+    row = {"air_temp_c": NWS_AIR, "rh_pct": RH, "wind_m_s": WIND, "cloud_cover_pct": CLOUD, "source": "nws_forecast", **over}
     return [{**row, "time": (t0 + timedelta(hours=k)).isoformat()} for k in range(36)]
 
 
@@ -45,7 +46,7 @@ def _clean(monkeypatch, tmp_path):
     monkeypatch.setattr(demo_data, "DATA", tmp_path)
     yield
     node_autostart.stop(wait_s=3)
-    node_autostart._status.update(state="off", port=None, readings=0, detail=None)
+    node_autostart._status.update(enabled=False, state="off", port=None, readings=0, detail=None)
     node_routes.reset()
 
 
@@ -172,15 +173,18 @@ def test_field_reading_is_arduino_air_temperature_plus_nws_wbgt_from_wbgt_module
     r = post_field(33.4, t).json()
     f = r["field"]
     solar = wbgt.solar_from_cloud(SITE["lat"], SITE["lon"], t.replace(microsecond=0), CLOUD)
-    want = round(wbgt.wbgt_f(33.4, RH, WIND, solar, SITE["lat"], SITE["lon"], t.replace(microsecond=0)), 1)
+    rh = field_sensor.rh_at(RH, NWS_AIR, 33.4)                  # same dewpoint at the warmer sensor temperature
+    assert rh < RH
+    want = round(wbgt.wbgt_f(33.4, rh, WIND, solar, SITE["lat"], SITE["lon"], t.replace(microsecond=0)), 1)
     assert f["wbgt_f"] == want and f["fhsaa_zone"] == fhsaa.zone(want)
-    assert (f["air_temp_c"], f["rh_pct"], f["wind_m_s"], f["cloud_cover_pct"]) == (33.4, RH, WIND, CLOUD)
+    assert (f["air_temp_c"], f["rh_pct"], f["wind_m_s"], f["cloud_cover_pct"]) == (33.4, round(rh, 1), WIND, CLOUD)
+    assert f["gap_c"] == pytest.approx(3.4) and f["gap_ok"] is True
     assert f["solar_w_m2"] == pytest.approx(solar, abs=0.06)
     assert f["source"] == "field_node" and f["weather_from"] == "nws" and f["field_mode"] is True
     assert field_sensor.FIELD_NWS_LABEL == "Field sensor (Arduino) + NWS" and field_sensor.FIELD_NWS_LABEL in r["labels"]
     assert any("uncalibrated thermistor" in x for x in r["labels"]) and any("not a certified WBGT meter" in x for x in r["labels"])
     # the reference is the same model on NWS's own air temperature: a hotter Arduino reading → a higher WBGT
-    assert f["forecast_air_c"] == 27.0 and f["wbgt_f"] > f["forecast_wbgt_f"]
+    assert f["forecast_air_c"] == NWS_AIR and f["wbgt_f"] > f["forecast_wbgt_f"]
     assert post_field(20.0, t).json()["field"]["wbgt_f"] < post_field(30.0, t).json()["field"]["wbgt_f"]
 
 
@@ -193,7 +197,8 @@ def test_field_reading_uses_time_shifted_snapshot_when_nws_is_unreachable():
     # the pinned plan start lands on now: RH / wind / cloud are the fixture's at the pinned plan start
     pinned = fixtures.forecast()
     p0 = datetime.fromisoformat(fixtures.plan()["start"])
-    assert f["rh_pct"] == pytest.approx(weather._interp(pinned, "rh_pct", p0), abs=0.05)
+    rh0, air0 = weather._interp(pinned, "rh_pct", p0), weather._interp(pinned, "air_temp_c", p0)
+    assert f["rh_pct"] == pytest.approx(field_sensor.rh_at(rh0, air0, 31.0), abs=0.05)   # the snapshot's dewpoint
     assert f["wind_m_s"] == pytest.approx(weather._interp(pinned, "wind_m_s", p0), abs=0.005)
     assert f["cloud_cover_pct"] == pytest.approx(weather._interp(pinned, "cloud_cover_pct", p0), abs=0.05)
     solar = wbgt.solar_from_cloud(SITE["lat"], SITE["lon"], t, f["cloud_cover_pct"])
@@ -344,10 +349,12 @@ def test_live_session_uses_the_fresh_arduino_reading_with_nws_humidity_wind_sun(
     t0 = datetime.fromisoformat(r["start"])
     window = [h for h in s.weather if h.get("field_mode")]
     assert window and all(h["air_temp_c"] == 33.0 and h["source"] == "field_node" and h["weather_from"] == "nws" for h in window)
-    assert all(h["rh_pct"] == RH and h["wind_m_s"] == WIND and h["cloud_cover_pct"] == CLOUD for h in window)
+    rh = round(field_sensor.rh_at(RH, NWS_AIR, 33.0), 1)                 # the forecast's dewpoint, at the sensor offset
+    assert all(h["rh_pct"] == rh and h["wind_m_s"] == WIND and h["cloud_cover_pct"] == CLOUD for h in window)
+    assert any("applied to the forecast trend" in x for x in r["labels"])
     for h in window:                                                     # WBGT from engine/wbgt.py on each hour's own inputs
         t = datetime.fromisoformat(h["time"])
-        want = wbgt.wbgt_f(33.0, RH, WIND, h["solar_w_m2"], SITE["lat"], SITE["lon"], t)
+        want = wbgt.wbgt_f(33.0, h["rh_pct"], WIND, h["solar_w_m2"], SITE["lat"], SITE["lon"], t)
         assert h["wbgt_f"] == pytest.approx(want, abs=0.06) and h["fhsaa_zone"] == fhsaa.zone(h["wbgt_f"])
     assert min(datetime.fromisoformat(h["time"]) for h in window) <= t0 + timedelta(hours=1)
     assert any(h.get("field_mode") is None for h in s.weather)           # hours outside the plan window are NWS's own
@@ -360,7 +367,8 @@ def test_live_session_with_arduino_and_unreachable_nws_uses_the_labelled_snapsho
     assert field_sensor.FIELD_SNAPSHOT_LABEL in r["labels"] and api.SNAPSHOT_LABEL in r["labels"]
     assert "live NWS unreachable" in r["labels"] and field_sensor.FIELD_NWS_LABEL not in r["labels"]
     window = [h for h in api._LIVE["session"].weather if h.get("field_mode")]
-    assert window and all(h["air_temp_c"] == 33.0 and h["weather_from"] == "snapshot" and "time_shifted_min" in h for h in window)
+    assert window and all(h["weather_from"] == "snapshot" and "time_shifted_min" in h for h in window)
+    assert len({h["field_offset_c"] for h in window}) == 1               # one offset on the snapshot's own trend
 
 
 def test_live_session_without_a_fresh_reading_is_unchanged_nws_then_snapshot(nws_up, monkeypatch):
@@ -427,7 +435,7 @@ def test_demo_mode_plan_and_optimize_stay_pinned_while_the_sensor_is_fresh(nws_u
     monkeypatch.setattr(optimizer, "optimize", short)
     before = c.post("/simulate?demo=1", json={}).json()
     field_sensor.nws_hours(SITE["lat"], SITE["lon"], wait=True)
-    assert post_field(38.0).status_code == 200 and node_routes.field_active()
+    assert post_field(34.0).status_code == 200 and node_routes.field_active()
     start_live()                                                         # a live session on the sensor exists too
     assert any(h.get("field_mode") for h in api._LIVE["session"].weather)
     for url in ("/simulate?demo=1", "/simulate?demo=1&source=node"):
@@ -521,3 +529,36 @@ def test_nws_fetch_is_cached_retried_slowly_and_never_blocks_the_reader(monkeypa
     while len(calls) < 3 and time.monotonic() < end:
         time.sleep(0.01)
     assert len(calls) == 3
+
+
+# ── physio-reviewer, Oct 4: dewpoint held, gap gate, forecast trend kept, past never rewritten ─────────────────────
+
+def test_warmer_sensor_means_drier_air_not_more_moisture():
+    assert field_sensor.rh_at(61.0, 30.0, 33.0) < 61.0 < field_sensor.rh_at(61.0, 30.0, 27.0)
+    assert field_sensor.rh_at(95.0, 30.0, 20.0) == 100.0                # capped at saturation
+
+
+def test_a_mis_sited_reading_is_not_used_and_says_so(nws_up):
+    field_sensor.nws_hours(SITE["lat"], SITE["lon"], wait=True)
+    gap = consts.get("field_node.max_forecast_gap_c")
+    assert post_field(NWS_AIR - gap - 3).status_code == 200              # an indoor bench, far below the forecast
+    assert node_routes.field_reading() is None and latest()["assimilated"] == []
+    s = latest()["source"]
+    assert s["id"] == "nws" and "not used" in s["label"]
+    r = start_live()
+    assert any("not used" in x for x in r["labels"]) and not any(h.get("field_mode") for h in api._LIVE["session"].weather)
+
+
+def test_offset_keeps_the_forecast_trend_and_never_rewrites_the_past():
+    t0 = now().replace(minute=0, second=0, microsecond=0)
+    rows = [{"time": (t0 + timedelta(hours=k)).isoformat(), "air_temp_c": 25.0 + k, "rh_pct": RH, "wind_m_s": WIND,
+             "cloud_cover_pct": CLOUD, "source": "nws_forecast"} for k in range(-2, 5)]
+    t_read = t0 + timedelta(minutes=30)
+    off = field_sensor.offset_at(rows, 27.0, t_read)                     # forecast at t_read: 25.5 → +1.5
+    assert off == pytest.approx(1.5)
+    out = field_sensor.apply_offset(rows, off, t_read, SITE["lat"], SITE["lon"], "nws")
+    past = [h for h in out if datetime.fromisoformat(h["time"]) <= t_read]
+    assert all(not h.get("field_mode") for h in past)                     # elapsed minutes keep the forecast
+    assert [h["air_temp_c"] for h in past if h["time"] in {r["time"] for r in rows}] == [23.0, 24.0, 25.0]
+    after = [h for h in out if datetime.fromisoformat(h["time"]) > t_read]
+    assert [h["air_temp_c"] for h in after] == [27.5, 28.5, 29.5, 30.5]   # +1.5 on a warming trend, still warming

@@ -30,7 +30,8 @@ FIELD_NWS_LABEL = "Field sensor (Arduino) + NWS"
 FIELD_SNAPSHOT_LABEL = "Field sensor (Arduino) + forecast snapshot (time-shifted)"
 LIVE_NWS_LABEL = "live NWS forecast"
 SNAPSHOT_LABEL = "forecast snapshot (time-shifted)"
-THERMISTOR_LABEL = "air temperature from an uncalibrated thermistor (nominal Beta); in direct sun it reads above the air temperature"
+THERMISTOR_LABEL = ("air temperature from an uncalibrated thermistor (nominal Beta); in direct sun it reads above the air "
+                    "temperature, so WBGT errs high")
 
 _NWS, _SNAPSHOT = "nws", "snapshot"
 
@@ -153,6 +154,15 @@ def snapshot_hours(t0: datetime, pinned_start: Optional[str] = None) -> list[dic
 
 # ── fusion ───────────────────────────────────────────────────────────────────
 
+def rh_at(rh_pct: float, from_c: float, to_c: float) -> float:
+    """Relative humidity at ``to_c`` for the same water-vapour pressure as ``rh_pct`` at ``from_c`` (dewpoint held):
+    a warmer sensor reading means drier air at the same moisture, not more moisture (physio-reviewer, Oct 4)."""
+    return float(min(100.0, rh_pct * float(twonode.psat_mmhg(from_c)) / float(twonode.psat_mmhg(to_c))))
+
+
+def gap_ok(gap_c: float) -> bool:
+    return abs(gap_c) <= float(consts.get("field_node.max_forecast_gap_c"))
+
 def _context(hours: Sequence[dict[str, Any]], t: datetime) -> Optional[dict[str, float]]:
     """Hourly rows interpolated to ``t`` (air, RH, wind, cloud); None when ``t`` is outside their span."""
     out = {k: weather._interp(hours, k, t) for k in ("air_temp_c", "rh_pct", "wind_m_s", "cloud_cover_pct")}
@@ -179,33 +189,55 @@ def fuse(air_c: float, t: datetime, lat: float, lon: float, *, use_nws: bool = T
         ctx = _context(snapshot_hours(t), t)
     assert ctx is not None, "the time-shifted snapshot always covers its own shift target"
     solar = float(wbgt.solar_from_cloud(lat, lon, t, ctx["cloud_cover_pct"]))
-    w = round(float(wbgt.wbgt_f(air_c, ctx["rh_pct"], ctx["wind_m_s"], solar, lat, lon, t)), 1)
+    rh = rh_at(ctx["rh_pct"], ctx["air_temp_c"], air_c)          # dewpoint held, not RH
+    w = round(float(wbgt.wbgt_f(air_c, rh, ctx["wind_m_s"], solar, lat, lon, t)), 1)
     fc = round(float(wbgt.wbgt_f(ctx["air_temp_c"], ctx["rh_pct"], ctx["wind_m_s"], solar, lat, lon, t)), 1)
-    return {"time": t.isoformat(), "air_temp_c": round(float(air_c), 2), "rh_pct": round(ctx["rh_pct"], 1),
+    gap = float(air_c) - ctx["air_temp_c"]
+    return {"time": t.isoformat(), "air_temp_c": round(float(air_c), 2), "rh_pct": round(rh, 1),
+            "forecast_rh_pct": round(ctx["rh_pct"], 1), "gap_c": round(gap, 2), "gap_ok": gap_ok(gap),
             "wind_m_s": round(ctx["wind_m_s"], 2), "cloud_cover_pct": round(ctx["cloud_cover_pct"], 1),
             "solar_w_m2": round(solar, 1), "wbgt_f": w, "fhsaa_zone": fhsaa_adapter.zone(w), "source": "field_node",
             "field_mode": True, "weather_from": src, "forecast_air_c": round(ctx["air_temp_c"], 2),
             "forecast_wbgt_f": fc}
 
 
-def apply_air_temp(hours: Sequence[dict[str, Any]], air_c: float, lat: float, lon: float, t0: datetime, t1: datetime,
-                   weather_from: str) -> list[dict[str, Any]]:
-    """Hourly rows with the Arduino air temperature held across the plan window [t0, t1] (the rows the simulation
-    reads), WBGT and zone recomputed from each row's own RH / wind / sunlight. Rows outside the window are unchanged.
-    The changed rows are source "field_node", ``field_mode`` true, ``weather_from`` "nws" or "snapshot"."""
+def offset_at(hours: Sequence[dict[str, Any]], air_c: float, t_read: datetime) -> Optional[float]:
+    """Sensor minus the base forecast's air temperature at the reading time (°C); None outside the rows' span."""
+    base = weather._interp(hours, "air_temp_c", t_read)
+    return None if base is None else float(air_c) - float(base)
+
+
+def offset_label(offset_c: float, t_read: datetime) -> str:
+    return (f"field sensor {offset_c:+.1f} °C vs the forecast at {t_read.strftime('%H:%M')}, applied to the forecast "
+            "trend from then on (humidity at the same dewpoint)")
+
+
+def apply_offset(hours: Sequence[dict[str, Any]], offset_c: float, t_read: datetime, lat: float, lon: float,
+                 weather_from: str) -> list[dict[str, Any]]:
+    """Hourly rows with the field sensor's offset from the forecast added to the forecast's air temperature from the
+    reading time on — the forecast trend is kept (a warming morning stays warming), elapsed minutes are never rewritten
+    (rows before ``t_read`` unchanged, plus a row at ``t_read`` with the forecast's own values), humidity re-derived at
+    the same dewpoint, WBGT and zone recomputed. Changed rows are source "field_node", ``field_mode`` true."""
     from engine import fhsaa_adapter, wbgt
 
-    out = []
-    for h in hours:
-        t = twonode.parse_time(h["time"])
-        if t0 - timedelta(hours=1) < t <= t1 + timedelta(hours=1):
-            solar = h.get("solar_w_m2")
-            if solar is None:
-                solar = wbgt.solar_from_cloud(lat, lon, t, h["cloud_cover_pct"])
-            w = round(float(wbgt.wbgt_f(air_c, h["rh_pct"], h["wind_m_s"], solar, lat, lon, t)), 1)
-            out.append({**h, "air_temp_c": round(float(air_c), 2), "solar_w_m2": round(float(solar), 1), "wbgt_f": w,
-                        "fhsaa_zone": fhsaa_adapter.zone(w), "source": "field_node", "field_mode": True,
-                        "weather_from": weather_from})
-        else:
-            out.append(dict(h))
+    def row(h: dict[str, Any], t: datetime, off: float, field: bool = True) -> dict[str, Any]:
+        solar = h.get("solar_w_m2")
+        if solar is None:
+            solar = wbgt.solar_from_cloud(lat, lon, t, h["cloud_cover_pct"])
+        air = float(h["air_temp_c"]) + off
+        rh = rh_at(float(h["rh_pct"]), float(h["air_temp_c"]), air)
+        w = round(float(wbgt.wbgt_f(air, rh, h["wind_m_s"], solar, lat, lon, t)), 1)
+        out = {**h, "time": t.isoformat(), "air_temp_c": round(air, 2), "rh_pct": round(rh, 1),
+               "solar_w_m2": round(float(solar), 1), "wbgt_f": w, "fhsaa_zone": fhsaa_adapter.zone(w)}
+        if field:
+            out.update(source="field_node", field_mode=True, weather_from=weather_from,
+                       field_offset_c=round(off, 2))
+        return out
+
+    rows = sorted(hours, key=lambda h: twonode.parse_time(h["time"]))
+    out = [dict(h) for h in rows if twonode.parse_time(h["time"]) <= t_read]
+    ctx = _context(rows, t_read)
+    if ctx is not None and not any(twonode.parse_time(h["time"]) == t_read for h in rows):
+        out.append(row({**rows[0], **ctx, "solar_w_m2": None}, t_read, 0.0, field=False))   # the forecast at the reading
+    out += [row(dict(h), twonode.parse_time(h["time"]), offset_c) for h in rows if twonode.parse_time(h["time"]) > t_read]
     return out

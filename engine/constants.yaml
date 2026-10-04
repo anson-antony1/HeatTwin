@@ -852,6 +852,10 @@ field_node:
   air_c_min: -20.0            # a thermistor reading outside [air_c_min, air_c_max] is a wiring fault (loose lead, floating pin),
   air_c_max: 60.0             # not weather: wider than any air temperature a US high-school field plans for, narrower than what a
                               # shorted or floating divider reads through the Beta equation. Such a reading is dropped.
+  max_forecast_gap_c: 5.0     # a field reading this far from the forecast air temperature for that moment is not used (NWS
+                              # instead, and the source label says why): hourly forecast air-temperature errors are typically
+                              # ~1–2 °C, so a 5 °C gap means a mis-sited box (indoors, in a car, in direct sun) rather than
+                              # weather. Guards both directions; a cool indoor bench would otherwise lower every estimate.
   reforecast_min_change_c: 0.5   # re-run a live session's weather chain when the field air temperature moved this much (about 5 ADC
                                  # counts: 0.09 °C per count at 25 °C for a 10 kΩ Beta-3950 NTC on a 10-bit divider), so sensor
                                  # noise does not trigger a re-forecast every second

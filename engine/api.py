@@ -217,12 +217,13 @@ def _covers(hours: list[dict], t0, t1) -> bool:
     return bool(ts) and min(ts) <= t0 and max(ts) + timedelta(hours=1) >= t1
 
 
-def _live_nws_hours(plan: dict) -> Optional[list[dict]]:
+def _live_nws_hours(plan: dict, wait: bool = True) -> Optional[list[dict]]:
     """Live NWS gridpoint hours with engine WBGT, or None when unreachable. Cached in memory for
-    constants.field_node.nws_cache_ttl_s (engine/field_sensor.py); not written to the weather cache."""
+    constants.field_node.nws_cache_ttl_s (engine/field_sensor.py); not written to the weather cache. ``wait=False`` (the
+    serial thread's re-run) never blocks: cached rows, or None while a background fetch runs."""
     from engine import weather as ws1
     lat, lon = plan["site"]["lat"], plan["site"]["lon"]
-    hours = field_sensor.nws_hours(lat, lon, wait=True)
+    hours = field_sensor.nws_hours(lat, lon, wait=wait)
     if hours is None:
         return None
     try:
@@ -231,14 +232,15 @@ def _live_nws_hours(plan: dict) -> Optional[list[dict]]:
         return None
 
 
-def _live_session_weather(plan: dict, pinned_start: str, labels: list[str]) -> list[dict]:
+def _live_session_weather(plan: dict, pinned_start: str, labels: list[str], wait: bool = True) -> list[dict]:
     """Weather for a live session at the current time, in order: the indoor node demo's scenario when it runs; else the
     base hours — live NWS when reachable, else the pinned demo forecast shifted so the pinned plan start lands on the
     session start (labelled "forecast snapshot (time-shifted)"; the sun angle is still computed for the real clock) —
-    with a fresh Arduino field reading (node_routes.field_reading, v1.7) holding the field air temperature across the
-    plan window, WBGT recomputed per hour from that hour's NWS / snapshot humidity, wind and sunlight (labelled "Field
-    sensor (Arduino) + NWS" or "… + forecast snapshot (time-shifted)", in front of the base labels). ?demo=1 is never
-    affected."""
+    with a fresh Arduino field reading (node_routes.field_reading, v1.7): its offset from the base forecast at the
+    reading time is added to the forecast's air temperature from then on (trend kept, elapsed minutes untouched),
+    humidity re-derived at the same dewpoint, WBGT recomputed per hour (labelled "Field sensor (Arduino) + NWS" or
+    "… + forecast snapshot (time-shifted)" and the offset, in front of the base labels). A reading more than
+    field_node.max_forecast_gap_c from the forecast is not used and the label says so. ?demo=1 is never affected."""
     t0 = twonode.parse_time(plan["start"])
     t1 = t0 + timedelta(minutes=sum(float(d["duration_min"]) for d in plan["drills"])
                         + consts.get("optimizer.max_added_minutes"))
@@ -246,7 +248,7 @@ def _live_session_weather(plan: dict, pinned_start: str, labels: list[str]) -> l
     if scenario:
         labels.append(node_routes.DEMO_LABEL)
         return scenario
-    hours = _live_nws_hours(plan)
+    hours = _live_nws_hours(plan) if wait else _live_nws_hours(plan, wait=False)
     if hours and _covers(hours, t0, t1):
         base, notes, src = hours, [LIVE_NWS_LABEL], "nws"
     else:
@@ -255,11 +257,17 @@ def _live_session_weather(plan: dict, pinned_start: str, labels: list[str]) -> l
                  SNAPSHOT_LABEL]
         if not _covers(base, t0, t1):
             notes.append("fixture forecast does not cover the plan window; nearest hours used")
-    fr = node_routes.field_reading()
+    fr = node_routes.field_reading(include_rejected=True)
     if fr is not None:
-        site = plan["site"]
-        base = field_sensor.apply_air_temp(base, float(fr["air_temp_c"]), site["lat"], site["lon"], t0, t1, src)
-        notes = [field_sensor.label_for(src), field_sensor.THERMISTOR_LABEL, *notes]
+        site, t_read = plan["site"], twonode.parse_time(fr["ts"])
+        off = field_sensor.offset_at(base, float(fr["air_temp_c"]), t_read)
+        if off is not None and field_sensor.gap_ok(off):
+            base = field_sensor.apply_offset(base, off, t_read, site["lat"], site["lon"], src)
+            notes = [field_sensor.label_for(src), field_sensor.offset_label(off, t_read), field_sensor.THERMISTOR_LABEL,
+                     *notes]
+        elif off is not None:
+            notes = [f"field sensor {off:+.1f} °C from the forecast air temperature — not used (more than "
+                     f"±{consts.get('field_node.max_forecast_gap_c'):g} °C: mis-sited?)", *notes]
     labels.extend(notes)
     return base
 
@@ -885,7 +893,7 @@ def _on_node_field_update() -> dict | None:
     if s is None or chain is None:
         return None
     notes: list[str] = []
-    s.weather = _live_session_weather(s.plan, chain["pinned_start"], notes)
+    s.weather = _live_session_weather(s.plan, chain["pinned_start"], notes, wait=False)   # serial thread: never block
     s.extra_labels = [*(x for x in s.extra_labels if x not in chain["labels"]), *notes]
     chain["labels"] = notes
     res = _guard(s.reforecast())
