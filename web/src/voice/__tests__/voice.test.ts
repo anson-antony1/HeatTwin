@@ -309,8 +309,8 @@ describe('engine client', () => {
     await expect(g.answer({ intent: 'unknown', slots: {} })).rejects.toMatchObject({ status: 0 })
   })
 
-  it('gives up after 20 s on /voice/intent and /voice/answer, 10 s on /voice/tts (S5), as a timed-out status 0', async () => {
-    expect(TIMEOUT_MS).toEqual({ intent: 20_000, answer: 20_000, guard: 20_000, tts: 10_000 })
+  it('gives up after 20 s on /voice/intent, 120 s on /voice/answer (optimizer searches), 10 s on /voice/tts (S5), as a timed-out status 0', async () => {
+    expect(TIMEOUT_MS).toEqual({ intent: 20_000, answer: 120_000, guard: 20_000, tts: 10_000 })
     vi.useFakeTimers()
     try {
       // A fetch that never answers until its signal aborts.
@@ -362,7 +362,7 @@ describe('engine client', () => {
     const ctx = { plan: FIXTURE_PLAN, roster: FIXTURE_ROSTER }
     const slow = fakeApi({ intent: vi.fn(async () => vi_), answer: vi.fn(async () => Promise.reject(new VoiceApiError(0, '/voice/answer took longer than 20 s', true))) })
     expect((await runTurn({ kind: 'text', text: 'Fix the plan.' }, ctx, { api: slow, speech: null })).note).toBe(
-      "The engine didn't answer within 20 s — no answer. Try again.",
+      `The engine didn't answer within ${TIMEOUT_MS.answer / 1000} s — no answer. Try again.`,
     )
     const proxy = fakeApi({
       intent: vi.fn(async () => vi_),

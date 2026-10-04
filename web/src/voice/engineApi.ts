@@ -103,7 +103,9 @@ export const timedOut = (e: unknown): boolean => e instanceof VoiceApiError && e
  * engine is unreachable: typed questions go to the local router, speech to speechSynthesis, a guard that doesn't answer
  * holds the reply. Never the old 60 s hang on stage.
  */
-export const TIMEOUT_MS = { intent: 20_000, answer: 20_000, guard: 20_000, tts: 10_000 } as const
+// answer: the engine may run an optimizer search (the fewest-changes search steps its cap; ~90 s cold, instant once
+// warmed with `make warm`), so it gets longer than the network-bound calls.
+export const TIMEOUT_MS = { intent: 20_000, answer: 120_000, guard: 20_000, tts: 10_000 } as const
 
 /** POST `body` and read the response with `read`, all within `timeoutMs`. */
 async function call<T>(
