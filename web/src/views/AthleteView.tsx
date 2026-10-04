@@ -157,6 +157,7 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
           </div>
           <div className="faint" style={{ fontSize: 12.5 }}>
             {s.source === 'offline' ? 'offline fallback — no estimate' : ESTIMATE_LABEL}
+            {roster.synthetic && ` · ${SYNTHETIC_ROSTER_LABEL}`}
           </div>
         </div>
 
@@ -323,10 +324,7 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
 
       <AthletePlanCard athleteId={a.id} minute={s.minute} />
 
-      <p className="twin__safety faint">
-        {SAFETY_LINE}
-        {roster.synthetic && ` ${SYNTHETIC_ROSTER_LABEL[0].toUpperCase()}${SYNTHETIC_ROSTER_LABEL.slice(1)}.`}
-      </p>
+      <p className="twin__safety faint">{SAFETY_LINE}</p>
     </div>
   )
 }
