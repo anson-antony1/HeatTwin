@@ -16,8 +16,13 @@ export function DemoBar() {
   const progress = s.totalMinutes > 0 ? s.minute / s.totalMinutes : 0
   // "Skip to heat": the earliest minute the engine forecasts anyone over the line (else its first gates flag).
   const skipTo = s.skipTo
-  const tag = s.source === 'offline' ? 'Offline' : 'Replay'
-  const tagTitle = s.source === 'offline' ? 'HeatTwin engine unreachable — offline fallback, no estimates' : (s.replay.label ?? 'Demo playback of the plan forecast')
+  const tag = s.source === 'offline' ? 'Offline' : s.clock === 'live' ? 'Live' : 'Replay'
+  const tagTitle =
+    s.source === 'offline'
+      ? 'HeatTwin engine unreachable — offline fallback, no estimates'
+      : s.clock === 'live'
+        ? `${s.live.label ?? 'live HR'} — following the wall clock`
+        : (s.replay.label ?? 'Demo playback of the plan forecast')
   const scrub = useReplayScrub(s.totalMinutes, s.minute)
   return (
     <div className="demobar glass glass--strong" role="toolbar" aria-label="Demo playback">

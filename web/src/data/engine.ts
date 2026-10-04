@@ -2,8 +2,10 @@ import { useSyncExternalStore } from 'react'
 import type { PracticePlan } from './llmPlan'
 import { liveReplay, type LiveReplay, type SimulationResult, type WeatherHour } from './engineApi'
 import { DEFAULT_CONTRACT_PLAN } from './fixtures'
+import { liveApplies, liveLabel, liveStore } from './liveStore'
 import {
   athleteAtMinute,
+  athleteFromLive,
   chartDrills,
   drillAtMinute,
   firstCrossing,
@@ -32,6 +34,11 @@ import {
 //   - The HR file was recorded on the engine's demo plan (GET /demo/inputs). It
 //     is replayed only while that plan is on screen; on any other plan everyone
 //     reads the plan forecast and the screens say why.
+// Live HR (GET /live/state, polled by liveStore): while a strap is being
+// received on the plan on screen, the views follow the wall clock (`minute`
+// from the engine), mapped athletes show their strap HR and the engine's
+// re-forecast, everyone else the session's `reforecast`; labelled
+// "live · <device>". Otherwise the demo playback above.
 // When the engine is unreachable there are no numbers at all: the screens keep
 // the plan structure, show "—" and the "offline fallback" badge.
 
@@ -61,6 +68,13 @@ export function replayHeldNote(r: ReplayInfo, planSource?: string): string | nul
     : 'HR replay was recorded on the default plan — plan forecast shown'
 }
 
+export interface LiveInfo {
+  /** `on`: the views follow the live session; `other_plan`: live HR is running on another plan (not shown). */
+  status: 'on' | 'other_plan' | 'off'
+  /** "live · Amazfit Helio Strap" (or "replay (hr_bridge) · …" when hr_bridge replays a file). */
+  label: string | null
+}
+
 export interface SessionState {
   /** Increments on every reset / plan change, so UI state can key off a run. */
   session: number
@@ -86,6 +100,9 @@ export interface SessionState {
   /** Provenance labels of the result the numbers come from (replay + plan forecast). */
   labels: string[]
   replay: ReplayInfo
+  live: LiveInfo
+  /** What drives the minute: the demo playback clock, or the wall clock of a live HR session. */
+  clock: 'replay' | 'live'
   /** "Skip to heat": the earliest minute the engine forecasts anyone crossing the line (else the first gates flag). */
   skipTo: number | null
 }
@@ -116,9 +133,28 @@ class Session {
   private listeners = new Set<() => void>()
   private snapshot!: SessionState
   private session = 0
+  /** When /live/state last answered (its `minute` is advanced by wall time between polls). */
+  private livePolledAt = 0
+  private liveCurves: { key: object | null; total: number; cache: CurveCache | null } = { key: null, total: 0, cache: null }
+  private liveTick: ReturnType<typeof setInterval> | null = null
 
   constructor() {
+    liveStore.subscribe(() => {
+      this.livePolledAt = Date.now()
+      this.syncLiveTick()
+      this.publish()
+    })
     this.publish()
+  }
+
+  /** While a live session is on screen, re-publish every second so the wall clock moves between polls. */
+  private syncLiveTick() {
+    const on = liveApplies(liveStore.get(), this.plan) === 'on'
+    if (on && !this.liveTick) this.liveTick = setInterval(() => this.publish(), 1000)
+    if (!on && this.liveTick) {
+      clearInterval(this.liveTick)
+      this.liveTick = null
+    }
   }
 
   subscribe = (fn: () => void) => {
@@ -153,6 +189,7 @@ class Session {
       this.replayInfo = { ...NO_REPLAY, status: 'error', error: "the engine's demo plan is unknown (GET /demo/inputs failed)" }
     this.reset()
     this.resume()
+    this.syncLiveTick()
     if (sim && replayFor === 'this_plan') void this.loadReplay(plan)
   }
 
@@ -236,6 +273,7 @@ class Session {
 
   /** Jump the playback clock (demo control). Every number is re-read from the engine result at that minute. */
   seek(toMinute: number) {
+    if (this.snapshot?.clock === 'live') return // a live session follows the wall clock
     this.minute = Math.max(0, Math.min(toMinute, this.total))
     this.last = performance.now()
     this.publish()
@@ -267,15 +305,37 @@ class Session {
   private publish() {
     const plan = this.plan
     const total = this.total
-    const minute = this.minute
+    const live = liveStore.get()
+    const liveStatus = this.sim ? liveApplies(live, plan) : 'off'
+    const onLive = liveStatus === 'on' && !!live?.reforecast && live.minute != null
+    // Live: the engine's wall-clock minute, advanced by wall time since the poll. Demo: the playback clock.
+    const minute = onLive
+      ? Math.max(0, Math.min(total, live!.minute! + (Date.now() - this.livePolledAt) / 60_000))
+      : this.minute
     const at = plan ? drillAtMinute(plan.drills, minute) : null
     const athletes: Record<string, AthleteLive> = {}
     let weather: WeatherHour | null = null
     let limitC: number | null = null
     let labels: string[] = []
     let source: SessionSource = 'loading'
+    let startIso = plan?.start ?? null
 
-    if (plan && this.sim) {
+    if (plan && onLive) {
+      source = 'engine'
+      const rf = live!.reforecast!
+      if (this.liveCurves.key !== rf || this.liveCurves.total !== total)
+        this.liveCurves = { key: rf, total, cache: makeCurveCache(rf.step_min, total) }
+      for (const a of rf.athletes) {
+        const row = athleteFromLive({ id: a.id, minute, totalMin: total, reforecast: rf, entry: live!.athletes[a.id], curves: this.liveCurves.cache ?? undefined })
+        if (row) athletes[a.id] = row
+      }
+      startIso = live!.plan_start ?? plan.start
+      // A live session runs on today's clock; when the saved forecast doesn't cover it the engine uses its nearest
+      // hours (and says so in `labels`) — the card shows that same hour.
+      weather = weatherHourAt(rf.weather, startIso, minute, true)
+      limitC = rf.limit_core_c
+      labels = [...new Set([...live!.labels, ...rf.labels])]
+    } else if (plan && this.sim) {
       source = 'engine'
       // The replay's plan_forecast is the prior it calibrates from; /simulate until it arrives.
       const forecast = this.replay?.plan_forecast ?? this.sim
@@ -296,7 +356,7 @@ class Session {
       session: this.session,
       minute,
       totalMinutes: total,
-      startHour: plan ? (hourOf(plan.start) ?? 0) : 0,
+      startHour: startIso ? (hourOf(startIso) ?? 0) : 0,
       plan,
       drills: this.drillsOf(plan),
       drillIndex: at?.index ?? 0,
@@ -310,7 +370,10 @@ class Session {
       limitC,
       labels,
       replay: this.replayInfo,
-      skipTo: firstCrossing(athletes) ?? firstFlagMinute(this.replay),
+      live: { status: liveStatus, label: liveLabel(live) },
+      clock: onLive ? 'live' : 'replay',
+      // The wall clock can't be skipped.
+      skipTo: onLive ? null : (firstCrossing(athletes) ?? firstFlagMinute(this.replay)),
     }
     this.listeners.forEach((fn) => fn())
   }

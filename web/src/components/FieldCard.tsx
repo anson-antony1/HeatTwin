@@ -22,8 +22,9 @@ export function FieldCard() {
   const rule = zoneRule(rules, hour?.fhsaa_zone)
   const offline = s.source === 'offline' || meta.link === 'offline'
   const where = weather.location ? `${weather.location.name} · ` : ''
+  const coverNote = weather.location ? undefined : s.labels.find((l) => /nearest hours/i.test(l))
   const sourceTitle = hour
-    ? `${where}${hour.source === 'fixture' ? 'cached NWS forecast (fixture)' : weatherSourceLabel(hour.source)} · WBGT and FHSAA zone from the HeatTwin engine`
+    ? `${where}${hour.source === 'fixture' ? 'cached NWS forecast (fixture)' : weatherSourceLabel(hour.source)} · WBGT and FHSAA zone from the HeatTwin engine${coverNote ? ` · ${coverNote}` : ''}`
     : undefined
   return (
     <section className="field glass" aria-label="Field conditions">

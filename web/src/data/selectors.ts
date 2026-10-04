@@ -168,7 +168,13 @@ const MS_PER_HOUR = 60 * MS_PER_MIN
  * The engine's weather hour that contains practice minute `m` (WeatherHour is hourly: it covers [time, time + 1 h)).
  * No interpolation. Null when the engine sent no hour for that time.
  */
-export function weatherHourAt(weather: WeatherHour[] | null | undefined, startIso: string, m: number): WeatherHour | null {
+export function weatherHourAt(
+  weather: WeatherHour[] | null | undefined,
+  startIso: string,
+  m: number,
+  /** Outside the forecast, use its first / last hour — as the engine does ("nearest hours used", np.interp clamps). */
+  clamp = false,
+): WeatherHour | null {
   if (!weather?.length) return null
   const t0 = Date.parse(startIso)
   if (Number.isNaN(t0)) return null
@@ -177,7 +183,9 @@ export function weatherHourAt(weather: WeatherHour[] | null | undefined, startIs
     const h0 = Date.parse(h.time)
     if (h0 <= t && t < h0 + MS_PER_HOUR) return h
   }
-  return null
+  if (!clamp) return null
+  const sorted = [...weather].sort((a, b) => Date.parse(a.time) - Date.parse(b.time))
+  return t < Date.parse(sorted[0].time) ? sorted[0] : sorted[sorted.length - 1]
 }
 
 /** Highest engine FHSAA zone over the practice window [0, totalMin]. */
@@ -383,8 +391,10 @@ export interface AthleteLive {
   /** Engine gates raised a flag (`gates.flag`). */
   flag: boolean
   gates: Gates | null
-  /** Strap display name when live. */
+  /** Strap display name when live ("Amazfit Helio Strap"). */
   device: string | null
+  /** Live provenance for this athlete: "live · Amazfit Helio Strap", or "replay · <device>" when hr_bridge replays a file. */
+  liveSource: string | null
   /** Estimate at each past minute 0…m. */
   history: number[]
   /** Current forecast (p50), one value per minute 0…total. */
@@ -432,6 +442,7 @@ export function offlineAthlete(id: string): AthleteLive {
     flag: false,
     gates: null,
     device: null,
+    liveSource: null,
     history: [],
     forecast: [],
     band: [],
@@ -486,6 +497,7 @@ export function athleteAtMinute(args: {
     flag: !!frame?.gates.flag,
     gates: frame?.gates ?? null,
     device: null,
+    liveSource: null,
     history,
     forecast: cur.p50,
     band: cur.band,
@@ -535,6 +547,7 @@ export function athleteFromLive(args: {
     flag: !!(live && entry?.gates?.flag),
     gates: live ? (entry?.gates ?? null) : null,
     device: receiving ? entry!.device : null,
+    liveSource: receiving ? `${entry!.replay ? 'replay' : 'live'} · ${entry!.device}` : null,
     history: c.p50.slice(0, k + 1),
     forecast: c.p50,
     band: c.band,
@@ -542,9 +555,9 @@ export function athleteFromLive(args: {
 }
 
 /** Plain-words model line for an athlete (Athlete view "Model"). */
-export function modelLabel(a: Pick<AthleteLive, 'basis' | 'hasHr' | 'calibrated' | 'device'>): string {
+export function modelLabel(a: Pick<AthleteLive, 'basis' | 'hasHr' | 'calibrated' | 'liveSource'>): string {
   if (a.basis === 'offline') return 'offline fallback — no estimate'
-  if (a.basis === 'live') return a.calibrated ? `live · ${a.device} · calibrated from HR` : `live · ${a.device} · calibrating…`
+  if (a.basis === 'live') return `${a.liveSource ?? 'live'} · ${a.calibrated ? 'calibrated from HR' : 'calibrating…'}`
   if (a.basis === 'hr_replay') return a.calibrated ? 'HR replay · calibrated from HR' : 'HR replay · calibrating…'
   return a.hasHr ? 'HR replay · calibrating…' : 'plan forecast only'
 }

@@ -64,10 +64,12 @@ export function CoachDashboard({ acked, onAck, onOpenAthlete, onCollapse }: Prop
   )
   const hasCounts = s.source === 'engine'
 
-  const held = replayHeldNote(s.replay, planState.source)
+  const onLive = s.clock === 'live'
+  const held = onLive ? null : replayHeldNote(s.replay, planState.source)
   const provenance = [
     roster.synthetic ? SYNTHETIC_ROSTER_LABEL : null,
-    s.source === 'engine' && s.replay.status === 'ready' ? s.replay.label : null,
+    onLive ? s.live.label : s.source === 'engine' && s.replay.status === 'ready' ? s.replay.label : null,
+    s.live.status === 'other_plan' ? `${s.live.label ?? 'live HR'} is running on another plan — not shown` : null,
     held,
     s.source === 'offline' ? 'offline fallback — engine unreachable, no estimates' : ESTIMATE_LABEL,
   ].filter(Boolean)

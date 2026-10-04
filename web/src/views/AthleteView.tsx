@@ -111,7 +111,7 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
   const held = replayHeldNote(s.replay, planState.source)
   const model =
     s.source === 'engine' ? `Engine · ${modelLabel(live)}` : s.source === 'offline' ? 'offline fallback — no estimate' : '—'
-  const heartLabel = live.basis === 'live' ? `Heart · ${live.device ?? 'strap'}` : 'Heart · HR replay'
+  const heartLabel = live.basis === 'live' && !live.liveSource?.startsWith('replay') ? `Heart · ${live.device ?? 'strap'}` : 'Heart · HR replay'
 
   return (
     <div className="twin__grid">
@@ -184,7 +184,7 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
           </div>
           <div>
             <dt>Model</dt>
-            <dd title={[s.replay.label, held].filter(Boolean).join(' · ') || undefined}>{model}</dd>
+            <dd title={(s.clock === 'live' ? [s.live.label] : [s.replay.label, held]).filter(Boolean).join(' · ') || undefined}>{model}</dd>
           </div>
         </dl>
 

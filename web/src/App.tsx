@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { engine, useSession } from './data/engine'
 import { useRoster } from './data/roster'
+import { liveStore } from './data/liveStore'
 import { Background, type Tone } from './components/Background'
 import { Sidebar, type View } from './components/Sidebar'
 import { DemoBar } from './components/DemoBar'
@@ -31,8 +32,12 @@ export default function App() {
   useEffect(() => {
     void planStore.boot()
     weatherStore.restore()
+    const stopLive = liveStore.start()
     engine.play()
-    return () => engine.pause()
+    return () => {
+      stopLive()
+      engine.pause()
+    }
   }, [])
 
   const acked = ackState.session === s.session ? ackState.ids : new Set<string>()
