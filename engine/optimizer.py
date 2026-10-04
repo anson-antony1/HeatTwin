@@ -20,6 +20,8 @@ Every output is an estimate for planning only.
 """
 from __future__ import annotations
 
+import json
+
 import math
 import random
 import time
@@ -833,7 +835,8 @@ def simplify(P: Problem, best: Eval, deadline: float) -> Eval:
 def optimize(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weather: Sequence[Mapping[str, Any]],
              budget_s: float | None = None, seed: int = 0, n_ensemble: int = 30, step_min: float = 1.0,
              max_iterations: int | None = None, extra_labels: Sequence[str] = (), settings=None,
-             demo: bool = False, preset: str = "max_load", _cap: int | None = None) -> dict[str, Any]:
+             demo: bool = False, preset: str = "max_load", _cap: int | None = None, _seed: bool = True
+             ) -> dict[str, Any]:
     """CONTRACTS.md ``OptimizeResult`` (dict), plus additive fields ``infeasible_reasons``, ``labels``, ``settings``.
 
     ``demo=True``: fixed seed, ensemble size and SA iteration cap from constants.demo_mode; the time budget becomes a
@@ -843,6 +846,11 @@ def optimize(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weath
     plan within it meets every rule with everyone under the line, raise the cap one step at a time (up to the max_load
     plan's change count) and return the first plan that does, with ``fewest_changes.min_compliant_changes`` = that cap.
     Only if none qualifies is the max_load plan returned (``fell_back``). ``_cap`` = one capped search, no stepping.
+
+    ``preset="max_load"`` in demo mode also seeds from the minimum compliant edit (optimizer.seed_max_load_from_min_edit):
+    it anneals once more starting from that plan, then returns the best compliant plan by training load kept, tie-break
+    fewer changes, among the max-load search, the minimum-edit plan and the seeded search. ``_seed=False`` = the plain
+    max-load search (used as the upper bound of the cap stepping).
     """
     beam_cfg: dict[str, Any] = {}
     demo_cfg: dict[str, Any] = {}
@@ -889,24 +897,44 @@ def optimize(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weath
         stopped = "time_budget"
 
     fallback_note = None
+    kw = dict(budget_s=budget_s, seed=seed, n_ensemble=n_ensemble, step_min=step_min, max_iterations=max_iterations,
+              extra_labels=extra_labels, settings=settings, demo=demo)
+    seed_note = None
+    # demo mode only: the cap stepping takes far longer than a time-budgeted call's budget (default_budget_s)
+    if preset == "max_load" and _cap is None and _seed and demo and bool(_opt("seed_max_load_from_min_edit")):
+        cap0 = consts.get("optimizer_presets.fewest_changes.max_changes")
+        upper = max(len(diff(P, best.state)), cap0) if best.feasible else None
+        me, _ = _min_edit(plan, roster, weather, kw, cap0, upper)
+        if me is not None:
+            ev_me = P.evaluate(me.state)
+            rng_s = random.Random(seed * 1000 + restarts)
+            t_s = time.perf_counter() + budget / max(restarts, 1)
+            seeded, it_s, _bit, _st = anneal(P, ev_me, t_s, rng_s, n_max)
+            sa_iters += it_s
+            seeded = simplify(P, recover(P, seeded, t_s), t_s + min(1.0, 0.1 * budget))
+            cands = [("max-load search", best), ("minimum-edit plan", ev_me), ("search seeded from the minimum edit", seeded)]
+            scored = [(name, ev, _load_kept(P, ev, roster, weather, step_min, settings)) for name, ev in cands if ev.feasible]
+            if scored:   # best compliant plan by training load kept, tie-break fewer changes
+                name, best, kept = max(scored, key=lambda x: (x[2], -x[1].n_changes))
+                seed_note = ("max_load: best compliant plan by training load kept (tie-break fewer changes) among "
+                             + "; ".join(f"{n} {k:.1f}% / {e.n_changes} changes" for n, e, k in scored)
+                             + f" — chosen: {name}")
     if max_changes is not None and _cap is None and not best.feasible:
-        kw = dict(budget_s=budget_s, seed=seed, n_ensemble=n_ensemble, step_min=step_min, max_iterations=max_iterations,
-                  extra_labels=extra_labels, settings=settings, demo=demo)
-        alt = optimize(plan, roster, weather, preset="max_load", **kw)
+        alt = optimize(plan, roster, weather, preset="max_load", _seed=False, **kw)
         searched = [max_changes]
         if alt["feasible"]:  # minimum compliant edit: raise the cap step by step up to the max_load plan's count
-            for cap in range(max_changes + 1, len(alt["changes"]) + 1):
-                searched.append(cap)
-                r = optimize(plan, roster, weather, preset=preset, _cap=cap, **kw)
-                if r["feasible"]:
-                    r["fewest_changes"] = {"cap": max_changes, "min_compliant_changes": cap, "searched_caps": searched,
-                                           "fell_back": False}
-                    r["labels"].append(f"fewest_changes: needs at least {cap} changes — no plan within {cap - 1} "
-                                       "changes met every rule with every athlete under the line (caps "
-                                       f"{max_changes}–{cap} searched one at a time)")
-                    r["search"]["preset"] = "fewest_changes"
-                    r["search"]["max_changes"] = cap
-                    return r
+            r, more = _min_edit(plan, roster, weather, kw, max_changes + 1, len(alt["changes"]))
+            searched += more
+            if r is not None:
+                cap = searched[-1]
+                r["fewest_changes"] = {"cap": max_changes, "min_compliant_changes": cap, "searched_caps": searched,
+                                       "fell_back": False}
+                r["labels"].append(f"fewest_changes: needs at least {cap} changes — no plan within {cap - 1} "
+                                   "changes met every rule with every athlete under the line (caps "
+                                   f"{max_changes}–{cap} searched one at a time)")
+                r["search"]["preset"] = "fewest_changes"
+                r["search"]["max_changes"] = cap
+                return r
             alt["fewest_changes"] = {"cap": max_changes, "min_compliant_changes": None, "searched_caps": searched,
                                      "fell_back": True}
             alt["labels"].append(f"fewest_changes: no capped plan up to {len(alt['changes'])} changes qualified — "
@@ -926,7 +954,7 @@ def optimize(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weath
                                         extra_labels=labels, settings=P.S)
     load0 = original["training_load_met_min"]
     reasons = _infeasible_reasons(P, best)
-    out = {
+    out = _Result({
         "original": original,
         "optimized": optimized,
         "plan": new_plan,
@@ -956,12 +984,53 @@ def optimize(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weath
         "settings": P.S.as_dict(),
         "labels": [twonode.ESTIMATE_LABEL, *labels, *P.S.labels()]
                   + ([] if best.feasible else ["no plan met every constraint — least-bad plan shown"])
-                  + ([fallback_note] if fallback_note else []),
-    }
+                  + ([fallback_note] if fallback_note else [])
+                  + ([seed_note] if seed_note else []),
+    })
+    out.state = best.state   # internal (not serialized): seeds other searches
     if max_changes is not None and _cap is None and best.feasible:  # compliant within the requested cap
         out["fewest_changes"] = {"cap": max_changes, "min_compliant_changes": len(changes_out),
                                  "searched_caps": [max_changes], "fell_back": False}
     return out
+
+
+class _Result(dict):
+    """OptimizeResult dict; ``.state`` holds the search state (not part of the JSON) for seeding other searches."""
+    state: State = ()
+
+
+_CAPPED: dict[str, dict[str, Any]] = {}
+
+
+def _min_edit(plan, roster, weather, kw: Mapping[str, Any], cap_from: int, cap_to: int | None
+              ) -> tuple[dict[str, Any] | None, list[int]]:
+    """Capped searches with the cap raised one step at a time from ``cap_from`` to ``cap_to``; the first plan meeting
+    every rule with every athlete under the line, and the caps searched."""
+    searched: list[int] = []
+    if cap_to is None:
+        return None, searched
+    for cap in range(cap_from, cap_to + 1):
+        searched.append(cap)
+        key = None
+        if kw.get("demo"):  # demo searches are deterministic: max_load seeding and fewest_changes share capped runs
+            key = json.dumps([plan, roster, weather, {k: v for k, v in kw.items() if k != "settings"},
+                              repr(kw.get("settings")), cap], sort_keys=True, default=str)
+        r = _CAPPED.get(key) if key else None
+        if r is None:
+            r = optimize(plan, roster, weather, preset="fewest_changes", _cap=cap, **kw)
+            if key:
+                _CAPPED[key] = r
+        if r["feasible"]:
+            return r, searched
+    return None, searched
+
+
+def _load_kept(P: Problem, ev: Eval, roster, weather, step_min: float, settings) -> float:
+    """Training load kept (%, unweighted MET·min, as reported) for a candidate state."""
+    plan_c = P.to_plan(_renumber_added(ev.state, P))
+    a = twonode.simulate_roster(roster, P.plan, weather, step_min=step_min, n_ensemble=5, seed=0, settings=P.S)
+    b = twonode.simulate_roster(roster, plan_c, weather, step_min=step_min, n_ensemble=5, seed=0, settings=P.S)
+    return round(100.0 * b["training_load_met_min"] / a["training_load_met_min"], 1) if a["training_load_met_min"] else 100.0
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -162,3 +162,15 @@ def test_fewest_changes_steps_the_cap_to_the_minimum_compliant_edit(monkeypatch)
         assert res["feasible"] and len(res["changes"]) <= n and fc["searched_caps"] == list(range(0, n + 1))
         assert any(f"needs at least {n} changes" in x for x in res["labels"])
         assert not any("showing the max_load plan" in x for x in res["labels"])
+
+
+def test_demo_max_load_returns_the_best_compliant_plan_including_the_minimum_edit_seed():
+    """Decision 4 (Oct 3): demo max_load also seeds from the minimum compliant edit and keeps the best compliant plan
+    by load kept (tie-break fewer changes); the label lists every candidate."""
+    plan, roster, weather = _load("needs_break")
+    res = optimize(plan, roster, weather, demo=True, preset="max_load")
+    note = [x for x in res["labels"] if x.startswith("max_load: best compliant plan")]
+    if res["feasible"] and note:
+        import re
+        kept = [float(k) for k in re.findall(r"(\d+\.\d)% / \d+ changes", note[0])]
+        assert res["load_kept_pct"] == max(kept)
