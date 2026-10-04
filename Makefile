@@ -1,4 +1,4 @@
-.PHONY: dev demo warm numbers test check-sources setup
+.PHONY: dev demo warm numbers numbers-check e2e test check-sources setup
 # Engine port (default 8010; 8000 is often taken). The web's Vite proxy (/engine) follows it.
 HEATTWIN_PORT ?= 8010
 export HEATTWIN_PORT
@@ -15,6 +15,12 @@ warm:
 # Every headline/comparison number for docs, PLAN §7 and slides (live NWS for the comparison if reachable).
 numbers:
 	. .venv/bin/activate && python3 scripts/demo_numbers.py
+numbers-check:
+	. .venv/bin/activate && python3 scripts/demo_numbers.py --check
+# The Practice plan screen shows exactly docs/demo_numbers.json (needs make demo + make warm running; Playwright core
+# from PLAYWRIGHT_CORE, uses the installed Google Chrome).
+e2e:
+	node scripts/e2e_headline.mjs http://localhost:5173
 test:
 	. .venv/bin/activate && python -m pytest engine -q
 	cd web && npx vitest run
