@@ -1,12 +1,13 @@
 import type { ContractGear, ContractIntensity, PracticePlan } from '../data/llmPlan'
 import { ENGINE_URL } from './config'
 
-// Typed client for the voice Q&A endpoints (CONTRACTS.md v1.3):
+// Typed client for the voice Q&A endpoints (CONTRACTS.md v1.3, + v1.4 `question`):
 //   POST /voice/intent  {text | audio_b64 + mime_type, plan?, roster?} → VoiceIntent   (Gemini: transcript + intent + slots only)
-//   POST /voice/answer  {intent, slots, plan?, roster?, settings?}     → VoiceAnswer   (?demo=1; engine runs the tool, writes `say`)
+//   POST /voice/answer  {intent, slots, plan?, question?}              → VoiceAnswer   (?demo=1; engine runs the tool, writes `say`)
 //   POST /voice/tts     {text}                                         → audio/mpeg    (422 guard hit, 503 no key / offline)
 //   POST /guard         {text}                                         → GuardResult
-// Every call takes an injectable fetch so tests run with no network.
+// Every call takes an injectable fetch so tests run with no network, and gives up after TIMEOUT_MS (20 s; 10 s for
+// TTS) with a timed-out status-0 VoiceApiError, which the pipeline treats like an unreachable engine.
 
 export type VoiceIntentName = 'plan_summary' | 'optimize' | 'what_if' | 'athlete_status' | 'field_conditions' | 'unknown'
 
@@ -75,52 +76,89 @@ export interface AnswerRequest {
   intent: VoiceIntentName
   slots: VoiceSlots
   plan?: PracticePlan
+  /**
+   * v1.4: the coach's own words (typed text, or the transcript of what they said). When it asks whether someone is
+   * "safe / fine / OK / cleared", the engine starts `say` with its boundary sentence — no clearance is given.
+   */
+  question?: string
 }
 
-/** status 0 = the engine could not be reached (network error, CORS, timeout). */
+/** status 0 = the engine could not be reached (network error, CORS) or did not answer in time (`timedOut`). */
 export class VoiceApiError extends Error {
   status: number
-  constructor(status: number, message: string) {
+  timedOut: boolean
+  constructor(status: number, message: string, timedOut = false) {
     super(message)
     this.name = 'VoiceApiError'
     this.status = status
+    this.timedOut = timedOut
   }
 }
 
 export const statusOf = (e: unknown): number => (e instanceof VoiceApiError ? e.status : 0)
+export const timedOut = (e: unknown): boolean => e instanceof VoiceApiError && e.timedOut
 
-const TIMEOUT_MS = 60_000
+/**
+ * How long the browser waits for each call (request + body) before giving up and falling back as it does when the
+ * engine is unreachable: typed questions go to the local router, speech to speechSynthesis, a guard that doesn't answer
+ * holds the reply. Never the old 60 s hang on stage.
+ */
+export const TIMEOUT_MS = { intent: 20_000, answer: 20_000, guard: 20_000, tts: 10_000 } as const
 
-async function send(fetchImpl: typeof fetch, base: string, path: string, body: unknown): Promise<Response> {
-  let r: Response
+/** POST `body` and read the response with `read`, all within `timeoutMs`. */
+async function call<T>(
+  fetchImpl: typeof fetch,
+  base: string,
+  path: string,
+  body: unknown,
+  timeoutMs: number,
+  read: (r: Response) => Promise<T>,
+): Promise<T> {
+  const ctl = new AbortController()
+  const timer = setTimeout(() => ctl.abort(), timeoutMs)
+  const late = () => new VoiceApiError(0, `${path} took longer than ${timeoutMs / 1000} s`, true)
   try {
-    r = await fetchImpl(`${base}${path}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? AbortSignal.timeout(TIMEOUT_MS) : undefined,
-    })
-  } catch (e) {
-    throw new VoiceApiError(0, `Can't reach the engine (${base}): ${(e as Error).message}`)
-  }
-  if (!r.ok) {
-    let detail = r.statusText
+    let r: Response
     try {
-      const j = await r.json()
-      detail = typeof j?.detail === 'string' ? j.detail : JSON.stringify(j?.detail ?? j)
-    } catch {
-      /* keep statusText */
+      r = await fetchImpl(`${base}${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: ctl.signal,
+      })
+    } catch (e) {
+      if (ctl.signal.aborted) throw late()
+      throw new VoiceApiError(0, `Can't reach the engine (${base}): ${(e as Error).message}`)
     }
-    throw new VoiceApiError(r.status, `${path} → HTTP ${r.status}${detail ? `: ${detail}` : ''}`)
+    if (!r.ok) {
+      let detail = r.statusText
+      try {
+        const j = await r.json()
+        detail = typeof j?.detail === 'string' ? j.detail : JSON.stringify(j?.detail ?? j)
+      } catch {
+        /* keep statusText */
+      }
+      throw new VoiceApiError(r.status, `${path} → HTTP ${r.status}${detail ? `: ${detail}` : ''}`)
+    }
+    try {
+      return await read(r)
+    } catch (e) {
+      if (ctl.signal.aborted) throw late()
+      throw e
+    }
+  } finally {
+    clearTimeout(timer)
   }
-  return r
 }
 
-async function json<T>(r: Response, path: string): Promise<T> {
-  try {
-    return (await r.json()) as T
-  } catch {
-    throw new VoiceApiError(r.status, `${path} → response was not JSON`)
+function json<T>(path: string): (r: Response) => Promise<T> {
+  return async (r) => {
+    try {
+      return (await r.json()) as T
+    } catch (e) {
+      if ((e as Error)?.name === 'AbortError') throw e
+      throw new VoiceApiError(r.status, `${path} → response was not JSON`)
+    }
   }
 }
 
@@ -137,20 +175,21 @@ export function createVoiceApi(
   base: string = ENGINE_URL,
 ): VoiceApi {
   return {
-    async intent(req) {
-      return json<VoiceIntent>(await send(fetchImpl, base, '/voice/intent', req), '/voice/intent')
+    intent(req) {
+      return call(fetchImpl, base, '/voice/intent', req, TIMEOUT_MS.intent, json<VoiceIntent>('/voice/intent'))
     },
-    async answer(req) {
-      return json<VoiceAnswer>(await send(fetchImpl, base, '/voice/answer?demo=1', req), '/voice/answer')
+    answer(req) {
+      return call(fetchImpl, base, '/voice/answer?demo=1', req, TIMEOUT_MS.answer, json<VoiceAnswer>('/voice/answer'))
     },
-    async guard(text) {
-      return json<GuardResult>(await send(fetchImpl, base, '/guard', { text }), '/guard')
+    guard(text) {
+      return call(fetchImpl, base, '/guard', { text }, TIMEOUT_MS.guard, json<GuardResult>('/guard'))
     },
-    async tts(text) {
-      const r = await send(fetchImpl, base, '/voice/tts', { text })
-      const type = r.headers.get('content-type') ?? ''
-      if (!type.startsWith('audio/')) throw new VoiceApiError(r.status, `/voice/tts → expected audio, got ${type || 'no type'}`)
-      return r.blob()
+    tts(text) {
+      return call(fetchImpl, base, '/voice/tts', { text }, TIMEOUT_MS.tts, async (r) => {
+        const type = r.headers.get('content-type') ?? ''
+        if (!type.startsWith('audio/')) throw new VoiceApiError(r.status, `/voice/tts → expected audio, got ${type || 'no type'}`)
+        return r.blob()
+      })
     },
   }
 }

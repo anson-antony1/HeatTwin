@@ -67,6 +67,13 @@
   white-space: normal;
 }
 
+/* HR replay held back: the plan on screen is not the one the HR file was recorded on. */
+.session__src--held {
+  background: var(--ink-4);
+  color: var(--ink);
+  white-space: normal;
+}
+
 .session__src--optimized {
   background: var(--steady-bg);
   color: var(--steady);

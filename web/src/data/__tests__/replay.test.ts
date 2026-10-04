@@ -151,7 +151,7 @@ describe('session plays back POST /live/replay', () => {
     const plan = { id: 'p', site: { name: 's', lat: 0, lon: 0, surface: 'grass' as const }, start: '2026-10-04T15:30:00-04:00', drills: [
       { id: 'd1', name: 'x', duration_min: 5, intensity: 'hard' as const, gear: 'helmet' as const, shade: false, is_break: false, priority: 1 as const, movable: true },
     ] }
-    engine.setPlan(plan, planForecast)
+    engine.setPlan(plan, planForecast, 'this_plan')
     await vi.waitFor(() => expect(engine.getSnapshot().replay.status).toBe('ready'))
     expect(calls).toEqual(['POST /engine/live/replay?demo=1'])
     engine.seek(3)
@@ -160,5 +160,28 @@ describe('session plays back POST /live/replay', () => {
     expect(s.athletes.nohr.basis).toBe('plan_forecast')
     expect(s.firstFlagMinute).toBe(3)
     expect(s.labels).toContain('synthetic HR (not a real athlete)')
+  })
+
+  it('does not replay the HR file onto a plan it was not recorded on (S1)', async () => {
+    const fetchSpy = vi.fn(async () => new Response(JSON.stringify(replay), { status: 200 }))
+    vi.stubGlobal('fetch', fetchSpy)
+    vi.resetModules()
+    const { engine, replayHeldNote } = await import('../engine')
+    const plan = { id: 'p', site: { name: 's', lat: 0, lon: 0, surface: 'grass' as const }, start: '2026-10-04T15:30:00-04:00', drills: [
+      { id: 'd1', name: 'x', duration_min: 5, intensity: 'hard' as const, gear: 'helmet' as const, shade: false, is_break: false, priority: 1 as const, movable: true },
+    ] }
+    engine.setPlan(plan, planForecast, 'other_plan')
+    await new Promise((r) => setTimeout(r, 0))
+    expect(fetchSpy).not.toHaveBeenCalled()
+    engine.seek(3)
+    const s = engine.getSnapshot()
+    expect(s.replay.status).toBe('other_plan')
+    expect(s.athletes.hr1.basis).toBe('plan_forecast')
+    expect(s.athletes.hr1.hr).toBeNull()
+    expect(s.athletes.hr1.flag).toBe(false)
+    expect(s.firstFlagMinute).toBeNull()
+    expect(s.labels).not.toContain('synthetic HR (not a real athlete)')
+    expect(replayHeldNote(s.replay, 'optimized')).toBe('The HR replay was recorded on the original plan — Undo optimization to watch it.')
+    expect(replayHeldNote({ ...s.replay, status: 'ready' }, 'optimized')).toBeNull()
   })
 })

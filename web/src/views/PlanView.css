@@ -19,6 +19,8 @@
 
 .plan__actions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 10px;
 }
 
@@ -391,6 +393,12 @@
   font-size: 14px;
   line-height: 1.5;
   color: var(--ink-2);
+}
+
+/* The fewest-changes result in words ("Needs at least N changes — …"). */
+.plan__fewest {
+  color: var(--ink);
+  font-weight: 500;
 }
 
 /* ---------- Drill popover ---------- */

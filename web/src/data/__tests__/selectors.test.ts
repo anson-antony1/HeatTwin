@@ -4,13 +4,18 @@ import {
   athleteAtMinute,
   basisLabel,
   displayName,
+  fewestChangesNote,
   hottestPeakP95,
   indexAtMinute,
+  isDemoPlan,
   minuteOfPeak,
   seriesByMinute,
   statusCounts,
+  SYNTHETIC_PLAN_LABEL,
   valueAtMinute,
+  withPlanLabel,
 } from '../selectors'
+import { DEFAULT_CONTRACT_PLAN } from '../fixtures'
 
 // Test doubles shaped like an engine SimulationResult. The values are made up
 // for the test only (they exercise index arithmetic, not physiology).
@@ -96,5 +101,61 @@ describe('athlete at a minute, no HR replay', () => {
 
   it('returns null for an athlete the engine did not simulate', () => {
     expect(athleteAtMinute({ id: 'zz', minute: 0, totalMin: 4, plan: sim(), replay: null })).toBeNull()
+  })
+})
+
+describe('fewest-changes result in words (v1.4, decision 4)', () => {
+  it('says "needs at least N changes" when the minimum compliant edit is over the cap', () => {
+    expect(fewestChangesNote({ cap: 6, min_compliant_changes: 9, searched_caps: [6, 7, 8, 9], fell_back: false }, 9)).toBe(
+      'Needs at least 9 changes — no plan with ≤ 6 changes meets every rule and keeps everyone under the line.',
+    )
+  })
+
+  it('names the max-load plan when no capped plan qualified, and never says "fell back"', () => {
+    const fell = fewestChangesNote({ cap: 6, min_compliant_changes: null, searched_caps: [6, 21], fell_back: true }, 21)
+    expect(fell).toBe('No capped plan qualified; showing the max-load plan.')
+    const notes = [
+      fell,
+      fewestChangesNote({ cap: 6, min_compliant_changes: null, searched_caps: [6], fell_back: false }),
+      fewestChangesNote({ cap: 6, min_compliant_changes: 9, searched_caps: [6, 9], fell_back: false }),
+      fewestChangesNote({ cap: 6, min_compliant_changes: 4, searched_caps: [6], fell_back: false }, 4),
+    ]
+    for (const n of notes) expect(n).not.toMatch(/fell back|fallback|fall back/i)
+  })
+
+  it('is quiet for max_load or an engine without `fewest_changes`', () => {
+    expect(fewestChangesNote(undefined)).toBeNull()
+    expect(fewestChangesNote(null, 21)).toBeNull()
+    expect(fewestChangesNote({ cap: 6, min_compliant_changes: 4, searched_caps: [6], fell_back: false }, 4)).toBe('Fewest changes: 4 (cap 6).')
+  })
+})
+
+describe('the engine demo plan (S1 / S2)', () => {
+  const plan = DEFAULT_CONTRACT_PLAN
+  const inputs = { plan, synthetic: { plan: true, roster: true, weather: false } }
+
+  it('isDemoPlan: same id and drills, whatever the key order', () => {
+    const reordered = { ...plan, drills: plan.drills.map((d) => Object.fromEntries(Object.entries(d).reverse()) as typeof d) }
+    expect(isDemoPlan(plan, inputs)).toBe(true)
+    expect(isDemoPlan(JSON.parse(JSON.stringify(plan)), inputs)).toBe(true)
+    expect(isDemoPlan(reordered, inputs)).toBe(true)
+  })
+
+  it('isDemoPlan: an optimized or edited plan is not the demo plan', () => {
+    const optimized = { ...plan, drills: [...plan.drills].reverse() } // same id, different drills
+    const longer = { ...plan, drills: plan.drills.map((d, i) => (i === 0 ? { ...d, duration_min: d.duration_min + 5 } : d)) }
+    expect(isDemoPlan(optimized, inputs)).toBe(false)
+    expect(isDemoPlan(longer, inputs)).toBe(false)
+    expect(isDemoPlan({ ...plan, id: 'plan-edited' }, inputs)).toBe(false)
+    expect(isDemoPlan(plan, null)).toBe(false)
+    expect(isDemoPlan(null, inputs)).toBe(false)
+  })
+
+  it('withPlanLabel adds "synthetic plan (fixture)" first, once, only for the synthetic demo plan', () => {
+    expect(withPlanLabel(['synthetic roster'], plan, inputs)).toEqual([SYNTHETIC_PLAN_LABEL, 'synthetic roster'])
+    expect(withPlanLabel(['synthetic roster', SYNTHETIC_PLAN_LABEL], plan, inputs)).toEqual(['synthetic roster', SYNTHETIC_PLAN_LABEL])
+    expect(withPlanLabel(['x'], plan, { ...inputs, synthetic: { ...inputs.synthetic, plan: false } })).toEqual(['x'])
+    expect(withPlanLabel(['x'], { ...plan, id: 'plan-edited' }, inputs)).toEqual(['x'])
+    expect(withPlanLabel(['x'], plan, null)).toEqual(['x'])
   })
 })

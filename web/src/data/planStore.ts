@@ -1,9 +1,10 @@
 import { useSyncExternalStore } from 'react'
 import type { ContractGear, PlanDraft, PracticePlan } from './llmPlan'
-import { isUnreachable, optimizePlan, simulatePlan, type OptimizeResult, type SimulationResult } from './engineApi'
+import { isUnreachable, optimizePlan, simulatePlan, type OptimizePreset, type OptimizeResult, type SimulationResult } from './engineApi'
 import { DEFAULT_CONTRACT_PLAN, FIXTURE_ROSTER } from './fixtures'
 import { engineMeta } from './engineMeta'
-import { engine } from './engine'
+import { engine, type ReplayFor } from './engine'
+import { isDemoPlan } from './selectors'
 import { offlineSimulate, type OfflineResult } from '../offline/standIn'
 
 // Today's plan, plus what the engine said about it.
@@ -24,6 +25,8 @@ export interface PlanState {
   draft: PlanDraft | null
   sim: SimulationResult | null
   opt: OptimizeResult | null
+  /** The /optimize preset behind `opt` (null when the plan isn't an optimizer result). */
+  preset: OptimizePreset | null
   /** Simulation of the plan as the coach said it, before any optimization. */
   original: SimulationResult | null
   confirmedAt: number | null
@@ -34,11 +37,11 @@ export interface PlanState {
   offline: OfflineResult | null
 }
 
-type Snapshot = Pick<PlanState, 'plan' | 'source' | 'draft' | 'sim' | 'opt' | 'original' | 'confirmedAt'>
+type Snapshot = Pick<PlanState, 'plan' | 'source' | 'draft' | 'sim' | 'opt' | 'preset' | 'original' | 'confirmedAt'>
 
 function snapshot(): Snapshot {
-  const { plan, source, draft, sim, opt, original, confirmedAt } = state
-  return { plan, source, draft, sim, opt, original, confirmedAt }
+  const { plan, source, draft, sim, opt, preset, original, confirmedAt } = state
+  return { plan, source, draft, sim, opt, preset, original, confirmedAt }
 }
 
 const STORAGE_KEY = 'heattwin.plan.v1'
@@ -50,6 +53,7 @@ let state: PlanState = {
   draft: null,
   sim: null,
   opt: null,
+  preset: null,
   original: null,
   confirmedAt: null,
   error: null,
@@ -66,8 +70,8 @@ function set(patch: Partial<PlanState>) {
 
 function persist() {
   try {
-    const { plan, source, draft, opt, original, confirmedAt } = state
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ plan, source, draft, opt, original, confirmedAt }))
+    const { plan, source, draft, opt, preset, original, confirmedAt } = state
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ plan, source, draft, opt, preset, original, confirmedAt }))
   } catch {
     /* storage full or blocked — the plan still works for this session */
   }
@@ -81,12 +85,19 @@ function forget() {
   }
 }
 
+/** The HR file was recorded on the engine's demo plan: replay it only while that plan (same id and drills) is on screen. */
+function replayFor(plan: PracticePlan): ReplayFor {
+  const inputs = engineMeta.get().inputs
+  if (!inputs) return 'unknown'
+  return isDemoPlan(plan, inputs) ? 'this_plan' : 'other_plan'
+}
+
 /** Hand the plan and its engine result (or the offline stand-in) to the live session, keeping play state. */
 function apply(plan: PracticePlan, sim: SimulationResult | null) {
   const wasRunning = engine.getSnapshot().running
-  if (sim) engine.setPlan(plan, sim)
+  if (sim) engine.setPlan(plan, sim, replayFor(plan))
   else if (state.offline) engine.setOffline(plan, state.offline)
-  else engine.setPlan(plan, null)
+  else engine.setPlan(plan, null, 'unknown')
   if (wasRunning) engine.play()
 }
 
@@ -152,7 +163,7 @@ export const planStore = {
     const signal = begin('simulating')
     try {
       const sim = await simulatePlan(draft.plan, signal)
-      landed({ draft, plan: draft.plan, source: 'voice', opt: null, sim, original: sim, confirmedAt: Date.now(), previous })
+      landed({ draft, plan: draft.plan, source: 'voice', opt: null, preset: null, sim, original: sim, confirmedAt: Date.now(), previous })
       apply(draft.plan, sim)
       persist()
     } catch (e) {
@@ -166,7 +177,7 @@ export const planStore = {
     const signal = begin('simulating')
     try {
       const sim = await simulatePlan(plan, signal)
-      landed({ plan, source: 'edited', draft: null, opt: null, sim, original: sim, confirmedAt: Date.now(), previous })
+      landed({ plan, source: 'edited', draft: null, opt: null, preset: null, sim, original: sim, confirmedAt: Date.now(), previous })
       apply(plan, sim)
       persist()
     } catch (e) {
@@ -174,13 +185,16 @@ export const planStore = {
     }
   },
 
-  /** Ask the engine to rewrite the current plan so everyone stays under the line. */
-  async optimize() {
+  /**
+   * Ask the engine to rewrite the current plan so everyone is estimated under the line. `max_load` keeps the most
+   * training load; `fewest_changes` makes the smallest edit that meets every rule (v1.4 `fewest_changes`).
+   */
+  async optimize(preset: OptimizePreset = 'max_load') {
     const previous = snapshot()
     const signal = begin('optimizing')
     try {
-      const opt = await optimizePlan(state.plan, signal)
-      landed({ opt, plan: opt.plan, sim: opt.optimized, original: opt.original, source: 'optimized', previous })
+      const opt = await optimizePlan(state.plan, signal, preset)
+      landed({ opt, preset, plan: opt.plan, sim: opt.optimized, original: opt.original, source: 'optimized', previous })
       apply(opt.plan, opt.optimized)
       persist()
     } catch (e) {
@@ -236,7 +250,7 @@ export const planStore = {
     inflight?.abort()
     forget()
     const plan = engineMeta.get().inputs?.plan ?? DEFAULT_CONTRACT_PLAN
-    set({ phase: 'idle', plan, source: 'fixture', draft: null, sim: null, opt: null, original: null, confirmedAt: null, error: null, previous: null })
+    set({ phase: 'idle', plan, source: 'fixture', draft: null, sim: null, opt: null, preset: null, original: null, confirmedAt: null, error: null, previous: null })
     void planStore.refresh()
   },
 
@@ -252,6 +266,7 @@ export const planStore = {
         source: saved.source ?? 'edited',
         draft: saved.draft ?? null,
         opt: saved.opt ?? null,
+        preset: saved.preset ?? (saved.opt ? 'max_load' : null),
         original: saved.original ?? null,
         confirmedAt: saved.confirmedAt ?? null,
         sim: null,

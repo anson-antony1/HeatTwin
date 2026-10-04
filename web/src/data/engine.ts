@@ -25,13 +25,19 @@ import { offlineAthleteAt, type OfflineResult } from '../offline/standIn'
 //     latest calibration frame at or before the minute (estimate, status,
 //     gates); everyone else reads the plan forecast.
 //   - Until the replay arrives (or if it fails) everyone reads /simulate.
+//   - The HR file was recorded on the engine's demo plan (GET /demo/inputs).
+//     It is replayed only while that plan is on screen; on any other plan
+//     (optimized, edited, voice) calibrating against it is wrong (after
+//     Optimize the a07 file read as met_scale ≈ 2 and a false crossing), so
+//     everyone reads the plan forecast and Live / Athlete say why.
 // When the engine is unreachable the stand-in's curves are used instead and
 // every view badges them OFFLINE FALLBACK.
 
 export type SessionSource = 'loading' | 'engine' | 'offline'
 
 export interface ReplayInfo {
-  status: 'idle' | 'loading' | 'ready' | 'error'
+  /** `other_plan`: the plan on screen is not the one the HR file was recorded on — no replay. */
+  status: 'idle' | 'loading' | 'ready' | 'error' | 'other_plan'
   /** The HR file is synthetic (not a real athlete). */
   synthetic: boolean
   file: string | null
@@ -47,6 +53,17 @@ export function replayLabel(r: ReplayInfo): string | null {
   return r.synthetic
     ? `replay of a synthetic HR file (${who}) — not a real athlete`
     : `replay of a recorded HR file (${r.file ?? who})`
+}
+
+/** Whether the HR replay belongs to the plan handed to the session (planStore decides, against /demo/inputs). */
+export type ReplayFor = 'this_plan' | 'other_plan' | 'unknown'
+
+/** The note Live and Athlete show while the HR replay is held back because another plan is on screen. */
+export function replayHeldNote(r: ReplayInfo, planSource?: string): string | null {
+  if (r.status !== 'other_plan') return null
+  return planSource === 'optimized'
+    ? 'The HR replay was recorded on the original plan — Undo optimization to watch it.'
+    : 'The HR replay was recorded on the original plan — go back to the demo plan to watch it.'
 }
 
 export interface SessionState {
@@ -125,15 +142,21 @@ class Session {
     this.publish()
   }
 
-  /** Today's plan and its /simulate result (null while the engine hasn't answered). */
-  setPlan(plan: PracticePlan, sim: SimulationResult | null) {
+  /**
+   * Today's plan and its /simulate result (null while the engine hasn't answered). `replayFor` says whether the HR
+   * file belongs to this plan; only then is it replayed.
+   */
+  setPlan(plan: PracticePlan, sim: SimulationResult | null, replayFor: ReplayFor) {
     this.plan = plan
     this.sim = sim
     this.offline = null
     this.curves = sim ? makeCurveCache(sim.step_min, planMinutes(plan)) : null
     this.clearReplay()
+    if (sim && replayFor === 'other_plan') this.replayInfo = { ...this.replayInfo, status: 'other_plan' }
+    if (sim && replayFor === 'unknown')
+      this.replayInfo = { ...this.replayInfo, status: 'error', error: "the engine's demo plan is unknown (GET /demo/inputs failed)" }
     this.reset()
-    if (sim) void this.loadReplay(plan)
+    if (sim && replayFor === 'this_plan') void this.loadReplay(plan)
   }
 
   /** Engine unreachable: drive the screens from the stand-in (badged OFFLINE FALLBACK). */

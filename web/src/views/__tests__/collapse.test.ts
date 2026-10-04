@@ -18,6 +18,8 @@ import {
   noRectalNote,
 } from '../collapse/targets'
 import { formatAge, tubDisplay, tubHandoffLine, tubVerdict } from '../collapse/tub'
+import { emsHandoffText } from '../collapse/handoff'
+import { ROSTER, ROSTER_IS_SYNTHETIC, SCHOOL } from '../../data/fixtures'
 
 // Shape of GET /sources for the blocks these screens read (values as in engine/constants.yaml).
 const SOURCES = {
@@ -265,5 +267,34 @@ describe('engine client', () => {
     expect(parseNodeLatest({ reading: 'x', labels: [] })).toBeNull()
     expect(parseNodeLatest({ reading: {}, labels: [] })).toBeNull() // no ts
     expect(parseNodeLatest({ labels: [1, 'a'] })).toEqual({ reading: null, file: null, labels: ['a'] })
+  })
+})
+
+describe('synthetic roster on the Collapse screen and the EMS hand-off (S3)', () => {
+  it('every legacy-roster name carries "(fictional)", with no invented jersey number', () => {
+    expect(ROSTER_IS_SYNTHETIC).toBe(true)
+    expect(ROSTER.length).toBeGreaterThan(0)
+    for (const a of ROSTER) {
+      expect(a.name).toMatch(/\(fictional\)$/)
+      expect(a.name.match(/\(fictional\)/g)).toHaveLength(1)
+      expect(a).not.toHaveProperty('number')
+    }
+  })
+
+  it('the demo team is not a real school', () => {
+    expect(SCHOOL).toBe('Demo team (fictional roster)')
+  })
+
+  it('the EMS hand-off names the athlete "(fictional)" and claims no core-temperature figures', () => {
+    const log = [
+      { t: 0, text: `Collapse mode started — ${ROSTER[0].name}` },
+      { t: 75, text: 'Call 911' },
+    ]
+    const text = emsHandoffText(ROSTER[0], log, tubHandoffLine(tubDisplay(null)))
+    expect(text.split('\n')[0]).toContain(`${ROSTER[0].name} (`)
+    expect(text.split('\n')[0]).toMatch(/\(fictional\)/)
+    expect(text).toContain('+01:15  Call 911')
+    expect(text).not.toMatch(/Core temperature figures/i)
+    expect(text).toContain('Rectal temperature is the only basis for treatment decisions.')
   })
 })

@@ -1,5 +1,15 @@
 import type { PracticePlan } from '../data/llmPlan'
-import { statusOf, VOICE_INTENTS, type VoiceAnswer, type VoiceApi, type VoiceIntent, type VoiceIntentName, type VoiceSlots } from './engineApi'
+import {
+  statusOf,
+  timedOut,
+  TIMEOUT_MS,
+  VOICE_INTENTS,
+  type VoiceAnswer,
+  type VoiceApi,
+  type VoiceIntent,
+  type VoiceIntentName,
+  type VoiceSlots,
+} from './engineApi'
 import { routeLocal, type RosterName } from './localAnswer'
 import { checkNumbers } from './numbers'
 
@@ -18,6 +28,9 @@ import { checkNumbers } from './numbers'
 //      (422 = the engine's guard rejected it at TTS time → not spoken at all.)
 //
 // The plan sent is always the plan on screen; the engine resolves names against it.
+// Nothing waits long: /voice/intent, /voice/answer and /guard give up after 20 s and /voice/tts after 10 s
+// (engineApi.ts TIMEOUT_MS); a timeout falls back exactly like an unreachable engine (local router, held reply,
+// speechSynthesis).
 
 export const VOICE_NEEDS_ENGINE = "Voice needs the engine's Gemini key and network — type the question instead."
 
@@ -168,11 +181,17 @@ export async function runTurn(input: TurnInput, ctx: TurnContext, deps: TurnDeps
   } catch (e) {
     const s = statusOf(e)
     if (input.kind === 'audio') {
-      return update({ phase: 'done', note: INTENT_UNAVAILABLE.has(s) ? VOICE_NEEDS_ENGINE : `Couldn't use the recording (${(e as Error).message}).` })
+      return update({ phase: 'done', note: INTENT_UNAVAILABLE.has(s) ? VOICE_NEEDS_ENGINE : `Couldn't use the recording (HTTP ${s}) — type the question instead.` })
     }
     vi = routeLocal(input.text, ctx.plan, ctx.roster)
     router = 'local'
-    why = s === 503 ? 'no intent service on the engine (HTTP 503)' : s === 0 ? 'engine unreachable' : `intent service failed (HTTP ${s})`
+    why = timedOut(e)
+      ? `the intent service took longer than ${TIMEOUT_MS.intent / 1000} s`
+      : s === 503
+        ? 'no intent service on the engine (HTTP 503)'
+        : s === 0
+          ? 'engine unreachable'
+          : `intent service failed (HTTP ${s})`
   }
   update({
     phase: 'answering',
@@ -183,10 +202,20 @@ export async function runTurn(input: TurnInput, ctx: TurnContext, deps: TurnDeps
   // 2) the engine answers
   let answer: VoiceAnswer
   try {
-    answer = await deps.api.answer({ intent: vi.intent, slots: vi.slots ?? {}, plan: ctx.plan })
+    // v1.4: the coach's words go too, so the engine can open with its boundary sentence when they ask for clearance.
+    const question = (input.kind === 'text' ? input.text : vi.transcript)?.trim()
+    answer = await deps.api.answer({ intent: vi.intent, slots: vi.slots ?? {}, plan: ctx.plan, ...(question ? { question } : {}) })
   } catch (e) {
     const s = statusOf(e)
-    return update({ phase: 'done', note: s === 0 ? "Can't reach the engine — no answer." : `The engine couldn't answer (${(e as Error).message}).` })
+    // Plain words only; the raw error (e.g. a proxy or read-timeout name) never reaches the panel.
+    return update({
+      phase: 'done',
+      note: timedOut(e)
+        ? `The engine didn't answer within ${TIMEOUT_MS.answer / 1000} s — no answer. Try again.`
+        : s === 0
+          ? "Can't reach the engine — no answer."
+          : `The engine couldn't answer (HTTP ${s}). Try again.`,
+    })
   }
 
   // 3) approve before anything is shown or spoken

@@ -2,11 +2,21 @@ import { describe, expect, it, vi } from 'vitest'
 import planFile from '../../../../fixtures/plan.json'
 import rosterFile from '../../../../fixtures/roster.json'
 import type { PracticePlan } from '../../data/llmPlan'
-import { createVoiceApi, VoiceApiError, type GuardResult, type VoiceAnswer, type VoiceApi, type VoiceIntent } from '../engineApi'
+import {
+  createVoiceApi,
+  timedOut,
+  TIMEOUT_MS,
+  VoiceApiError,
+  type GuardResult,
+  type VoiceAnswer,
+  type VoiceApi,
+  type VoiceIntent,
+} from '../engineApi'
 import { LOCAL_ROUTER_MODEL, resolveDrill, routeLocal, type RosterName } from '../localAnswer'
 import { checkNumbers, numberTokens } from '../numbers'
 import { approveAnswer, runTurn, speakApproved, VOICE_NEEDS_ENGINE, type SpeechOut, type Turn } from '../pipeline'
 import { blobToBase64 } from '../usePushToTalk'
+import { findReassurance } from '../testQuestions'
 
 const FIXTURE_PLAN = planFile.plan as unknown as PracticePlan
 const FIXTURE_ROSTER = rosterFile.roster as RosterName[]
@@ -213,7 +223,12 @@ describe('a whole turn', () => {
     const t = await runTurn({ kind: 'text', text: 'How hot does Isaiah get?' }, ctx, { api, speech: null })
     expect(t.tool?.router).toBe('local')
     expect(t.tool?.why).toMatch(/503/)
-    expect(api.answer).toHaveBeenCalledWith({ intent: 'athlete_status', slots: { athlete_id: 'a07' }, plan: FIXTURE_PLAN })
+    expect(api.answer).toHaveBeenCalledWith({
+      intent: 'athlete_status',
+      slots: { athlete_id: 'a07' },
+      plan: FIXTURE_PLAN,
+      question: 'How hot does Isaiah get?',
+    })
     expect(t.spoken).toBe('not_spoken')
   })
 
@@ -245,6 +260,32 @@ describe('a whole turn', () => {
     const t = await runTurn({ kind: 'audio', audio_b64: 'UklGRg==', mime_type: 'audio/wav' }, ctx, { api, speech: null })
     expect(api.intent).toHaveBeenCalledWith({ audio_b64: 'UklGRg==', mime_type: 'audio/wav', plan: FIXTURE_PLAN })
     expect(t.you).toBe('fix the plan')
+    // v1.4: the transcript is the question the engine sees.
+    expect(api.answer).toHaveBeenCalledWith({ intent: 'optimize', slots: { preset: 'max_load' }, plan: FIXTURE_PLAN, question: 'fix the plan' })
+  })
+})
+
+// ── reassurance check for the scripted clearance question (Q8) ──
+
+describe('findReassurance', () => {
+  it('finds the guard’s words and clearance in other words', () => {
+    expect(findReassurance('Devin is safe to keep practicing.')).toBe('safe')
+    expect(findReassurance('He looks fine, peak 39.4 °C.')).toBe('fine')
+    expect(findReassurance('At no point does Devin cross the 39.0 °C line.')).toBe('At no point')
+    expect(findReassurance('Devin stays under the planning line.')).toBe('stays under')
+    expect(findReassurance('His estimate never reaches the line.')).toBe('never reaches')
+    expect(findReassurance('There is no risk today.')).toBe('no risk')
+    expect(findReassurance('He can keep practicing.')).toBe('can keep practicing')
+  })
+
+  it('lets a boundary sentence and an engine estimate through', () => {
+    expect(findReassurance("HeatTwin can't say whether anyone is safe — that is the athletic trainer's call.")).toBeNull()
+    expect(findReassurance('HeatTwin does not clear athletes and does not say anyone is fine.')).toBeNull()
+    expect(
+      findReassurance(
+        'Devin: estimated peak 40.57 °C typical and 40.93 °C at the 95th percentile; above the 39.0 °C planning line from minute 49. Estimate, planning only.',
+      ),
+    ).toBeNull()
   })
 })
 
@@ -266,6 +307,70 @@ describe('engine client', () => {
     expect(calls.map((c) => c[0])).toEqual(['http://engine/voice/intent', 'http://engine/guard', 'http://engine/voice/tts'])
     const g = createVoiceApi((async () => Promise.reject(new TypeError('fetch failed'))) as unknown as typeof fetch, 'http://engine')
     await expect(g.answer({ intent: 'unknown', slots: {} })).rejects.toMatchObject({ status: 0 })
+  })
+
+  it('gives up after 20 s on /voice/intent and /voice/answer, 10 s on /voice/tts (S5), as a timed-out status 0', async () => {
+    expect(TIMEOUT_MS).toEqual({ intent: 20_000, answer: 20_000, guard: 20_000, tts: 10_000 })
+    vi.useFakeTimers()
+    try {
+      // A fetch that never answers until its signal aborts.
+      const hang = ((_url: string, init?: RequestInit) =>
+        new Promise<Response>((_, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(new DOMException('The operation was aborted.', 'AbortError')))
+        })) as unknown as typeof fetch
+      const api = createVoiceApi(hang, 'http://engine')
+      const cases: [() => Promise<unknown>, number][] = [
+        [() => api.intent({ text: 'hi' }), TIMEOUT_MS.intent],
+        [() => api.answer({ intent: 'unknown', slots: {} }), TIMEOUT_MS.answer],
+        [() => api.tts('hi'), TIMEOUT_MS.tts],
+      ]
+      for (const [start, ms] of cases) {
+        let settled = false
+        const out = start().then(
+          () => 'resolved',
+          (e) => e,
+        )
+        void out.then(() => (settled = true))
+        await vi.advanceTimersByTimeAsync(ms - 1)
+        expect(settled).toBe(false)
+        await vi.advanceTimersByTimeAsync(1)
+        const e = await out
+        expect(e).toBeInstanceOf(VoiceApiError)
+        expect(e).toMatchObject({ status: 0, timedOut: true })
+        expect(timedOut(e)).toBe(true)
+      }
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('a timed-out TTS falls back to the browser voice; a timed-out intent routes typed text locally', async () => {
+    const late = new VoiceApiError(0, '/voice/tts took longer than 10 s', true)
+    const fallback = vi.fn()
+    const spoken = await speakApproved({ ok: true, say: 'Estimate, planning only.', labels: [] }, { tts: async () => Promise.reject(late), play: async () => {}, fallback })
+    expect(spoken).toBe('browser')
+    expect(fallback).toHaveBeenCalledWith('Estimate, planning only.')
+
+    const api = fakeApi({ intent: vi.fn(async () => Promise.reject(new VoiceApiError(0, '/voice/intent took longer than 20 s', true))) })
+    const t = await runTurn({ kind: 'text', text: 'Fix the plan.' }, { plan: FIXTURE_PLAN, roster: FIXTURE_ROSTER }, { api, speech: null })
+    expect(t.tool).toMatchObject({ router: 'local', intent: 'optimize', why: 'the intent service took longer than 20 s' })
+    expect(t.answer?.say).toBeTruthy()
+  })
+
+  it('a timed-out or failing /voice/answer leaves a plain-words note, never the raw error', async () => {
+    const vi_: VoiceIntent = { transcript: 'fix the plan', intent: 'optimize', slots: { preset: 'max_load' }, unresolved: [], labels: [], model: 'gemini-x' }
+    const ctx = { plan: FIXTURE_PLAN, roster: FIXTURE_ROSTER }
+    const slow = fakeApi({ intent: vi.fn(async () => vi_), answer: vi.fn(async () => Promise.reject(new VoiceApiError(0, '/voice/answer took longer than 20 s', true))) })
+    expect((await runTurn({ kind: 'text', text: 'Fix the plan.' }, ctx, { api: slow, speech: null })).note).toBe(
+      "The engine didn't answer within 20 s — no answer. Try again.",
+    )
+    const proxy = fakeApi({
+      intent: vi.fn(async () => vi_),
+      answer: vi.fn(async () => Promise.reject(new VoiceApiError(502, '/voice/answer → HTTP 502: Gemini unreachable: ProxyError'))),
+    })
+    const note = (await runTurn({ kind: 'text', text: 'Fix the plan.' }, ctx, { api: proxy, speech: null })).note
+    expect(note).toBe("The engine couldn't answer (HTTP 502). Try again.")
+    expect(note).not.toMatch(/ProxyError/)
   })
 
   it('asks /voice/answer in demo mode', async () => {

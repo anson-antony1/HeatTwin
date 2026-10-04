@@ -6,7 +6,7 @@ import { createVoiceApi, type VoiceAnswer } from '../engineApi'
 import type { RosterName } from '../localAnswer'
 import { checkNumbers } from '../numbers'
 import { approveAnswer, runTurn, speakApproved } from '../pipeline'
-import { TEST_QUESTIONS } from '../testQuestions'
+import { findReassurance, TEST_QUESTIONS } from '../testQuestions'
 
 // Live check of the 8 scripted questions against a running engine, through the real flow:
 //   typed text → /voice/intent (Gemini if the engine has a key; else 503 → local router)
@@ -31,7 +31,7 @@ describe.runIf(import.meta.env.VITE_HEATTWIN_LIVE === '1')('scripted questions a
       expect(turn.held).toBeUndefined()
       const say = turn.answer!.say
       expect(say.length).toBeGreaterThan(0)
-      if (t.mustNotSay) expect(say).not.toMatch(t.mustNotSay)
+      if (t.noReassurance) expect(findReassurance(say)).toBeNull()
       console.log(`Q: ${t.q}\n   → ${turn.tool?.router}: ${turn.tool?.intent} ${JSON.stringify(turn.tool?.slots)}\n   → ${say}`)
     }, 120_000)
   }

@@ -1,6 +1,8 @@
 import type { ContractDrill, ContractGear, PracticePlan } from './llmPlan'
 import type {
   AthleteStatus,
+  DemoInputs,
+  FewestChanges,
   FhsaaZoneRule,
   LiveReplay,
   NataPhase,
@@ -171,6 +173,63 @@ export function nearMargin(settings: SettingsResponse | null, sim: Pick<Simulati
 export function displayName(name: string, synthetic: boolean): string {
   if (!synthetic || /\(fictional\)/i.test(name)) return name
   return `${name} (fictional)`
+}
+
+// ── optimizer: fewest-changes preset (v1.4) ────────────────────────────────
+
+/**
+ * What the fewest-changes result means, in words (null for max_load or an older engine without `fewest_changes`).
+ * Numbers are the engine's (`cap`, `min_compliant_changes`). Never "fell back": when the preset needed more changes
+ * than its cap, the plan shown IS the one found at that count.
+ */
+export function fewestChangesNote(fc: FewestChanges | null | undefined, changes?: number): string | null {
+  if (!fc) return null
+  if (fc.fell_back) return 'No capped plan qualified; showing the max-load plan.'
+  if (fc.min_compliant_changes == null)
+    return `No plan with ≤ ${fc.cap} changes meets every rule and keeps everyone under the line.`
+  if (fc.min_compliant_changes > fc.cap)
+    return `Needs at least ${fc.min_compliant_changes} changes — no plan with ≤ ${fc.cap} changes meets every rule and keeps everyone under the line.`
+  return changes != null ? `Fewest changes: ${changes} (cap ${fc.cap}).` : `Fewest changes, within the cap of ${fc.cap}.`
+}
+
+// ── the engine's demo plan ─────────────────────────────────────────────────
+
+export const SYNTHETIC_PLAN_LABEL = 'synthetic plan (fixture)'
+
+/** JSON with sorted object keys, so the same drills compare equal whatever key order they arrived in. */
+function canonical(x: unknown): string {
+  if (Array.isArray(x)) return `[${x.map(canonical).join(',')}]`
+  if (x && typeof x === 'object') {
+    const o = x as Record<string, unknown>
+    return `{${Object.keys(o)
+      .filter((k) => o[k] !== undefined)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${canonical(o[k])}`)
+      .join(',')}}`
+  }
+  return JSON.stringify(x) ?? 'null'
+}
+
+/** The plan on screen is the engine's demo plan (GET /demo/inputs): same id and the same drills. */
+export function isDemoPlan(
+  plan: Pick<PracticePlan, 'id' | 'drills'> | null | undefined,
+  inputs: Pick<DemoInputs, 'plan'> | null | undefined,
+): boolean {
+  if (!plan || !inputs?.plan) return false
+  return plan.id === inputs.plan.id && canonical(plan.drills) === canonical(inputs.plan.drills)
+}
+
+/**
+ * A view's labels, plus "synthetic plan (fixture)" (first, so it is never folded away) when the plan on screen is
+ * the demo plan /demo/inputs marks synthetic and the engine's labels don't already say so.
+ */
+export function withPlanLabel(
+  labels: string[],
+  plan: Pick<PracticePlan, 'id' | 'drills'> | null | undefined,
+  inputs: Pick<DemoInputs, 'plan' | 'synthetic'> | null | undefined,
+): string[] {
+  if (!inputs?.synthetic?.plan || !isDemoPlan(plan, inputs) || labels.includes(SYNTHETIC_PLAN_LABEL)) return labels
+  return [SYNTHETIC_PLAN_LABEL, ...labels]
 }
 
 /** NATA 2009 gear phasing for an acclimatization day (phases from GET /sources), tightened by an AT-set cap. */

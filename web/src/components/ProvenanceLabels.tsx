@@ -1,20 +1,18 @@
 import { useId, useState } from 'react'
 import { ESTIMATE_LABEL } from '../data/constants'
+import { labelTone, orderLabels } from '../lib/labels'
 import './ProvenanceLabels.css'
 
 // The `labels` of the engine response a view is drawing ("synthetic plan
 // (fixture)", "synthetic roster", "forecast is fixture", "replay", "synthetic
 // HR (not a real athlete)", "AT-owned settings …", "uses unverified
 // constants …"), as compact chips that expand to the full text.
-// "estimate — planning only" is always shown first and never collapsed.
+// "estimate — planning only" is always shown first and never collapsed; the
+// rest are ordered by lib/labels.ts (synthetic / fixture / replay / demo, then
+// "uses unverified constants", then the others), so the compact view shows
+// the ones a viewer must not miss.
 
 const COMPACT = 3
-
-function tone(label: string): string {
-  if (/offline fallback/i.test(label)) return 'offline'
-  if (/synthetic|fixture|fictional|replay|demo mode|unverified|stand-in|TODO/i.test(label)) return 'warn'
-  return ''
-}
 
 export function ProvenanceLabels({
   labels,
@@ -28,7 +26,7 @@ export function ProvenanceLabels({
 }) {
   const [open, setOpen] = useState(false)
   const id = useId()
-  const rest = [...new Set(labels.filter((l) => l && l !== ESTIMATE_LABEL))]
+  const rest = orderLabels(labels)
   const shown = open ? rest : rest.slice(0, COMPACT)
   const hidden = rest.length - shown.length
 
@@ -38,7 +36,7 @@ export function ProvenanceLabels({
       <ul className="prov__list" id={id}>
         {estimate && <li className="prov__chip prov__chip--estimate">{ESTIMATE_LABEL}</li>}
         {shown.map((l) => (
-          <li key={l} className={`prov__chip prov__chip--${tone(l)}`} title={l}>
+          <li key={l} className={`prov__chip prov__chip--${labelTone(l)}`} title={l}>
             {l}
           </li>
         ))}

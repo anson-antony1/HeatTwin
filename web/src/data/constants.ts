@@ -19,4 +19,5 @@ export function zoneColor(zone: number | null | undefined): string {
 export const ESTIMATE_LABEL = 'estimate — planning only'
 
 export const SAFETY_LINE =
-  'Estimated core temperature is an estimate — planning only. It never diagnoses, and it never decides when to stop cooling — only rectal temperature does.'
+  // Must pass engine/guard.py (POST /guard): "stop cooling" trips its treatment rule.
+  'Estimated core temperature is for planning and early warning only. It does not diagnose, and it does not decide when cooling ends — only a rectal temperature can guide that.'

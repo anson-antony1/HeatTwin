@@ -1,0 +1,32 @@
+/*
+ * Self-hosted webfonts (decision 6): the page makes no font request to another host.
+ *
+ * Source: the woff2 files referenced by the Fontshare CSS API
+ *   https://api.fontshare.com/v2/css?f[]=archivo@400&f[]=clash-display@600&display=swap
+ * (served from cdn.fontshare.com), downloaded 2026-10-03.
+ *
+ * Archivo 400 (Omnibus-Type) — SIL Open Font License 1.1, see /fonts/OFL-Archivo.txt.
+ *   Redistribution is allowed with the license, so the file is committed (public/fonts/archivo-400.woff2).
+ *
+ * Clash Display 600 (Indian Type Foundry) — ITF Free Font License 2.0, see /fonts/FFL-ClashDisplay.txt.
+ *   Self-hosting for our own site is allowed (§01); making the file available through a repository or download
+ *   service is not (§02), and this repo is public. So public/fonts/clash-display-600.woff2 is git-ignored and is
+ *   fetched once from Fontshare by scripts/fetch-fonts.mjs (npm predev / prebuild; `npm run fonts`). Until it is
+ *   there, headings fall back to Archivo (tokens.css --font-display).
+ */
+
+@font-face {
+  font-family: 'Archivo';
+  src: url('/fonts/archivo-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Clash Display';
+  src: url('/fonts/clash-display-600.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}

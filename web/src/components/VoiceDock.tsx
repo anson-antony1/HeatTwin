@@ -6,8 +6,12 @@ import { liveCaptionsSupported, useLiveCaptions } from '../lib/useLiveCaptions'
 import { planStore, usePlanState, type PlanState } from '../data/planStore'
 import type { PlanDraft } from '../data/llmPlan'
 import { ROSTER } from '../data/fixtures'
+import { useRoster } from '../data/roster'
+import { fewestChangesNote } from '../data/selectors'
 import { mmss } from '../lib/heat'
 import { ease, spring } from '../lib/motion'
+import { fmtCore } from '../lib/format'
+import { planErrorText } from '../lib/errors'
 import { NumberTicker } from './NumberTicker'
 import { IconArrow, IconMic, IconSpark, IconStop } from './Icons'
 import { AI_NAME } from '../lib/brand'
@@ -463,8 +467,12 @@ function Result({
   const near = sim.athletes.filter((a) => a.status === 'near_limit').length
   const wasOver = p.original ? p.original.athletes.filter((a) => a.status === 'over_limit').length : over
   const hottest = [...sim.athletes].sort((a, b) => b.peak_core_c_p95 - a.peak_core_c_p95).slice(0, 3)
-  const name = (id: string) => ROSTER.find((r) => r.id === id)?.name ?? id
+  const roster = useRoster()
+  // Engine roster names (with "(fictional)" for the synthetic demo roster); else the local fixture copy, which keeps it too.
+  const name = (id: string) => (roster.byId(id) ? roster.name(id) : (ROSTER.find((r) => r.id === id)?.name ?? id))
   const optimizing = p.phase === 'optimizing'
+  // v1.4 fewest-changes result in words ("Needs at least N changes — …"); never "fell back".
+  const fewest = p.opt ? fewestChangesNote(p.opt.fewest_changes, p.opt.changes.length) : null
   const canOptimize = p.source !== 'optimized' && (over > 0 || near > 0 || sim.fhsaa_violations.length > 0)
 
   return (
@@ -474,7 +482,7 @@ function Result({
         <span className="review__label">{sim.labels[0]}</span>
       </div>
 
-      <div className={`result__big ${over ? 'is-over' : 'is-clear'}`}>
+      <div className={`result__big ${over ? 'is-over' : 'is-none-over'}`}>
         <span className="display-lg">
           <NumberTicker value={over} />
         </span>
@@ -500,6 +508,7 @@ function Result({
           ))}
         </ul>
       )}
+      {fewest && <p className="result__changes result__fewest">{fewest}</p>}
       {p.opt?.top_changes_text && <p className="result__changes">{p.opt.top_changes_text}</p>}
       {p.opt && (
         <p className="faint num result__kept">
@@ -517,9 +526,9 @@ function Result({
           >
             <span className={`result__dot result__dot--${a.status}`} />
             <span className="result__name">{name(a.id)}</span>
-            <span className="num result__peak">{a.peak_core_c_p95.toFixed(1)}°</span>
+            <span className="num result__peak">{fmtCore(a.peak_core_c_p95, limit)}°</span>
             <span className="faint num result__cross">
-              {a.first_cross_min != null ? `crosses at ${Math.round(a.first_cross_min)}′` : 'stays under'}
+              {a.first_cross_min != null ? `crosses at ${Math.round(a.first_cross_min)}′` : 'below the line (estimate)'}
             </span>
           </motion.li>
         ))}
@@ -574,15 +583,11 @@ function Result({
 }
 
 function ErrorView({ message, onRetry, onType }: { message: string; onRetry: () => void; onType: () => void }) {
-  const friendly = /permission|NotAllowed/i.test(message)
-    ? 'Microphone access was blocked. Allow it in the browser, or type the plan instead.'
-    : /Failed to fetch|NetworkError|Load failed|reach the engine|ECONNREFUSED|HTTP 50[02]: ?$|^Internal Server Error$/i.test(message)
-      ? 'Can’t reach the HeatTwin engine. Start it from the repo root with `.venv/bin/uvicorn engine.api:app --port 8000`, then try again.'
-      : /timed out|took too long|TimeoutError/i.test(message)
-        ? 'That took too long — the engine or Gemini didn’t answer within a minute. Try again.'
-      : /GEMINI_API_KEY/i.test(message)
-        ? 'The engine has no Gemini key. Add GEMINI_API_KEY to .env at the repo root and restart the engine.'
-        : message
+  // Plain words on screen (lib/errors.ts); the raw message (e.g. "Gemini unreachable: ProxyError") goes to the console.
+  const friendly = planErrorText(message)
+  useEffect(() => {
+    if (friendly !== message) console.warn('[voice dock]', message)
+  }, [friendly, message])
   return (
     <div className="dock__error">
       <div className="eyebrow">Couldn’t build the plan</div>

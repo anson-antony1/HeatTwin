@@ -660,3 +660,8 @@
   background: var(--watch-bg);
   color: var(--watch);
 }
+
+/* HR replay held back: the plan on screen is not the one the HR file was recorded on. */
+.twin__tag--held {
+  color: var(--ink);
+}
