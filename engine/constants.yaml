@@ -94,6 +94,7 @@ ect_buller_2013:     # OPTIONAL MODULE — method appears patented
 
 drill_met:
   status: DESIGN
+  justification: "The Compendium has no football practice or drill codes; mapping each drill intensity to the closest measured activity is a judgement. Game-level values make the estimate err hot (MODEL.md §12b) until live HR calibrates them."
   source: "Herrmann SD, Willis EA, Ainsworth BE et al. (2024) 2024 Adult Compendium of Physical Activities. J Sport Health Sci 13(1):6-12 (PMID 38242596); values read on pacompendium.com category tables by source-checker"
   url: "https://pacompendium.com/"
   quote_or_location: "codes 07040, 02024, 15232, 15210, 02078 (see values)"
@@ -121,7 +122,7 @@ gear_clothing:
   i_a_static_m2k_w: 0.0946   # manikin still-air layer: Table 2 footnote 'Icl was calculated using an Ia value of 0.61 clo' (0.61 × 0.155)
   levels:
     none:                  {ensemble: "Reference: T-shirt, briefs, shorts, ankle socks, athletic shoes", i_t_clo: 0.90, i_cl_clo: 0.35, f_cl: 1.10, r_ecl_m2kpa_w: 0.009, i_m: 0.42, mapping: "good match (athletic shoes, not cleats)"}
-    helmet:                {ensemble: "NOT MEASURED — uses P2 (helmet + shoulder pads) values", i_t_clo: 1.14, i_cl_clo: 0.63, f_cl: 1.20, r_ecl_m2kpa_w: 0.017, i_m: 0.40, status: TODO, mapping: "DESIGN: no published helmet-only ensemble; conservatively takes P2 (overestimates heat strain)"}
+    helmet:                {ensemble: "NOT MEASURED — uses P2 (helmet + shoulder pads) values", i_t_clo: 1.14, i_cl_clo: 0.63, f_cl: 1.20, r_ecl_m2kpa_w: 0.017, i_m: 0.40, status: DESIGN, mapping: "no published helmet-only ensemble; takes P2", justification: "No helmet-only ensemble has been measured (McCullough & Kenney 2003 measured P2 helmet + shoulder pads, P1 and G1, not a helmet with T-shirt and shorts). Reusing the helmet + shoulder-pads values gives more insulation and evaporative resistance than a helmet alone, so it over-predicts heat strain — the conservative direction. Owner decision Oct 3."}
     helmet_shoulder_pads:  {ensemble: "P2 practice: helmet, shoulder pads, cut-off T-shirt, mesh jersey, mesh shorts", i_t_clo: 1.14, i_cl_clo: 0.63, f_cl: 1.20, r_ecl_m2kpa_w: 0.017, i_m: 0.40, mapping: "good match (P2 also has a mesh jersey)"}
     full_pads:             {ensemble: "G1 warm-weather game uniform (P1 + pants with knee pads)", i_t_clo: 1.28, i_cl_clo: 0.79, f_cl: 1.25, r_ecl_m2kpa_w: 0.022, i_m: 0.37, mapping: "judgement call: lightest full uniform; P1 (0.71 clo, 0.020) would fit 'shells'"}
 
@@ -353,11 +354,13 @@ solarcal:
 
 shade_model:
   status: DESIGN
+  justification: "No measured radiant field under a canopy is available; MRT = air temperature in shade is the standard simplification. It biases in-shade estimates LOW (not conservative) and is labelled so (MODEL.md §6.3)."
   note: "Shaded drills / cooling area: mean radiant temperature = air temperature (canopy blocks all shortwave; hot-ground longwave ignored). Biases in-shade predictions low. See MODEL.md §6.3."
   mrt_equals_air_temp: true
 
 non_participant:
   status: DESIGN
+  justification: "A plan doesn't say where rotated-out athletes stand; resting in the shaded cooling area matches FHSAA cooling-zone practice. It is an AT-owned setting the coach should confirm."
   note: "Athletes not listed in a drill's participants rest in the shaded cooling area, keeping the drill's gear. Coach/AT should confirm this matches how the team rotates players."
   intensity: rest
   shade: true
@@ -386,6 +389,7 @@ clear_sky_fallback:
 
 model_options:
   status: DESIGN
+  justification: "cap_mode 'consistent' follows the definition of skin wettedness (evaporation ≤ w_crit·E_max); the ASHRAE 55 code's +0.06 allowance is kept only as a reference mode for the pythermalcomfort cross-check."
   note: "cap_mode 'consistent' = skin evaporation capped at w_crit·E_max (definition of wettedness); 'ashrae55_reference' reproduces pythermalcomfort/ASHRAE 55 code, which allows (w_crit + 0.06)·E_max. See MODEL.md §7.3."
   cap_mode: consistent
   max_internal_dt_s: 30           # numerical: integration sub-step; outputs stay on the step_min grid (Euler lag at drill boundaries)
@@ -393,6 +397,7 @@ model_options:
 
 acclimatization:
   status: DESIGN
+  justification: "No study gives the day-by-day time course of heat acclimatization in adolescent football players; a piecewise-linear course between the verified (mostly laboratory) magnitudes is the simplest form consistent with them (MODEL.md §8). Review with the AT."
   enabled: true
   note: "Magnitudes are VERIFIED in the cited (mostly laboratory) studies; the piecewise-linear time course and their transfer to adolescent football players are modelling choices. MODEL.md §8."
   setpoint_shift:
@@ -423,6 +428,7 @@ acclimatization:
 
 ensemble_priors:
   status: DESIGN
+  justification: "Before any HR calibration there is no per-athlete data; spreads derived from verified tables make the uncertainty explicit (p95), and live HR narrows it (WS3)."
   note: "Prior SDs when an athlete has no calibration. Derived (by the source-checker) from verified tables; using them as SDs of the model's scale factors is an inference."
   met_scale_sd: 0.20
   met_scale_source: "Kozey SL et al. (2010) Med Sci Sports Exerc 42:1776, Table 3 (PMC2924952): between-person CV of measured METs, median ~20% (range 12–31%) across 23 activities"
@@ -553,6 +559,7 @@ armstrong_2010_reproduction:
 
 clothing_conservative:
   status: DESIGN
+  justification: "Planning default because, calibrated on Armstrong 2010's full-uniform rise, it reproduces the measured rises (validation/results.json armstrong_2010); the walking-ventilation credit stays off because the control-clothing rate rules it out (owner decision)."
   note: "Planning-default clothing mode ('conservative' is the historical name; it is now the Armstrong-calibrated mode). ISO 7933 dynamic structure with the wind credit kept and the walking-ventilation credit off (with the ACSM treadmill MET and the 5 % grade's external work subtracted, credit off reproduces Armstrong CON; credit on under-predicts it by ~1 SD) plus a gear load surcharge on metabolic heat, M × (1 + δ·w(gear)), δ fitted to Armstrong 2010's mean FULL whole-protocol rise (2.37 °C). The surcharge is metabolic: applied before the VO2max ceiling and inside the live-HR observation model. δ lumps uniform weight, pad coverage and sweat-soaking (Armstrong and Hitchcock 2007 attribute extra metabolic cost to the uniform); it is a calibration, not a measured quantity. Safety margin lives in p95 + the AT-owned limit, not in the median physics."
   calibrated_by: "validation/armstrong_2010.py --calibrate"
   calibration_metric: whole_rise    # owner decision Oct 3: fit Table 3 whole-protocol FULL rise (2.37 °C); safety margin lives in p95 + the AT limit, not in median physics

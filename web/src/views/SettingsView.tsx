@@ -5,6 +5,7 @@ import { cToF, msToMph, useWeather, weatherStore } from '../data/weatherStore'
 import { zoneColor } from '../data/constants'
 import { useEngineMeta } from '../data/engineMeta'
 import { zoneRule, zoneRuleText } from '../data/selectors'
+import { judgements } from '../data/judgements'
 import { usePlanState } from '../data/planStore'
 import { NumberTicker } from '../components/NumberTicker'
 import { IconCheck, IconReset } from '../components/Icons'
@@ -77,6 +78,7 @@ export function SettingsView() {
 
         <ConditionsCard />
         <SourcesCard />
+        <JudgementsCard />
       </div>
     </div>
   )
@@ -403,6 +405,57 @@ function SourcesCard() {
           </li>
         ))}
       </ul>
+    </section>
+  )
+}
+
+
+/** Settings → Sources: the modelling choices that are not measured values (DESIGN, each with its written
+ * justification) and anything still TODO — straight from GET /sources (constants.yaml). */
+function JudgementsCard() {
+  const meta = useEngineMeta()
+  const items = judgements(meta.sources)
+  const design = items.filter((j) => j.status === 'DESIGN')
+  const todo = items.filter((j) => j.status === 'TODO')
+  return (
+    <section className="glass settings__card sources judgements" aria-label="Judgement calls in the model">
+      <div className="eyebrow">Judgement calls (DESIGN) · from constants.yaml</div>
+      {!meta.sources ? (
+        <p className="faint">Engine sources not loaded.</p>
+      ) : (
+        <>
+          <p className="settings__note faint">
+            Choices the model makes where no measurement exists. Each states why; an athletic trainer should review them.
+          </p>
+          <ul>
+            {design.map((j) => (
+              <li key={j.path}>
+                <span className={`sources__tick ${j.justification ? 'is-ok' : 'is-warn'}`}>{j.justification ? '' : '!'}</span>
+                <span>
+                  <span className="sources__label">{j.path}</span>
+                  <span className="sources__detail faint">{j.justification ?? j.note ?? 'no justification written'}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+          {todo.length > 0 && (
+            <>
+              <div className="eyebrow">Still TODO (not on the demo path)</div>
+              <ul>
+                {todo.map((j) => (
+                  <li key={j.path}>
+                    <span className="sources__tick is-warn">!</span>
+                    <span>
+                      <span className="sources__label">{j.path}</span>
+                      <span className="sources__detail faint">{j.note ?? 'needs a source'}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </>
+      )}
     </section>
   )
 }
