@@ -20,6 +20,8 @@ Every output is an estimate for planning only.
 """
 from __future__ import annotations
 
+from engine import units  # display °F
+
 import json
 
 import math
@@ -1106,7 +1108,7 @@ def top_changes(P: Problem, st: State, changes: Sequence[Mapping[str, str]], k: 
 def top_changes_text(top: Sequence[Mapping[str, Any]]) -> str:
     if not top:
         return "No single change accounts for a measurable drop in the estimated team peak."
-    parts = [f"{i + 1}) {c['detail']} (team peak estimate {c['heat_reduction_c']:.1f} °C lower)" for i, c in enumerate(top)]
+    parts = [f"{i + 1}) {c['detail']} (team peak estimate {units.df(c['heat_reduction_c'])} °F lower)" for i, c in enumerate(top)]
     return "Biggest heat reductions: " + "; ".join(parts) + ". Estimate — planning only."
 
 
@@ -1153,7 +1155,7 @@ def _reasons(P: Problem, ev: Eval) -> list[str]:
     for a, pk in zip(P.R.ids, ev.peak_p95):
         if pk >= P.limit:
             name = P.R.names[P.R.ids.index(a)]
-            out.append(f"{name}: estimated p95 core {pk:.1f} °C is at or above the {P.limit:.1f} °C planning limit")
+            out.append(f"{name}: estimated p95 core {units.f(pk, 1)} °F is at or above the {units.f(P.limit, 1)} °F planning limit")
     if any("zone5" in v["rule"] for v in ev.violations):
         out.insert(0, "FHSAA zone 5: no outdoor activity is allowed in these hours — move practice indoors or reschedule.")
     return out

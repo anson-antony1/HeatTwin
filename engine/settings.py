@@ -5,6 +5,8 @@ or set by the AT), so nobody mistakes a product default for a sourced fact.
 """
 from __future__ import annotations
 
+from engine import units  # display °F
+
 from dataclasses import asdict, dataclass, fields, replace
 from typing import Any, Mapping
 
@@ -98,8 +100,8 @@ class AtSettings:
     def labels(self) -> list[str]:
         tag = lambda k: "set by AT" if k in self.overridden else "default"  # noqa: E731
         return [
-            f"AT-owned settings — planning limit {self.planning_limit_core_c:.1f} °C ({tag('planning_limit_core_c')}; "
-            f"default from NIOSH 2016), near-limit band {self.near_limit_margin_c:.1f} °C ({tag('near_limit_margin_c')}), "
+            f"AT-owned settings — planning limit {units.f(self.planning_limit_core_c, 1)} °F ({tag('planning_limit_core_c')}; "
+            f"default from NIOSH 2016), near-limit band {units.df(self.near_limit_margin_c)} °F ({tag('near_limit_margin_c')}), "
             f"clothing mode {self.clothing_mode} ({tag('clothing_mode')}), rotated-out athletes rest in "
             f"{'shade' if self.non_participant_shade else 'sun'} ({tag('non_participant_shade')}), NATA gear phasing "
             f"{'enforced' if self.enforce_nata_gear_phasing else 'not enforced'} ({tag('enforce_nata_gear_phasing')})",

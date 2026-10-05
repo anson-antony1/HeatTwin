@@ -96,7 +96,7 @@ export function CollapseMode({ athleteId, onClose }: { athleteId: string; onClos
   const [voice, setVoice] = useState(true)
   const [log, setLog] = useState<LogEntry[]>(() => [
     { t: 0, text: `Collapse mode started — ${name} · ${position}` },
-    { t: 0, text: `Last est. core ${fmtCore(live.coreC, s.limitC, 1)} °C (estimate, not a measurement)` },
+    { t: 0, text: `Last est. core ${fmtCore(live.coreC, s.limitC, 1)} °F (estimate, not a measurement)` },
   ])
   const [copied, setCopied] = useState(false)
 

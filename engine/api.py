@@ -14,6 +14,8 @@ reproducible with the network off. Every result is labelled "estimate — planni
 """
 from __future__ import annotations
 
+from engine import units  # display °F
+
 import os
 from datetime import timedelta
 from typing import Any, Literal, Optional
@@ -266,8 +268,8 @@ def _live_session_weather(plan: dict, pinned_start: str, labels: list[str], wait
             notes = [field_sensor.label_for(src), field_sensor.offset_label(off, t_read), field_sensor.THERMISTOR_LABEL,
                      *notes]
         elif off is not None:
-            notes = [f"field sensor {off:+.1f} °C from the forecast air temperature — not used (more than "
-                     f"±{consts.get('field_node.max_forecast_gap_c'):g} °C: mis-sited?)", *notes]
+            notes = [f"field sensor {units.df(off, sign=True)} °F from the forecast air temperature — not used (more than "
+                     f"±{units.df(consts.get('field_node.max_forecast_gap_c'))} °F: mis-sited?)", *notes]
     labels.extend(notes)
     return base
 

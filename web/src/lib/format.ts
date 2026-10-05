@@ -1,6 +1,8 @@
 // One formatter for every core-temperature estimate or peak the UI prints next
 // to the planning line. Display only: the number is the engine's; nothing here
-// models anything.
+// models anything. The engine works in °C; everything here prints °F (cToF, the
+// same 1.8·c + 32 the engine uses in engine/units.py).
+import { cToF } from './heat'
 
 /** Decimals for a peak or a value printed against the planning line (matches docs/demo_numbers.md and Kelvin). */
 export const PEAK_DECIMALS = 2
@@ -28,15 +30,17 @@ export function roundLikeEngine(x: number, decimals: number): number {
  * printed one step under it instead (38.996 with a 39.0 line → 38.99), so the text never contradicts the engine's
  * below/over status. Values at or over the line, and values with no line, are only rounded.
  */
-export function coreValue(c: number, limit: number | null | undefined, decimals: number): number {
-  if (!Number.isFinite(c)) return c
+export function coreValue(cC: number, limitC: number | null | undefined, decimals: number): number {
+  if (!Number.isFinite(cC)) return cC
+  const c = cToF(cC)
+  const limit = limitC == null || !Number.isFinite(limitC) ? limitC : cToF(limitC)
   const scale = 10 ** decimals
   const rounded = roundLikeEngine(c, decimals)
   if (limit == null || !Number.isFinite(limit) || c >= limit) return rounded
   return rounded >= limit ? (Math.ceil(limit * scale - 1e-9) - 1) / scale : rounded
 }
 
-/** "38.98" — a core estimate or peak; "—" when there is no number. */
+/** "102.16" — a core estimate or peak in °F (engine value in °C); "—" when there is no number. */
 export function fmtCore(c: number | null | undefined, limit?: number | null, decimals = PEAK_DECIMALS): string {
   if (c == null || !Number.isFinite(c)) return '—'
   return coreValue(c, limit, decimals).toFixed(decimals)
@@ -47,9 +51,14 @@ export function tickerCore(c: number | null | undefined, limit?: number | null, 
   return c == null || !Number.isFinite(c) ? Number.NaN : coreValue(c, limit, decimals)
 }
 
-/** The planning line as written next to a temperature ("39.0"); "—" when unknown. */
+/** The planning line in °F as written next to a temperature ("102.2"); "—" when unknown. */
 export function fmtLimit(limit: number | null | undefined): string {
-  return limit == null || !Number.isFinite(limit) ? '—' : roundLikeEngine(limit, 1).toFixed(1)
+  return limit == null || !Number.isFinite(limit) ? '—' : roundLikeEngine(cToF(limit), 1).toFixed(1)
+}
+
+/** A temperature DIFFERENCE (a ± band, a reduction) from °C to °F — no +32. */
+export function fmtDelta(dc: number | null | undefined, decimals = PEAK_DECIMALS): string {
+  return dc == null || !Number.isFinite(dc) ? '—' : roundLikeEngine(dc * 1.8, decimals).toFixed(decimals)
 }
 
 /** A whole number from the engine (counts, minutes), or "—". */

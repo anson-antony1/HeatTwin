@@ -2,8 +2,8 @@ import { useId, useMemo, useRef, type KeyboardEvent, type PointerEvent } from 'r
 import { motion, useReducedMotion } from 'motion/react'
 import type { ChartDrill } from '../data/types'
 import { bandPath, downsample, splinePath, type Pt } from '../lib/spline'
-import { clockLabel, HEAT_STOPS, heatColor } from '../lib/heat'
-import { fmtCore, fmtLimit } from '../lib/format'
+import { clockLabel, cToF, HEAT_STOPS, heatColor } from '../lib/heat'
+import { fmtCore, fmtDelta, fmtLimit } from '../lib/format'
 import { ease } from '../lib/motion'
 import { useSize } from '../lib/useSize'
 import './TempChart.css'
@@ -197,7 +197,7 @@ export function TempChart({
         <g key={t}>
           <line className="chart__grid" x1={pad.l} x2={pad.l + w} y1={y(t)} y2={y(t)} />
           <text className="chart__tick" x={pad.l - 10} y={y(t)} dy="0.32em" textAnchor="end">
-            {t.toFixed(1)}°
+            {cToF(t).toFixed(1)}°
           </text>
         </g>
       ))}
@@ -338,7 +338,7 @@ export function TempChart({
       aria-label={onScrub ? 'Core temperature chart. Use arrow keys to scrub through practice.' : undefined}
     >
       {width > 0 && (
-        <svg width={width} height={height} role="img" aria-label={`Estimated core temperature ${fmtCore(live, limit, 1)} degrees Celsius`}>
+        <svg width={width} height={height} role="img" aria-label={`Estimated core temperature ${fmtCore(live, limit, 1)} degrees Fahrenheit`}>
           {reveal && !reduce ? (
             <motion.g
               initial={{ clipPath: 'inset(0 100% 0 0)' }}
@@ -362,8 +362,8 @@ export function TempChart({
             {startHour != null ? clockLabel(startHour, scrub) : ''} · {scrub}′
           </div>
           <div className="chart__tip-temp num" style={{ color: heatColor(scrubRead.c) }}>
-            {fmtCore(scrubRead.c, limit)}°C
-            {scrubRead.band > 0 && <span className="chart__tip-band"> ±{scrubRead.band.toFixed(2)}</span>}
+            {fmtCore(scrubRead.c, limit)}°F
+            {scrubRead.band > 0 && <span className="chart__tip-band"> ±{fmtDelta(scrubRead.band)}</span>}
           </div>
           <div className="chart__tip-meta">
             {scrubRead.measured ? 'Estimate so far' : 'Forecast'}

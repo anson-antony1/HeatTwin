@@ -19,6 +19,8 @@ take as ``weather``. Readings are kept in memory (the bridge also logs every one
 """
 from __future__ import annotations
 
+from engine import units  # display °F
+
 import time
 from collections import deque
 from datetime import datetime, timedelta, timezone
@@ -219,7 +221,7 @@ def source_info() -> dict[str, Any]:
         ok = field_sensor.nws_status(SITE["lat"], SITE["lon"]) == "ok"
         return {**base, "id": "nws" if ok else "snapshot", "sensor_fresh": True, "reading_age_s": age,
                 "label": (f"{field_sensor.LIVE_NWS_LABEL if ok else field_sensor.SNAPSHOT_LABEL} — field sensor "
-                          f"{f['gap_c']:+.1f} °C from the forecast, not used")}
+                          f"{units.df(f['gap_c'], sign=True)} °F from the forecast, not used")}
     if fresh:
         src = _field["reading"]["_field"]["weather_from"]
         return {**base, "id": f"field_sensor_{src}", "label": field_sensor.label_for(src), "sensor_fresh": True,

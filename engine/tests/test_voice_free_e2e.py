@@ -66,6 +66,9 @@ def _decimals(tok: str) -> int:
 
 
 def assert_numbers_are_engine_numbers(say: str, refs: set[float], times: set[str] = frozenset()) -> None:
+    # Sentences print temperatures in °F (engine/units.py); the engine's numbers are °C. A spoken number must still be an
+    # engine number — as is, or its exact °F form (×1.8 + 32 for a temperature, ×1.8 for a difference).
+    refs = set(refs) | {r * 1.8 + 32 for r in refs} | {r * 1.8 for r in refs}
     for tok in voice.numbers_in(say):
         if re.fullmatch(r"\d{1,2}:\d{2}", tok):
             assert tok in times, (tok, say)

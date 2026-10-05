@@ -16,6 +16,8 @@ air temperature. The demo mode (HEATTWIN_NODE_MODE=demo, engine/node_bridge.Demo
 """
 from __future__ import annotations
 
+from engine import units  # display °F
+
 import math
 import os
 import threading
@@ -208,7 +210,7 @@ def offset_at(hours: Sequence[dict[str, Any]], air_c: float, t_read: datetime) -
 
 
 def offset_label(offset_c: float, t_read: datetime) -> str:
-    return (f"field sensor {offset_c:+.1f} °C vs the forecast at {t_read.strftime('%H:%M')}, applied to the forecast "
+    return (f"field sensor {units.df(offset_c, sign=True)} °F vs the forecast at {t_read.strftime('%H:%M')}, applied to the forecast "
             "trend from then on (humidity at the same dewpoint)")
 
 

@@ -44,12 +44,14 @@ await page.waitForTimeout(3000)
 const after = await metrics()
 await browser.close()
 
+// The screen prints °F (web/src/lib/format.ts); docs/demo_numbers.json keeps the engine's °C.
+const toF = (c) => Math.round((c * 1.8 + 32) * 100) / 100
 const checks = [
   ['before: athletes over the line (p95)', pick(before, /over the line/), sim.over_limit],
-  ['before: hottest p95 °C', pick(before, /hottest/), sim.max_p95_c],
+  ['before: hottest p95 °F', pick(before, /hottest/), toF(sim.max_p95_c)],
   ['before: FHSAA issues', pick(before, /fhsaa/), sim.fhsaa_violations],
   ['after: athletes over the line (p95)', pick(after, /over the line/), opt.after.over_limit],
-  ['after: hottest p95 °C', pick(after, /hottest/), opt.after.max_p95_c],
+  ['after: hottest p95 °F', pick(after, /hottest/), toF(opt.after.max_p95_c)],
   ['after: FHSAA issues', pick(after, /fhsaa/), opt.after.fhsaa_violations],
   ['after: training load kept %', pick(after, /load kept/), opt.load_kept_pct],
 ]

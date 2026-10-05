@@ -15,6 +15,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from engine import consts, guard, voice
+from engine import units  # sentences print °F
 from engine.api import app
 
 c = TestClient(app)
@@ -61,7 +62,7 @@ def ask(q: str) -> dict:
 def test_q1_who_crosses_first_matches_demo_numbers():
     r = ask("Who crosses the planning line first in this practice?")
     s, say = DEMO["simulate"], r["answer"]["say"]
-    assert f"{s['over_limit']} of {s['athletes']}" in say and str(s["max_p95_c"]) in say
+    assert f"{s['over_limit']} of {s['athletes']}" in say and units.f(s["max_p95_c"]) in say
     first = min(v["first_cross_min"] for v in s["athletes_detail"].values())
     firsts = [NAME[k] for k, v in s["athletes_detail"].items() if v["first_cross_min"] == first]
     assert any(n in say for n in firsts) and f"minute {first:g}" in say
@@ -76,7 +77,7 @@ def test_q2_wbgt_at_4pm_matches_forecast():
 def test_q3_isaiah_matches_demo_athlete():
     r = ask("How hot does Isaiah get?")
     d = DEMO["simulate"]["athletes_detail"][r["intent"]["slots"]["athlete_id"]]
-    assert str(d["peak_p95_c"]) in r["answer"]["say"] and str(d["peak_p50_c"]) in r["answer"]["say"]
+    assert units.f(d["peak_p95_c"]) in r["answer"]["say"] and units.f(d["peak_p50_c"]) in r["answer"]["say"]
 
 
 @pytest.mark.parametrize("q", ["What if we drop the gassers?", "What if team period is helmets only?"])

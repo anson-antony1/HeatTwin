@@ -8,6 +8,8 @@ Every output carries "estimate — planning only".
 """
 from __future__ import annotations
 
+from engine import units  # display °F
+
 import copy
 import re
 from typing import Any, Mapping, Optional, Sequence
@@ -92,8 +94,8 @@ def plan_summary(res: Mapping[str, Any]) -> dict[str, Any]:
         names = [_plain(a.get("name")) for a in crosses if a["first_cross_min"] == m]   # every athlete tied first
         who = names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
         lead = f" First estimated over: {who} from minute {m:g}."
-    say = (f"{s['over_limit']} of {s['athletes']} athletes are estimated over the {s['limit_c']} °C planning line "
-           f"at the 95th percentile; the highest estimate is {s['max_p95_c']} °C.{lead} "
+    say = (f"{s['over_limit']} of {s['athletes']} athletes are estimated over the {units.f(s['limit_c'], 1)} °F planning line "
+           f"at the 95th percentile; the highest estimate is {units.f(s['max_p95_c'])} °F.{lead} "
            f"{s['fhsaa_violations']} FHSAA issues in the plan. Estimate, planning only.")
     return {**s, "say": guard.check(say, source="voice.plan_summary")["redacted_text"], "labels": _labels(res)}
 
@@ -102,7 +104,7 @@ def optimize_summary(opt: Mapping[str, Any]) -> dict[str, Any]:
     """Optimizer result + an engine-written sentence (voice intent ``optimize``)."""
     after = _summary(opt["optimized"])
     if opt["feasible"] and not opt["changes"]:   # already compliant: say so instead of "0 changes"
-        say = (f"The plan on screen already meets every rule, with every athlete estimated under the {after['limit_c']} °C "
+        say = (f"The plan on screen already meets every rule, with every athlete estimated under the {units.f(after['limit_c'], 1)} °F "
                "planning line — no changes needed. Estimate, planning only.")
         return {"feasible": True, "load_kept_pct": opt["load_kept_pct"], "changes": 0, "after": after, "top_changes": [],
                 "say": guard.check(say, source="voice.optimize")["redacted_text"], "labels": _labels(opt)}
@@ -112,7 +114,7 @@ def optimize_summary(opt: Mapping[str, Any]) -> dict[str, Any]:
     say = " ".join([*notes, opt.get("top_changes_text", ""),
                     f"The rewritten plan keeps {opt['load_kept_pct']}% of the training load with {len(opt['changes'])} "
                     f"changes; {after['over_limit']} of {after['athletes']} athletes are estimated over the "
-                    f"{after['limit_c']} °C planning line and it has {after['fhsaa_violations']} FHSAA issues."]).strip()
+                    f"{units.f(after['limit_c'], 1)} °F planning line and it has {after['fhsaa_violations']} FHSAA issues."]).strip()
     return {"feasible": opt["feasible"], "load_kept_pct": opt["load_kept_pct"], "changes": len(opt["changes"]),
             "after": after, "top_changes": opt.get("top_changes", []),
             "say": guard.check(say, source="voice.optimize")["redacted_text"], "labels": _labels(opt)}
@@ -159,9 +161,9 @@ def what_if(roster, plan, weather, change, *, settings=None, seed: int = 0, n_en
     after = twonode.simulate_roster(roster, after_plan, weather, **kw)
     b, a = _summary(before), _summary(after)
     delta = round(a["team_mean_p95_c"] - b["team_mean_p95_c"], 2)
-    say = (f"With that change the estimated team-average peak goes from {b['team_mean_p95_c']} to "
-           f"{a['team_mean_p95_c']} °C, and {a['over_limit']} of {a['athletes']} athletes are over the "
-           f"{a['limit_c']} °C planning line, versus {b['over_limit']} before. Estimate, planning only.")
+    say = (f"With that change the estimated team-average peak goes from {units.f(b['team_mean_p95_c'])} to "
+           f"{units.f(a['team_mean_p95_c'])} °F, and {a['over_limit']} of {a['athletes']} athletes are over the "
+           f"{units.f(a['limit_c'], 1)} °F planning line, versus {b['over_limit']} before. Estimate, planning only.")
     return {"before": b, "after": a, "delta_team_mean_p95_c": delta, "change": dict(change),
             "say": guard.check(say, source="voice.what_if")["redacted_text"], "labels": _labels(before)}
 
@@ -177,13 +179,13 @@ def athlete_status(res: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], 
            "peak_p50_c": round(max(a["core_c_p50"]), 2), "peak_p95_c": round(a["peak_core_c_p95"], 2),
            "status": a["status"], "first_cross_min": a["first_cross_min"], "limit_c": res["limit_core_c"],
            "labels": _labels(res)}
-    head = (f"{_plain(a.get('name'))}: plan forecast (no heart-rate calibration) peak {out['peak_p50_c']} °C typical "
-            f"and {out['peak_p95_c']} °C at the 95th percentile; ")
+    head = (f"{_plain(a.get('name'))}: plan forecast (no heart-rate calibration) peak {units.f(out['peak_p50_c'])} °F typical "
+            f"and {units.f(out['peak_p95_c'])} °F at the 95th percentile; ")
     if a["first_cross_min"] is not None:
-        say = head + (f"above the {res['limit_core_c']} °C planning line from minute {a['first_cross_min']:g}. "
+        say = head + (f"above the {units.f(res['limit_core_c'], 1)} °F planning line from minute {a['first_cross_min']:g}. "
                       "Estimate, planning only.")
     else:  # no reassurance: a forecast below the line is not a clearance
-        say = head + (f"the 95th-percentile estimate stays below the {res['limit_core_c']} °C planning line for the whole "
+        say = head + (f"the 95th-percentile estimate stays below the {units.f(res['limit_core_c'], 1)} °F planning line for the whole "
                       "plan. That is an estimate, not a clearance — review with your athletic trainer. "
                       "Estimate, planning only.")
     out["say"] = guard.check(say, source="voice.athlete_status")["redacted_text"]

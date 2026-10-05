@@ -22,6 +22,8 @@ temperature, and NWS supplies humidity, wind and sunlight (engine/field_sensor.p
 """
 from __future__ import annotations
 
+from engine import units  # display °F
+
 import argparse
 import csv
 import math
@@ -180,7 +182,7 @@ class DemoScenario:
 
         if not self.ready:
             self.baseline.append(raw["globe_c"])
-            print(f"  zeroing globe on the room: {raw['globe_c']:.2f}°C ({len(self.baseline)}/{self.cfg['baseline_samples']})",
+            print(f"  zeroing globe on the room: {units.f(raw['globe_c'])}°F ({len(self.baseline)}/{self.cfg['baseline_samples']})",
                   flush=True)
             return None
         self.refresh_air()
@@ -311,11 +313,11 @@ def serial_lines(port: str, baud: int = 115200) -> Iterator[str]:
 def _console_line(row: dict[str, Any], demo: bool) -> str:
     if row.get("mode") == "field":
         fd = row["_field"]
-        return (f"{row['ts'][11:19]}  air {row['air_c']:4.1f}°C (Arduino)  RH {row['rh_pct']:3.0f}% wind {row['wind_m_s']:3.1f} m/s "
+        return (f"{row['ts'][11:19]}  air {units.f(row['air_c'], 1):>5}°F (Arduino)  RH {row['rh_pct']:3.0f}% wind {row['wind_m_s']:3.1f} m/s "
                 f"sun {fd['solar_w_m2']:4.0f} W/m² ({fd['weather_from']})  →  field WBGT {row['node_wbgt_f']:5.1f}°F "
                 f"zone {row['fhsaa_zone']}  vs forecast {row['forecast_wbgt_f']:5.1f}°F  [{row['field_minus_forecast_f']:+.1f}]  "
                 f"{field_sensor.label_for(fd['weather_from'])}")
-    return (f"{row['ts'][11:19]}  globe {row['globe_c']:5.1f}°C  air {row['air_c']:4.1f}°C RH {row['rh_pct']:3.0f}% "
+    return (f"{row['ts'][11:19]}  globe {units.f(row['globe_c'], 1):>5}°F  air {units.f(row['air_c'], 1):>5}°F RH {row['rh_pct']:3.0f}% "
             f"({row['air_source']})  →  field WBGT {row['node_wbgt_f']:5.1f}°F zone {row['fhsaa_zone']}  "
             f"vs {'baseline' if demo else 'forecast'} {row['forecast_wbgt_f']:5.1f}°F  [{row['field_minus_forecast_f']:+.1f}]  "
             f"{'DEMO scenario' if demo else 'uncalibrated'}")
@@ -336,7 +338,7 @@ def run(lines: Iterable[str], mode: str, post_url: Optional[str] = None, out_dir
     fusion = FieldFusion(use_nws=not offline) if field else None
     scenario = DemoScenario(air, air_mode, gain) if demo else None
     if scenario:
-        print(f"DEMO: air {scenario.air_c:.1f}°C, RH {scenario.rh:.0f}% ({scenario.air_source}); no-sun WBGT "
+        print(f"DEMO: air {units.f(scenario.air_c, 1)}°F, RH {scenario.rh:.0f}% ({scenario.air_source}); no-sun WBGT "
               f"{scenario.baseline_wbgt_f():.1f}°F. Heat the globe to add 'sun'.", flush=True)
     day = now().date().isoformat()
     path = out_dir / (f"node_demo_{day}.csv" if demo else f"node_field_{day}.csv" if field else f"node_{day}.csv")

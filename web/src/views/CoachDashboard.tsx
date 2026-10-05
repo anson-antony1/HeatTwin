@@ -308,7 +308,7 @@ function AlertCard({
         </span>
       </button>
       <div className="alertcard__temp display-lg">
-        <NumberTicker value={tickerCore(live.coreC, limit, 1)} decimals={1} suffix="°C" />
+        <NumberTicker value={tickerCore(live.coreC, limit, 1)} decimals={1} suffix="°F" />
       </div>
       <div className="alertcard__meta muted">
         p95 <span className="num">{fmtCore(live.coreC != null ? live.coreC + (live.bandC ?? 0) : null, limit)}</span>° ≥{' '}

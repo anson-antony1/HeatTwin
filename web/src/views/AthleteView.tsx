@@ -10,11 +10,11 @@ import { NumberTicker } from '../components/NumberTicker'
 import { StatusPill } from '../components/StatusPill'
 import { TempChart } from '../components/TempChart'
 import { IconDrop, IconHeart, IconResponse } from '../components/Icons'
-import { clockLabel, cToF, gearLabel, heatColor } from '../lib/heat'
+import { clockLabel, gearLabel, heatColor } from '../lib/heat'
 import { ease, spring } from '../lib/motion'
 import { gearFor, usePlanState } from '../data/planStore'
 import { AI_NAME } from '../lib/brand'
-import { fmtCore, fmtLimit, tickerCore } from '../lib/format'
+import { fmtCore, fmtDelta, fmtLimit, tickerCore } from '../lib/format'
 import { applyLiveSuggestion } from '../data/liveApply'
 import './AthleteView.css'
 
@@ -152,10 +152,10 @@ function TwinBody({ athleteId, onCollapse }: { athleteId: string; onCollapse: (i
             )}
           </div>
           <div className="display-xl vitals__temp" style={{ color: heatColor(coreShown ?? Number.NaN) }}>
-            <NumberTicker value={tickerCore(coreShown, limit, 1)} decimals={1} suffix="°C" />
+            <NumberTicker value={tickerCore(coreShown, limit, 1)} decimals={1} suffix="°F" />
           </div>
           <div className="muted num" style={{ fontSize: 14 }}>
-            {coreShown != null ? cToF(coreShown).toFixed(1) : '—'} °F · ±{fmtCore(scrubbed ? scrubbed.band : nextBand)}° (p95)
+            ±{fmtDelta(scrubbed ? scrubbed.band : nextBand)} °F (p95)
           </div>
           <div className="faint" style={{ fontSize: 12.5 }}>
             {s.source === 'offline' ? 'offline fallback — no estimate' : ESTIMATE_LABEL}

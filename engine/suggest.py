@@ -9,6 +9,8 @@ sentence passes engine/guard.py. A suggestion is applied only when the coach pre
 """
 from __future__ import annotations
 
+from engine import units  # display °F
+
 import copy
 import time
 from itertools import combinations
@@ -186,7 +188,7 @@ def suggest(plan: Mapping[str, Any], roster: Sequence[Mapping[str, Any]], weathe
                else "still over the planning line")
     # HR-calibrated: both numbers use this athlete's heart-rate calibration (the plan view after Apply, on an HR replay
     # recorded on another plan, shows the plan forecast without it — demo-qa F1)
-    result = (f"HR-calibrated re-forecast peak {b_peak:.2f} → {best['peak']:.2f} °C (p95), {outcome}. "
+    result = (f"HR-calibrated re-forecast peak {units.f(b_peak)} → {units.f(best['peak'])} °F (p95), {outcome}. "
               "Estimate — planning only.")
     text = f"Suggested for {name}, rest of session: {'; '.join(phrases)}. {result}"
     g = guard.check(text, source="live_suggestion")
